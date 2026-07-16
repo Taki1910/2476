@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -77,7 +77,7 @@
 
         * {
             box-sizing: border-box;
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             margin: 0;
             padding: 0;
         }
@@ -123,13 +123,8 @@
             transition: var(--transition);
         }
 
-        .sidebar-brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 24px 20px;
-            color: var(--primary-color);
-            border-bottom: 1px solid var(--border-color);
+        .sidebar-brand{
+            gap:10px;
         }
 
         .brand-icon-wrapper {
@@ -148,14 +143,11 @@
             color: white;
         }
 
-        .brand-name {
-            font-size: 18px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            line-height: 1.25;
-            background: linear-gradient(135deg, #ff5722, #ff9800);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .brand-name{
+            font-size:17px;
+            font-weight:700;
+            color:#ff7a1a;
+            letter-spacing:0;
         }
 
         .sidebar-menu {
@@ -466,36 +458,27 @@
         .kpi-icon.orange { background-color: var(--warning-bg); color: var(--warning-text); }
         .kpi-icon.purple { background-color: rgba(156, 39, 176, 0.12); color: #e040fb; }
 
-        .kpi-value {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin-top: 8px;
+        .kpi-value{
+            margin-top:14px;
+            margin-bottom:14px;
+            line-height:1.2;
         }
 
-        .kpi-footer {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            margin-top: 10px;
+        .kpi-footer{
+            margin-top:0;
+            gap:10px;
+            align-items:center;
         }
 
-        .trend-badge {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 11px;
+        .trend-badge{
+            padding:4px 10px;
         }
 
         .trend-badge.up { background-color: var(--success-bg); color: var(--success-text); }
         .trend-badge.down { background-color: var(--danger-bg); color: var(--danger-text); }
 
-        .trend-text {
-            color: var(--text-sub);
+        .trend-text{
+            line-height:1;
         }
 
         /* Charts Section Layout */
@@ -855,623 +838,1274 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* =========================================================
+           ĐỒNG BỘ UI DASHBOARD VỚI TRANG QUẢN LÝ SẢN PHẨM
+           Chỉ chỉnh CSS, không đổi HTML/Thymeleaf/JavaScript/dữ liệu
+           ========================================================= */
+
+        :root {
+            --bg-color: #0d0c0b;
+            --surface-color: #151311;
+            --surface-hover: #1c1917;
+            --border-color: #2b2825;
+            --border-hover: #3b302a;
+            --text-main: #f5f5f5;
+            --text-sub: #96918d;
+            --primary-color: #ff5722;
+            --primary-hover: #ff7626;
+            --primary-light: rgba(255, 87, 34, .14);
+            --header-bg: #0f0e0d;
+            --sidebar-bg: #121110;
+            --shadow-sm: none;
+            --shadow-md: none;
+            --shadow-lg: none;
+            --transition: all .2s ease;
+        }
+
+        *,
+        body,
+        button,
+        input,
+        select,
+        textarea {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #0d0c0b;
+            color: #f5f5f5;
+        }
+
+        .fa,
+        .fa-solid,
+        .fa-regular,
+        .fa-brands,
+        .fas,
+        .far,
+        .fab {
+            font-family: "Font Awesome 6 Free" !important;
+        }
+
+        .fa-solid,
+        .fas {
+            font-weight: 900 !important;
+        }
+
+        .fa-regular,
+        .far {
+            font-weight: 400 !important;
+        }
+
+        .fa-brands,
+        .fab {
+            font-family: "Font Awesome 6 Brands" !important;
+        }
+
+        /* SIDEBAR giống trang Quản lý sản phẩm */
+        .sidebar {
+            width: 232px;
+            min-width: 232px;
+            background: #121110;
+            border-right: 1px solid #292725;
+            box-shadow: none;
+        }
+
+        .sidebar-brand {
+            height: 76px;
+            min-height: 76px;
+            padding: 0 18px;
+            gap: 12px;
+            border-bottom: 1px solid #292725;
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-icon-wrapper {
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5420, #ff9500);
+            box-shadow: 0 0 16px rgba(255, 106, 26, .35);
+        }
+
+        .brand-icon {
+            font-size: 17px;
+        }
+
+        .brand-name {
+            color: #ff6a1a;
+            font-size: 17px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .sidebar-menu {
+            padding: 18px 12px;
+        }
+
+        .menu-item {
+            margin-bottom: 6px;
+        }
+
+        .menu-link {
+            min-height: 43px;
+            padding: 0 14px;
+            gap: 13px;
+            border-radius: 9px;
+            color: #a8a5a2;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .menu-link i {
+            width: 20px;
+            flex-shrink: 0;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .menu-link:hover {
+            color: #fff;
+            background: #211d1a;
+        }
+
+        .menu-link:hover i {
+            transform: none;
+        }
+
+        .menu-item.active .menu-link {
+            color: #fff;
+            background: linear-gradient(90deg, #ff5722, #ff9400);
+            box-shadow: 0 5px 15px rgba(255, 93, 24, .3);
+        }
+
+        .sidebar-footer {
+            padding: 18px 12px;
+            border-top: 1px solid #292725;
+        }
+
+        .logout-link {
+            color: #ff6060;
+        }
+
+        /* Ẩn đúng 2 mục không có ở trang Quản lý sản phẩm */
+        .sidebar-menu .menu-item:nth-child(3),
+        .sidebar-menu .menu-item:last-child {
+            display: none;
+        }
+
+        /* MAIN + TOPBAR */
+        .main-container {
+            margin-left: 232px;
+            min-width: 0;
+        }
+
+        .header {
+            height: 76px;
+            min-height: 76px;
+            padding: 0 28px;
+            background: #0f0e0d;
+            border-bottom: 1px solid #292725;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .page-title {
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+
+        .header-right {
+            gap: 14px;
+        }
+
+        .search-box input {
+            width: 230px;
+            height: 40px;
+            padding-left: 40px;
+            border: 1px solid #2d2a27;
+            border-radius: 10px;
+            background: #171513;
+            color: #f5f5f5;
+            font-size: 14px;
+        }
+
+        .search-box i {
+            left: 14px;
+            font-size: 14px;
+        }
+
+        .header-action-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #2d2a27;
+            border-radius: 10px;
+            background: #171513;
+            font-size: 15px;
+        }
+
+        .user-profile {
+            gap: 10px;
+            padding-left: 0;
+            border-left: 0;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            font-size: 13px;
+            box-shadow: none;
+        }
+
+        .user-name {
+            font-size: 13px;
+        }
+
+        .user-role {
+            font-size: 11px;
+        }
+
+        /* CONTENT */
+        .content-body {
+            padding: 28px;
+            gap: 26px;
+        }
+
+        .quick-actions-bar {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 0;
+        }
+
+        .action-card {
+            min-height: 74px;
+            padding: 16px;
+            gap: 10px;
+            border: 1px solid #2b2825;
+            border-radius: 13px;
+            background: #151311;
+            box-shadow: none;
+        }
+
+        .action-card i {
+            font-size: 20px;
+        }
+
+        .action-card span {
+            font-size: 13px;
+        }
+
+        .action-card:hover {
+            transform: none;
+            border-color: #ff5722;
+            box-shadow: none;
+        }
+
+        .kpi-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .kpi-card {
+            height: 140px;
+            padding: 20px;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+            background: #151311;
+            box-shadow: none;
+        }
+
+        .kpi-card::before {
+            display: none;
+        }
+
+        .kpi-card:hover {
+            transform: none;
+            border-color: #3b302a;
+            box-shadow: none;
+        }
+
+        .kpi-title {
+            color: #96918d;
+            font-size: 11px;
+            letter-spacing: .6px;
+        }
+
+        .kpi-icon {
+            width: 39px;
+            height: 39px;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        .kpi-value {
+            margin-top: 14px;
+            margin-bottom: 10px;
+            font-size: 25px;
+            font-weight: 800;
+        }
+
+        .kpi-footer {
+            gap: 8px;
+        }
+
+        .trend-badge {
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 7px;
+        }
+
+        .trend-text {
+            color: #b4b0ac;
+            font-size: 11px;
+        }
+
+        .charts-grid,
+        .bottom-grid {
+            grid-template-columns: minmax(0, 2fr) minmax(330px, 1fr);
+            gap: 20px;
+        }
+
+        .chart-card,
+        .table-card,
+        .alert-card {
+            padding: 20px;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+            background: #151311;
+            box-shadow: none;
+        }
+
+        .chart-card:hover,
+        .table-card:hover,
+        .alert-card:hover {
+            border-color: #3b302a;
+            box-shadow: none;
+        }
+
+        .chart-header,
+        .table-header {
+            margin-bottom: 22px;
+        }
+
+        .chart-title,
+        .table-title {
+            gap: 9px;
+            font-size: 16px;
+        }
+
+        .chart-actions select {
+            height: 38px;
+            padding: 0 12px;
+            border: 1px solid #302c29;
+            border-radius: 9px;
+            background: #171513;
+            font-size: 12px;
+        }
+
+        .chart-container {
+            min-height: 300px;
+        }
+
+        .view-all-btn {
+            padding: 8px 16px;
+            border: 1px solid #302c29;
+            border-radius: 9px;
+            font-size: 11px;
+        }
+
+        .custom-table th {
+            padding: 14px 12px;
+            color: #88837e;
+            background: transparent;
+            border-bottom: 1px solid #292623;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .custom-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #292623;
+            font-size: 13px;
+        }
+
+        .custom-table tbody tr:hover {
+            background: #1c1917;
+        }
+
+        .status-badge {
+            padding: 5px 9px;
+            border-radius: 7px;
+            font-size: 11px;
+        }
+
+        .alert-list {
+            gap: 12px;
+        }
+
+        .alert-item {
+            padding: 13px;
+            background: #1b1816;
+            border-radius: 10px;
+        }
+
+        .alert-product {
+            font-size: 13px;
+        }
+
+        .alert-desc {
+            font-size: 11px;
+        }
+
+        .alert-qty {
+            padding: 5px 8px;
+            font-size: 11px;
+        }
+
+        @media (max-width: 1200px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .charts-grid,
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -232px;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-container {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 0 15px;
+            }
+
+            .content-body {
+                padding: 18px 15px;
+            }
+
+            .quick-actions-bar {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .search-box input {
+                width: 190px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-grid,
+            .quick-actions-bar {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
+        /* ===== FIX CĂN CHỮ KPI ===== */
+        .kpi-card {
+            height: 120px;
+            padding: 18px 20px;
+            justify-content: flex-start;
+            overflow: visible;
+        }
+
+        .kpi-header {
+            min-height: 39px;
+            align-items: flex-start;
+        }
+
+        .kpi-card > div:last-child {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .kpi-value {
+            margin: 4px 0 7px !important;
+            color: #f5f5f5;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 25px;
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+
+        .kpi-footer {
+            display: flex;
+            align-items: center;
+            min-height: 18px;
+            margin: 0;
+            gap: 7px;
+        }
+
+        .trend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            line-height: 1;
+        }
+
+        .trend-text {
+            display: inline-block;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+
+        /* =========================================================
+           KPI GIỐNG HÌNH MẪU TRANG QUẢN LÝ SẢN PHẨM
+           ========================================================= */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .kpi-card {
+            position: relative;
+            display: block !important;
+            height: 114px !important;
+            min-height: 114px;
+            padding: 18px 20px !important;
+            overflow: hidden;
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+            box-shadow: none;
+        }
+
+        .kpi-header {
+            display: block !important;
+            min-height: 0 !important;
+        }
+
+        .kpi-title {
+            display: block;
+            padding-right: 54px;
+            color: #96918d;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: .35px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .kpi-icon {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: 39px !important;
+            height: 39px !important;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            font-size: 15px !important;
+        }
+
+        .kpi-card > div:last-child {
+            display: block !important;
+            margin: 0;
+        }
+
+        .kpi-value {
+            display: block;
+            margin: 14px 0 8px !important;
+            color: #f5f5f5;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 25px !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            letter-spacing: 0 !important;
+            white-space: nowrap;
+        }
+
+        .kpi-footer {
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            min-height: 14px !important;
+            margin: 0 !important;
+            line-height: 1 !important;
+        }
+
+        .trend-badge {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 3px;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 600;
+            line-height: 1 !important;
+            white-space: nowrap;
+        }
+
+        .trend-badge.up {
+            color: #20d79a !important;
+        }
+
+        .trend-badge.down {
+            color: #ff5f67 !important;
+        }
+
+        .trend-text {
+            display: inline-block;
+            color: #b9b5b1 !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 400;
+            line-height: 1 !important;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 1200px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Backdrop for Mobile -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+<!-- Sidebar Backdrop for Mobile -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- Sidebar Menu -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-icon-wrapper">
-                <i class="fa-solid fa-shoe-prints brand-icon"></i>
-            </div>
-            <span class="brand-name">KICKS ZONE</span>
+<!-- Sidebar Menu -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon-wrapper">
+            <i class="fa-solid fa-shoe-prints brand-icon"></i>
+        </div>
+        <span class="brand-name">KICKS ZONE</span>
+    </div>
+
+    <ul class="sidebar-menu">
+        <li class="menu-item active">
+            <a th:href="@{/dashboard}" class="menu-link">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Bảng điều khiển</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/sanpham}" class="menu-link">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span>Giày &amp; Dép</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/sanpham}" class="menu-link">
+                <i class="fa-solid fa-spray-can-sparkles"></i>
+                <span>Phụ kiện giày</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/kho}" class="menu-link">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Kho hàng</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/khachhang}" class="menu-link">
+                <i class="fa-solid fa-users-gear"></i>
+                <span>Khách hàng</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/hoadon}" class="menu-link">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Hóa đơn</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/baocao}" class="menu-link">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Báo cáo</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/nhacungcap}" class="menu-link">
+                <i class="fa-solid fa-truck-ramp-box"></i>
+                <span>Nhà cung cấp</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a th:href="@{/chatbot}" class="menu-link">
+                <i class="fa-solid fa-robot"></i>
+                <span>Chatbot hỗ trợ</span>
+            </a>
+        </li>
+        <li class="menu-item">
+            <a href="#" class="menu-link">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Cài đặt</span>
+            </a>
+        </li>
+    </ul>
+
+    <div class="sidebar-footer">
+        <div class="menu-item">
+            <a th:href="@{/logout}" class="menu-link logout-link">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Đăng xuất</span>
+            </a>
+        </div>
+    </div>
+</aside>
+
+<!-- Main Container -->
+<div class="main-container">
+    <!-- Top Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-toggle" id="menuToggleBtn">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <h1 class="page-title">Bảng điều khiển</h1>
         </div>
 
-        <ul class="sidebar-menu">
-            <li class="menu-item active">
-                <a th:href="@{/dashboard}" class="menu-link">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    <span>Bảng điều khiển</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/sanpham}" class="menu-link">
-                    <i class="fa-solid fa-shoe-prints"></i>
-                    <span>Giày &amp; Dép</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/sanpham}" class="menu-link">
-                    <i class="fa-solid fa-spray-can-sparkles"></i>
-                    <span>Phụ kiện giày</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/kho}" class="menu-link">
-                    <i class="fa-solid fa-boxes-stacked"></i>
-                    <span>Kho hàng</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/khachhang}" class="menu-link">
-                    <i class="fa-solid fa-users-gear"></i>
-                    <span>Khách hàng</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/hoadon}" class="menu-link">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                    <span>Hóa đơn</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/baocao}" class="menu-link">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Báo cáo</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/nhacungcap}" class="menu-link">
-                    <i class="fa-solid fa-truck-ramp-box"></i>
-                    <span>Nhà cung cấp</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a th:href="@{/chatbot}" class="menu-link">
-                    <i class="fa-solid fa-robot"></i>
-                    <span>Chatbot hỗ trợ</span>
-                </a>
-            </li>
-            <li class="menu-item">
-                <a href="#" class="menu-link">
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Cài đặt</span>
-                </a>
-            </li>
-        </ul>
+        <div class="header-right">
+            <!-- Search Box -->
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Tìm kiếm nhanh...">
+            </div>
 
-        <div class="sidebar-footer">
-            <div class="menu-item">
-                <a th:href="@{/logout}" class="menu-link logout-link">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                    <span>Đăng xuất</span>
-                </a>
+            <!-- Theme Toggle Button -->
+            <button class="header-action-btn" id="themeToggleBtn" title="Chuyển chế độ Sáng/Tối">
+                <i class="fa-solid fa-sun" id="themeIcon"></i>
+            </button>
+
+            <!-- Notifications -->
+            <button class="header-action-btn" title="Thông báo">
+                <i class="fa-regular fa-bell"></i>
+                <span class="badge"></span>
+            </button>
+
+            <!-- User Profile Info -->
+            <div class="user-profile">
+                <div class="avatar" title="Thông tin tài khoản"
+                     th:text="${userName != null ? #strings.substring(userName, 0, 1) : 'K'}">K</div>
+                <div class="user-info">
+                    <span class="user-name" th:text="${userName != null ? userName : 'Nhân viên'}">Nhân viên</span>
+                    <span class="user-role" th:text="${userRole != null ? userRole : 'Quản lý cửa hàng'}">Quản lý cửa hàng</span>
+                </div>
             </div>
         </div>
-    </aside>
+    </header>
 
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- Top Header -->
-        <header class="header">
-            <div class="header-left">
-                <button class="menu-toggle" id="menuToggleBtn">
-                    <i class="fa-solid fa-bars"></i>
-                </button>
-                <h1 class="page-title">Bảng điều khiển</h1>
-            </div>
+    <!-- Content Body -->
+    <main class="content-body">
+        <!-- Quick Action Buttons -->
+        <div class="quick-actions-bar">
+            <a th:href="@{/hoadon}" class="action-card">
+                <i class="fa-solid fa-file-circle-plus"></i>
+                <span>Tạo hóa đơn</span>
+            </a>
+            <a th:href="@{/sanpham}" class="action-card">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span>Thêm giày mới</span>
+            </a>
+            <a th:href="@{/kho}" class="action-card">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Nhập kho hàng</span>
+            </a>
+            <a th:href="@{/baocao}" class="action-card">
+                <i class="fa-solid fa-file-export"></i>
+                <span>Xuất báo cáo</span>
+            </a>
+        </div>
 
-            <div class="header-right">
-                <!-- Search Box -->
-                <div class="search-box">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Tìm kiếm nhanh...">
-                </div>
-
-                <!-- Theme Toggle Button -->
-                <button class="header-action-btn" id="themeToggleBtn" title="Chuyển chế độ Sáng/Tối">
-                    <i class="fa-solid fa-sun" id="themeIcon"></i>
-                </button>
-
-                <!-- Notifications -->
-                <button class="header-action-btn" title="Thông báo">
-                    <i class="fa-regular fa-bell"></i>
-                    <span class="badge"></span>
-                </button>
-
-                <!-- User Profile Info -->
-                <div class="user-profile">
-                    <div class="avatar" title="Thông tin tài khoản"
-                         th:text="${userName != null ? #strings.substring(userName, 0, 1) : 'K'}">K</div>
-                    <div class="user-info">
-                        <span class="user-name" th:text="${userName != null ? userName : 'Nhân viên'}">Nhân viên</span>
-                        <span class="user-role" th:text="${userRole != null ? userRole : 'Quản lý cửa hàng'}">Quản lý cửa hàng</span>
+        <!-- KPI Row Grid -->
+        <section class="kpi-grid">
+            <!-- KPI 1 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Doanh thu hôm nay</span>
+                    <div class="kpi-icon blue">
+                        <i class="fa-solid fa-wallet"></i>
                     </div>
                 </div>
-            </div>
-        </header>
-
-        <!-- Content Body -->
-        <main class="content-body">
-            <!-- Quick Action Buttons -->
-            <div class="quick-actions-bar">
-                <a th:href="@{/hoadon}" class="action-card">
-                    <i class="fa-solid fa-file-circle-plus"></i>
-                    <span>Tạo hóa đơn</span>
-                </a>
-                <a th:href="@{/sanpham}" class="action-card">
-                    <i class="fa-solid fa-shoe-prints"></i>
-                    <span>Thêm giày mới</span>
-                </a>
-                <a th:href="@{/kho}" class="action-card">
-                    <i class="fa-solid fa-boxes-stacked"></i>
-                    <span>Nhập kho hàng</span>
-                </a>
-                <a th:href="@{/baocao}" class="action-card">
-                    <i class="fa-solid fa-file-export"></i>
-                    <span>Xuất báo cáo</span>
-                </a>
-            </div>
-
-            <!-- KPI Row Grid -->
-            <section class="kpi-grid">
-                <!-- KPI 1 -->
-                <div class="kpi-card">
-                    <div class="kpi-header">
-                        <span class="kpi-title">Doanh thu hôm nay</span>
-                        <div class="kpi-icon blue">
-                            <i class="fa-solid fa-wallet"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="kpi-value">48.500.000 đ</div>
-                        <div class="kpi-footer">
+                <div>
+                    <div class="kpi-value">48.500.000 đ</div>
+                    <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 15.2%
                             </span>
-                            <span class="trend-text">so với hôm qua</span>
-                        </div>
+                        <span class="trend-text">so với hôm qua</span>
                     </div>
                 </div>
+            </div>
 
-                <!-- KPI 2 -->
-                <div class="kpi-card">
-                    <div class="kpi-header">
-                        <span class="kpi-title">Giày đã bán</span>
-                        <div class="kpi-icon green">
-                            <i class="fa-solid fa-shoe-prints"></i>
-                        </div>
+            <!-- KPI 2 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Giày đã bán</span>
+                    <div class="kpi-icon green">
+                        <i class="fa-solid fa-shoe-prints"></i>
                     </div>
-                    <div>
-                        <div class="kpi-value">28 đôi</div>
-                        <div class="kpi-footer">
+                </div>
+                <div>
+                    <div class="kpi-value">28 đôi</div>
+                    <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 8.2%
                             </span>
-                            <span class="trend-text">so với hôm qua</span>
-                        </div>
+                        <span class="trend-text">so với hôm qua</span>
                     </div>
                 </div>
+            </div>
 
-                <!-- KPI 3 -->
-                <div class="kpi-card">
-                    <div class="kpi-header">
-                        <span class="kpi-title">Hóa đơn mới</span>
-                        <div class="kpi-icon orange">
-                            <i class="fa-solid fa-receipt"></i>
-                        </div>
+            <!-- KPI 3 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Hóa đơn mới</span>
+                    <div class="kpi-icon orange">
+                        <i class="fa-solid fa-receipt"></i>
                     </div>
-                    <div>
-                        <div class="kpi-value">18 đơn</div>
-                        <div class="kpi-footer">
+                </div>
+                <div>
+                    <div class="kpi-value">18 đơn</div>
+                    <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 5.0%
                             </span>
-                            <span class="trend-text">so với tuần trước</span>
-                        </div>
+                        <span class="trend-text">so với tuần trước</span>
                     </div>
                 </div>
+            </div>
 
-                <!-- KPI 4 -->
-                <div class="kpi-card">
-                    <div class="kpi-header">
-                        <span class="kpi-title">Khách hàng mới</span>
-                        <div class="kpi-icon purple">
-                            <i class="fa-solid fa-user-plus"></i>
-                        </div>
+            <!-- KPI 4 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Khách hàng mới</span>
+                    <div class="kpi-icon purple">
+                        <i class="fa-solid fa-user-plus"></i>
                     </div>
-                    <div>
-                        <div class="kpi-value">+12 khách</div>
-                        <div class="kpi-footer">
+                </div>
+                <div>
+                    <div class="kpi-value">+12 khách</div>
+                    <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 12.4%
                             </span>
-                            <span class="trend-text">so với tháng trước</span>
-                        </div>
+                        <span class="trend-text">so với tháng trước</span>
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
 
-            <!-- Charts Row Grid -->
-            <section class="charts-grid">
-                <!-- Line Chart Card -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h2 class="chart-title">
-                            <i class="fa-solid fa-chart-line" style="color: var(--primary-color);"></i>
-                            Doanh thu giày & phụ kiện 2026
-                        </h2>
-                        <div class="chart-actions">
-                            <select id="timeRange">
-                                <option value="6months">6 tháng gần nhất</option>
-                                <option value="year">Cả năm</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="revenueChart"></canvas>
+        <!-- Charts Row Grid -->
+        <section class="charts-grid">
+            <!-- Line Chart Card -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 class="chart-title">
+                        <i class="fa-solid fa-chart-line" style="color: var(--primary-color);"></i>
+                        Doanh thu giày & phụ kiện 2026
+                    </h2>
+                    <div class="chart-actions">
+                        <select id="timeRange">
+                            <option value="6months">6 tháng gần nhất</option>
+                            <option value="year">Cả năm</option>
+                        </select>
                     </div>
                 </div>
-
-                <!-- Doughnut Chart Card -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h2 class="chart-title">
-                            <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i>
-                            Thị phần thương hiệu
-                        </h2>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
                 </div>
-            </section>
+            </div>
 
-            <!-- Bottom Row Grid: Tables and Inventory Warnings -->
-            <section class="bottom-grid">
-                <!-- Recent Invoices Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h2 class="table-title">
-                            <i class="fa-solid fa-receipt" style="color: var(--primary-color);"></i>
-                            Giao dịch gần đây
-                        </h2>
-                        <a th:href="@{/hoadon}" class="view-all-btn">Xem tất cả</a>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="custom-table">
-                            <thead>
-                                <tr>
-                                    <th>Mã hóa đơn</th>
-                                    <th>Khách hàng</th>
-                                    <th>Sản phẩm giao dịch</th>
-                                    <th>Tổng tiền</th>
-                                    <th>Trạng thái</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><a href="#" class="invoice-id">#HD-0948</a></td>
-                                    <td>Nguyễn Văn Bình</td>
-                                    <td>Nike Air Force 1 '07 (Size 41)</td>
-                                    <td>2.990.000 đ</td>
-                                    <td>
+            <!-- Doughnut Chart Card -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 class="chart-title">
+                        <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i>
+                        Thị phần thương hiệu
+                    </h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Row Grid: Tables and Inventory Warnings -->
+        <section class="bottom-grid">
+            <!-- Recent Invoices Table -->
+            <div class="table-card">
+                <div class="table-header">
+                    <h2 class="table-title">
+                        <i class="fa-solid fa-receipt" style="color: var(--primary-color);"></i>
+                        Giao dịch gần đây
+                    </h2>
+                    <a th:href="@{/hoadon}" class="view-all-btn">Xem tất cả</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="custom-table">
+                        <thead>
+                        <tr>
+                            <th>Mã hóa đơn</th>
+                            <th>Khách hàng</th>
+                            <th>Sản phẩm giao dịch</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td><a href="#" class="invoice-id">#HD-0948</a></td>
+                            <td>Nguyễn Văn Bình</td>
+                            <td>Nike Air Force 1 '07 (Size 41)</td>
+                            <td>2.990.000 đ</td>
+                            <td>
                                         <span class="status-badge completed">
                                             <i class="fa-solid fa-circle-check"></i> Đã thanh toán
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><a href="#" class="invoice-id">#HD-0947</a></td>
-                                    <td>Trần Thị Hồng</td>
-                                    <td>Adidas UltraBoost Light (Size 42)</td>
-                                    <td>4.500.000 đ</td>
-                                    <td>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><a href="#" class="invoice-id">#HD-0947</a></td>
+                            <td>Trần Thị Hồng</td>
+                            <td>Adidas UltraBoost Light (Size 42)</td>
+                            <td>4.500.000 đ</td>
+                            <td>
                                         <span class="status-badge completed">
                                             <i class="fa-solid fa-circle-check"></i> Đã thanh toán
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><a href="#" class="invoice-id">#HD-0946</a></td>
-                                    <td>Lê Hoàng Nam</td>
-                                    <td>Air Jordan 1 Retro High (Size 40)</td>
-                                    <td>5.490.000 đ</td>
-                                    <td>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><a href="#" class="invoice-id">#HD-0946</a></td>
+                            <td>Lê Hoàng Nam</td>
+                            <td>Air Jordan 1 Retro High (Size 40)</td>
+                            <td>5.490.000 đ</td>
+                            <td>
                                         <span class="status-badge pending">
                                             <i class="fa-solid fa-circle-notch fa-spin"></i> Chờ xử lý
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><a href="#" class="invoice-id">#HD-0945</a></td>
-                                    <td>Phạm Minh Tuấn</td>
-                                    <td>Puma Slipstream Lo (Size 43)</td>
-                                    <td>2.190.000 đ</td>
-                                    <td>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><a href="#" class="invoice-id">#HD-0945</a></td>
+                            <td>Phạm Minh Tuấn</td>
+                            <td>Puma Slipstream Lo (Size 43)</td>
+                            <td>2.190.000 đ</td>
+                            <td>
                                         <span class="status-badge completed">
                                             <i class="fa-solid fa-circle-check"></i> Đã thanh toán
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><a href="#" class="invoice-id">#HD-0944</a></td>
-                                    <td>Vũ Ngọc Linh</td>
-                                    <td>Bình xịt chống nước Crep Protect</td>
-                                    <td>150.000 đ</td>
-                                    <td>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><a href="#" class="invoice-id">#HD-0944</a></td>
+                            <td>Vũ Ngọc Linh</td>
+                            <td>Bình xịt chống nước Crep Protect</td>
+                            <td>150.000 đ</td>
+                            <td>
                                         <span class="status-badge cancelled">
                                             <i class="fa-solid fa-circle-xmark"></i> Đã hủy
                                         </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
-                <!-- Stock Warnings Card -->
-                <div class="alert-card">
-                    <div class="table-header">
-                        <h2 class="table-title">
-                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i>
-                            Cảnh báo tồn kho ít
-                        </h2>
-                        <a th:href="@{/kho}" class="view-all-btn">Tới Kho</a>
-                    </div>
-                    <ul class="alert-list">
-                        <li class="alert-item">
-                            <div class="alert-info">
-                                <span class="alert-product">Nike Air Force 1 '07 (Size 41)</span>
-                                <span class="alert-desc">Màu Trắng Cổ Điển, Bản Phổ Thông</span>
-                            </div>
-                            <span class="alert-qty danger">Còn 2 đôi</span>
-                        </li>
-                        <li class="alert-item">
-                            <div class="alert-info">
-                                <span class="alert-product">Adidas UltraBoost Light (Size 42)</span>
-                                <span class="alert-desc">Core Black, Ram Đế Boost Mới</span>
-                            </div>
-                            <span class="alert-qty danger">Còn 1 đôi</span>
-                        </li>
-                        <li class="alert-item warning">
-                            <div class="alert-info">
-                                <span class="alert-product">Air Jordan 1 Retro High (Size 40)</span>
-                                <span class="alert-desc">Chicago Colorway, Bản Cổ Cao</span>
-                            </div>
-                            <span class="alert-qty warning">Còn 3 đôi</span>
-                        </li>
-                        <li class="alert-item warning">
-                            <div class="alert-info">
-                                <span class="alert-product">Bình xịt chống nước Crep Protect</span>
-                                <span class="alert-desc">Công nghệ phủ nano bảo vệ giày</span>
-                            </div>
-                            <span class="alert-qty warning">Còn 5 chai</span>
-                        </li>
-                    </ul>
+            <!-- Stock Warnings Card -->
+            <div class="alert-card">
+                <div class="table-header">
+                    <h2 class="table-title">
+                        <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i>
+                        Cảnh báo tồn kho ít
+                    </h2>
+                    <a th:href="@{/kho}" class="view-all-btn">Tới Kho</a>
                 </div>
-            </section>
-        </main>
-    </div>
+                <ul class="alert-list">
+                    <li class="alert-item">
+                        <div class="alert-info">
+                            <span class="alert-product">Nike Air Force 1 '07 (Size 41)</span>
+                            <span class="alert-desc">Màu Trắng Cổ Điển, Bản Phổ Thông</span>
+                        </div>
+                        <span class="alert-qty danger">Còn 2 đôi</span>
+                    </li>
+                    <li class="alert-item">
+                        <div class="alert-info">
+                            <span class="alert-product">Adidas UltraBoost Light (Size 42)</span>
+                            <span class="alert-desc">Core Black, Ram Đế Boost Mới</span>
+                        </div>
+                        <span class="alert-qty danger">Còn 1 đôi</span>
+                    </li>
+                    <li class="alert-item warning">
+                        <div class="alert-info">
+                            <span class="alert-product">Air Jordan 1 Retro High (Size 40)</span>
+                            <span class="alert-desc">Chicago Colorway, Bản Cổ Cao</span>
+                        </div>
+                        <span class="alert-qty warning">Còn 3 đôi</span>
+                    </li>
+                    <li class="alert-item warning">
+                        <div class="alert-info">
+                            <span class="alert-product">Bình xịt chống nước Crep Protect</span>
+                            <span class="alert-desc">Công nghệ phủ nano bảo vệ giày</span>
+                        </div>
+                        <span class="alert-qty warning">Còn 5 chai</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </main>
+</div>
 
-    <!-- Chart rendering logic and Mobile layout toggling -->
-    <script>
-        // Toggle Sidebar on Mobile
-        const menuToggleBtn = document.getElementById('menuToggleBtn');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
+<!-- Chart rendering logic and Mobile layout toggling -->
+<script>
+    // Toggle Sidebar on Mobile
+    const menuToggleBtn = document.getElementById('menuToggleBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-        function toggleSidebar() {
-            sidebar.classList.toggle('active');
-            sidebarOverlay.classList.toggle('active');
-        }
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+    }
 
-        menuToggleBtn.addEventListener('click', toggleSidebar);
-        sidebarOverlay.addEventListener('click', toggleSidebar);
+    menuToggleBtn.addEventListener('click', toggleSidebar);
+    sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // Theme Toggle Logic
-        const themeToggleBtn = document.getElementById('themeToggleBtn');
-        const themeIcon = document.getElementById('themeIcon');
-        const htmlElement = document.documentElement;
+    // Theme Toggle Logic
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const htmlElement = document.documentElement;
 
-        // Check for saved theme preference or default to dark mode
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        if (savedTheme === 'light') {
-            htmlElement.classList.add('light-mode');
-            themeIcon.className = 'fa-solid fa-moon';
-        } else {
+    // Check for saved theme preference or default to dark mode
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') {
+        htmlElement.classList.add('light-mode');
+        themeIcon.className = 'fa-solid fa-moon';
+    } else {
+        htmlElement.classList.remove('light-mode');
+        themeIcon.className = 'fa-solid fa-sun';
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        if (htmlElement.classList.contains('light-mode')) {
             htmlElement.classList.remove('light-mode');
             themeIcon.className = 'fa-solid fa-sun';
+            localStorage.setItem('theme', 'dark');
+            updateChartsForTheme(true);
+        } else {
+            htmlElement.classList.add('light-mode');
+            themeIcon.className = 'fa-solid fa-moon';
+            localStorage.setItem('theme', 'light');
+            updateChartsForTheme(false);
         }
+    });
 
-        themeToggleBtn.addEventListener('click', () => {
-            if (htmlElement.classList.contains('light-mode')) {
-                htmlElement.classList.remove('light-mode');
-                themeIcon.className = 'fa-solid fa-sun';
-                localStorage.setItem('theme', 'dark');
-                updateChartsForTheme(true);
-            } else {
-                htmlElement.classList.add('light-mode');
-                themeIcon.className = 'fa-solid fa-moon';
-                localStorage.setItem('theme', 'light');
-                updateChartsForTheme(false);
-            }
-        });
+    // Chart.js Configuration
+    let revenueChart;
+    let categoryChart;
 
-        // Chart.js Configuration
-        let revenueChart;
-        let categoryChart;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check current mode to set appropriate initial colours
+        const isDark = !htmlElement.classList.contains('light-mode');
+        const initialTextColor = isDark ? '#a19e9a' : '#78706b';
+        const initialGridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check current mode to set appropriate initial colours
-            const isDark = !htmlElement.classList.contains('light-mode');
-            const initialTextColor = isDark ? '#a19e9a' : '#78706b';
-            const initialGridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
+        // Doanh thu Line Chart
+        const revCtx = document.getElementById('revenueChart').getContext('2d');
 
-            // Doanh thu Line Chart
-            const revCtx = document.getElementById('revenueChart').getContext('2d');
-            
-            // Create gradient color for line chart background
-            const orangeGradient = revCtx.createLinearGradient(0, 0, 0, 400);
-            orangeGradient.addColorStop(0, 'rgba(255, 87, 34, 0.35)');
-            orangeGradient.addColorStop(1, 'rgba(255, 87, 34, 0.0)');
+        // Create gradient color for line chart background
+        const orangeGradient = revCtx.createLinearGradient(0, 0, 0, 400);
+        orangeGradient.addColorStop(0, 'rgba(255, 87, 34, 0.35)');
+        orangeGradient.addColorStop(1, 'rgba(255, 87, 34, 0.0)');
 
-            revenueChart = new Chart(revCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'],
-                    datasets: [{
-                        label: 'Doanh thu (triệu VNĐ)',
-                        data: [120, 185, 142, 230, 195, 290],
-                        borderColor: '#ff5722',
-                        borderWidth: 3,
-                        pointBackgroundColor: '#ff5722',
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        tension: 0.35,
-                        fill: true,
-                        backgroundColor: orangeGradient
-                    }]
+        revenueChart = new Chart(revCtx, {
+            type: 'line',
+            data: {
+                labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'],
+                datasets: [{
+                    label: 'Doanh thu (triệu VNĐ)',
+                    data: [120, 185, 142, 230, 195, 290],
+                    borderColor: '#ff5722',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#ff5722',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    tension: 0.35,
+                    fill: true,
+                    backgroundColor: orangeGradient
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        padding: 12,
+                        cornerRadius: 10,
+                        backgroundColor: '#141211',
+                        titleFont: { size: 13, weight: 'bold', family: "Arial, Helvetica, sans-serif" },
+                        bodyFont: { size: 13, family: "Arial, Helvetica, sans-serif" },
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.formattedValue + '.000.000 đ';
+                            }
+                        }
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
+                scales: {
+                    x: {
+                        grid: {
                             display: false
                         },
-                        tooltip: {
-                            padding: 12,
-                            cornerRadius: 10,
-                            backgroundColor: '#141211',
-                            titleFont: { size: 13, weight: 'bold', family: "'Plus Jakarta Sans', sans-serif" },
-                            bodyFont: { size: 13, family: "'Plus Jakarta Sans', sans-serif" },
-                            callbacks: {
-                                label: function(context) {
-                                    return ' ' + context.formattedValue + '.000.000 đ';
-                                }
+                        ticks: {
+                            color: initialTextColor,
+                            font: {
+                                family: "Arial, Helvetica, sans-serif",
+                                size: 11,
+                                weight: '600'
                             }
                         }
                     },
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                color: initialTextColor,
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif",
-                                    size: 11,
-                                    weight: '600'
-                                }
-                            }
+                    y: {
+                        grid: {
+                            color: initialGridColor
                         },
-                        y: {
-                            grid: {
-                                color: initialGridColor
+                        ticks: {
+                            color: initialTextColor,
+                            font: {
+                                family: "Arial, Helvetica, sans-serif",
+                                size: 11,
+                                weight: '600'
                             },
-                            ticks: {
-                                color: initialTextColor,
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif",
-                                    size: 11,
-                                    weight: '600'
-                                },
-                                callback: function(value) {
-                                    return value + 'M';
-                                }
+                            callback: function(value) {
+                                return value + 'M';
                             }
                         }
                     }
                 }
-            });
+            }
+        });
 
-            // Brand Category Doughnut Chart
-            const catCtx = document.getElementById('categoryChart').getContext('2d');
-            categoryChart = new Chart(catCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Nike', 'Adidas', 'Jordan', 'Puma', 'Phụ kiện'],
-                    datasets: [{
-                        data: [40, 30, 15, 10, 5],
-                        backgroundColor: [
-                            '#ff5722', // Nike orange
-                            '#2196f3', // Adidas blue
-                            '#e91e63', // Jordan red/pink
-                            '#4caf50', // Puma green
-                            '#9c27b0'  // Accessories purple
-                        ],
-                        borderWidth: 2,
-                        borderColor: isDark ? '#141211' : '#ffffff',
-                        hoverOffset: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15,
-                                color: isDark ? '#fcfcfc' : '#2b2724',
-                                font: {
-                                    family: "'Plus Jakarta Sans', sans-serif",
-                                    size: 11,
-                                    weight: '600'
-                                }
-                            }
-                        },
-                        tooltip: {
-                            padding: 12,
-                            cornerRadius: 10,
-                            backgroundColor: '#141211',
-                            titleFont: { family: "'Plus Jakarta Sans', sans-serif" },
-                            bodyFont: { family: "'Plus Jakarta Sans', sans-serif" },
-                            callbacks: {
-                                label: function(context) {
-                                    return ' ' + context.label + ': ' + context.raw + '%';
-                                }
+        // Brand Category Doughnut Chart
+        const catCtx = document.getElementById('categoryChart').getContext('2d');
+        categoryChart = new Chart(catCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Nike', 'Adidas', 'Jordan', 'Puma', 'Phụ kiện'],
+                datasets: [{
+                    data: [40, 30, 15, 10, 5],
+                    backgroundColor: [
+                        '#ff5722', // Nike orange
+                        '#2196f3', // Adidas blue
+                        '#e91e63', // Jordan red/pink
+                        '#4caf50', // Puma green
+                        '#9c27b0'  // Accessories purple
+                    ],
+                    borderWidth: 2,
+                    borderColor: isDark ? '#141211' : '#ffffff',
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 15,
+                            color: isDark ? '#fcfcfc' : '#2b2724',
+                            font: {
+                                family: "Arial, Helvetica, sans-serif",
+                                size: 11,
+                                weight: '600'
                             }
                         }
                     },
-                    cutout: '70%'
-                }
-            });
-
-            // Demo handler for dropdown selection changes
-            document.getElementById('timeRange').addEventListener('change', function(e) {
-                if (e.target.value === 'year') {
-                    revenueChart.data.labels = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
-                    revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290, 310, 280, 340, 380, 320, 425];
-                } else {
-                    revenueChart.data.labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'];
-                    revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290];
-                }
-                revenueChart.update();
-            });
+                    tooltip: {
+                        padding: 12,
+                        cornerRadius: 10,
+                        backgroundColor: '#141211',
+                        titleFont: { family: "Arial, Helvetica, sans-serif" },
+                        bodyFont: { family: "Arial, Helvetica, sans-serif" },
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.label + ': ' + context.raw + '%';
+                            }
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
         });
 
-        // Function to update Chart.js colors dynamically based on theme
-        function updateChartsForTheme(isDark) {
-            if (!revenueChart || !categoryChart) return;
-
-            const textColor = isDark ? '#a19e9a' : '#78706b';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
-            const chartBorderColor = isDark ? '#141211' : '#ffffff';
-            const legendTextColor = isDark ? '#fcfcfc' : '#2b2724';
-
-            // Update axes colors
-            revenueChart.options.scales.x.ticks.color = textColor;
-            revenueChart.options.scales.y.ticks.color = textColor;
-            revenueChart.options.scales.y.grid.color = gridColor;
-
-            // Update doughnut chart styling
-            categoryChart.data.datasets[0].borderColor = chartBorderColor;
-            categoryChart.options.plugins.legend.labels.color = legendTextColor;
-
-            // Update charts
+        // Demo handler for dropdown selection changes
+        document.getElementById('timeRange').addEventListener('change', function(e) {
+            if (e.target.value === 'year') {
+                revenueChart.data.labels = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+                revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290, 310, 280, 340, 380, 320, 425];
+            } else {
+                revenueChart.data.labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'];
+                revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290];
+            }
             revenueChart.update();
-            categoryChart.update();
-        }
-    </script>
+        });
+    });
+
+    // Function to update Chart.js colors dynamically based on theme
+    function updateChartsForTheme(isDark) {
+        if (!revenueChart || !categoryChart) return;
+
+        const textColor = isDark ? '#a19e9a' : '#78706b';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
+        const chartBorderColor = isDark ? '#141211' : '#ffffff';
+        const legendTextColor = isDark ? '#fcfcfc' : '#2b2724';
+
+        // Update axes colors
+        revenueChart.options.scales.x.ticks.color = textColor;
+        revenueChart.options.scales.y.ticks.color = textColor;
+        revenueChart.options.scales.y.grid.color = gridColor;
+
+        // Update doughnut chart styling
+        categoryChart.data.datasets[0].borderColor = chartBorderColor;
+        categoryChart.options.plugins.legend.labels.color = legendTextColor;
+
+        // Update charts
+        revenueChart.update();
+        categoryChart.update();
+    }
+</script>
 </body>
 </html>

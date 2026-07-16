@@ -1,2 +1,897 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Báo cáo thống kê</title><link rel="stylesheet" th:href="@{/css/app.css}"></head><body><aside class="sidebar"><div class="brand">QLCH<span>Giày</span></div><nav class="nav">
-<a th:href="@{/dashboard}"><span>🏠 Tổng quan</span></a><a th:href="@{/sanpham}"><span>👟 Sản phẩm</span></a><a th:href="@{/kho}"><span>📦 Kho hàng</span></a><a th:href="@{/khachhang}"><span>👥 Khách hàng</span></a><a th:href="@{/hoadon}"><span>🧾 Hóa đơn</span></a><a th:href="@{/nhacungcap}"><span>🚚 Nhà cung cấp</span></a><a th:href="@{/baocao}"><span>📊 Báo cáo</span></a><a th:href="@{/chatbot}"><span>🤖 Chatbot</span></a><a th:href="@{/logout}"><span>↪ Đăng xuất</span></a></nav></aside><main class="main"><div class="top"><h1>Báo cáo thống kê</h1><div class="user">Cửa hàng Sneaker</div></div><section class="card"><h2>Báo cáo cửa hàng</h2><p>Trang báo cáo đang sử dụng cùng giao diện của dự án và đã sẵn sàng để bổ sung biểu đồ doanh thu.</p></section></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Báo cáo thống kê - KICKS ZONE</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+            background: #0d0c0b;
+            color: #f5f5f5;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ================= SIDEBAR ================= */
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 232px;
+            min-width: 232px;
+            display: flex;
+            flex-direction: column;
+            background: #121110;
+            border-right: 1px solid #292725;
+            z-index: 100;
+        }
+
+        .brand {
+            width: 100%;
+            height: 76px;
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 18px;
+            border-bottom: 1px solid #292725;
+            color: #ff6a1a;
+            font-size: 17px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5420, #ff9500);
+            color: white;
+            box-shadow: 0 0 16px rgba(255, 106, 26, 0.35);
+        }
+
+        .brand-text {
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 18px 12px;
+        }
+
+        .nav a {
+            min-height: 43px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 0 14px;
+            border-radius: 9px;
+            color: #a8a5a2;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .nav a i {
+            width: 20px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+
+        .nav a:hover {
+            color: white;
+            background: #211d1a;
+        }
+
+        .nav a.active {
+            color: white;
+            background: linear-gradient(90deg, #ff5722, #ff9400);
+            box-shadow: 0 5px 15px rgba(255, 93, 24, 0.3);
+        }
+
+        .logout {
+            margin-top: auto;
+            padding: 18px 12px;
+            border-top: 1px solid #292725;
+        }
+
+        .logout a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            color: #ff6060;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* ================= MAIN ================= */
+
+        .main {
+            width: calc(100% - 232px);
+            min-height: 100vh;
+            margin-left: 232px;
+        }
+
+        .topbar {
+            width: 100%;
+            height: 76px;
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            background: #0f0e0d;
+            border-bottom: 1px solid #292725;
+        }
+
+        .topbar h1 {
+            font-size: 21px;
+            font-weight: 700;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .top-search {
+            width: 230px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            background: #171513;
+            border: 1px solid #2d2a27;
+            border-radius: 10px;
+            color: #777;
+        }
+
+        .top-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: white;
+        }
+
+        .top-search input::placeholder {
+            color: #68635f;
+        }
+
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+            font-weight: bold;
+        }
+
+        .user-info strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .user-info small {
+            color: #85817e;
+            font-size: 11px;
+        }
+
+        .content {
+            width: 100%;
+            padding: 34px 28px 40px;
+        }
+
+        /* ================= THỐNG KÊ ================= */
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 26px;
+        }
+
+        .stat-card {
+            min-height: 120px;
+            padding: 20px;
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+        }
+
+        .stat-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .stat-title {
+            color: #96918d;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            margin-top: 15px;
+            font-size: 25px;
+            font-weight: 800;
+        }
+
+        .stat-change {
+            margin-top: 10px;
+            color: #27d39a;
+            font-size: 11px;
+        }
+
+        .stat-icon {
+            width: 39px;
+            height: 39px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: rgba(255, 105, 25, 0.15);
+            color: #ff6a1a;
+        }
+
+        /* ================= PANEL ================= */
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(330px, 1fr);
+            gap: 20px;
+        }
+
+        .panel {
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 16px;
+        }
+
+        .panel-title i {
+            color: #ff6325;
+        }
+
+        .period-select {
+            height: 38px;
+            padding: 0 12px;
+            border: 1px solid #302c29;
+            border-radius: 9px;
+            outline: none;
+            background: #171513;
+            color: #aaa5a1;
+        }
+
+        /* ================= BIỂU ĐỒ ================= */
+
+        .chart {
+            height: 330px;
+            display: flex;
+            align-items: flex-end;
+            gap: 22px;
+            padding: 20px 15px 5px;
+            border-left: 1px solid #34302d;
+            border-bottom: 1px solid #34302d;
+        }
+
+        .chart-column {
+            flex: 1;
+            height: 100%;
+            min-width: 45px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bar {
+            width: 55%;
+            min-width: 32px;
+            border-radius: 8px 8px 2px 2px;
+            background: linear-gradient(180deg, #ff8d23, #ff4e20);
+            box-shadow: 0 0 16px rgba(255, 89, 26, 0.25);
+            transition: 0.2s;
+        }
+
+        .bar:hover {
+            filter: brightness(1.15);
+            transform: translateY(-2px);
+        }
+
+        .month {
+            color: #8b8681;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        /* ================= SẢN PHẨM BÁN CHẠY ================= */
+
+        .rank-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .rank-item {
+            padding-bottom: 15px;
+            border-bottom: 1px solid #292623;
+        }
+
+        .rank-item:last-child {
+            border-bottom: none;
+        }
+
+        .rank-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 9px;
+            font-size: 13px;
+        }
+
+        .rank-top span:last-child {
+            color: #ff7626;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .progress {
+            height: 7px;
+            overflow: hidden;
+            background: #292522;
+            border-radius: 10px;
+        }
+
+        .progress div {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ff4f22, #ff9700);
+        }
+
+        /* ================= BẢNG ================= */
+
+        .table-panel {
+            margin-top: 26px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 850px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #292623;
+            font-size: 13px;
+        }
+
+        th {
+            color: #88837e;
+            background: #f4f5f7;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        td {
+            color: #ddd9d5;
+        }
+
+        tbody tr:hover {
+            background: #1c1917;
+        }
+
+        .money {
+            color: #ff7727;
+            font-weight: bold;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: rgba(35, 208, 145, 0.14);
+            color: #2be0a0;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* ================= RESPONSIVE ================= */
+
+        @media (max-width: 1100px) {
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .sidebar {
+                width: 72px;
+                min-width: 72px;
+            }
+
+            .brand {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .brand-text,
+            .nav a span,
+            .logout span {
+                display: none;
+            }
+
+            .nav a {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .main {
+                width: calc(100% - 72px);
+                margin-left: 72px;
+            }
+
+            .topbar {
+                padding: 0 15px;
+            }
+
+            .top-search,
+            .user-info {
+                display: none;
+            }
+
+            .content {
+                padding: 18px 15px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .chart {
+                gap: 10px;
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-logo">
+                <i class="fa-solid fa-shoe-prints"></i>
+            </div>
+
+            <span class="brand-text">KICKS ZONE</span>
+        </div>
+
+        <nav class="nav">
+            <a th:href="@{/dashboard}">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Bảng điều khiển</span>
+            </a>
+
+            <a th:href="@{/sanpham}">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span>Giày &amp; Dép</span>
+            </a>
+
+            <a th:href="@{/kho}">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Kho hàng</span>
+            </a>
+
+            <a th:href="@{/khachhang}">
+                <i class="fa-solid fa-users"></i>
+                <span>Khách hàng</span>
+            </a>
+
+            <a th:href="@{/hoadon}">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Hóa đơn</span>
+            </a>
+
+            <a th:href="@{/baocao}" class="active">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Báo cáo</span>
+            </a>
+
+            <a th:href="@{/nhacungcap}">
+                <i class="fa-solid fa-truck"></i>
+                <span>Nhà cung cấp</span>
+            </a>
+
+            <a th:href="@{/chatbot}">
+                <i class="fa-solid fa-robot"></i>
+                <span>Chatbot hỗ trợ</span>
+            </a>
+        </nav>
+
+        <div class="logout">
+            <a th:href="@{/logout}">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Đăng xuất</span>
+            </a>
+        </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <header class="topbar">
+
+            <h1>Báo cáo thống kê</h1>
+
+            <div class="top-actions">
+
+                <div class="top-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Tìm kiếm nhanh...">
+                </div>
+
+                <div class="user-box">
+                    <div class="avatar">N</div>
+
+                    <div class="user-info">
+                        <strong>Nguyễn Văn A</strong>
+                        <small>Admin</small>
+                    </div>
+                </div>
+
+            </div>
+
+        </header>
+
+        <section class="content">
+
+            <!-- THỐNG KÊ -->
+            <div class="stats">
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Tổng doanh thu</div>
+                            <div class="stat-value">485.000.000 đ</div>
+
+                            <div class="stat-change">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                15,2% so với tháng trước
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Sản phẩm đã bán</div>
+                            <div class="stat-value">386 đôi</div>
+
+                            <div class="stat-change">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                8,2% tăng trưởng
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-shoe-prints"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Tổng hóa đơn</div>
+                            <div class="stat-value">218 đơn</div>
+
+                            <div class="stat-change">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                5% tăng trưởng
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-receipt"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Khách hàng mới</div>
+                            <div class="stat-value">125 khách</div>
+
+                            <div class="stat-change">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                12,4% tăng trưởng
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-user-plus"></i>
+                        </div>
+                    </div>
+                </article>
+
+            </div>
+
+            <!-- BIỂU ĐỒ -->
+            <div class="report-grid">
+
+                <article class="panel">
+
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <i class="fa-solid fa-chart-column"></i>
+                            Doanh thu 6 tháng gần nhất
+                        </h2>
+
+                        <select class="period-select">
+                            <option>6 tháng gần nhất</option>
+                            <option>12 tháng gần nhất</option>
+                            <option>Năm nay</option>
+                        </select>
+                    </div>
+
+                    <div class="chart">
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:38%"></div>
+                            <span class="month">Tháng 1</span>
+                        </div>
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:58%"></div>
+                            <span class="month">Tháng 2</span>
+                        </div>
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:45%"></div>
+                            <span class="month">Tháng 3</span>
+                        </div>
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:73%"></div>
+                            <span class="month">Tháng 4</span>
+                        </div>
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:65%"></div>
+                            <span class="month">Tháng 5</span>
+                        </div>
+
+                        <div class="chart-column">
+                            <div class="bar" style="height:94%"></div>
+                            <span class="month">Tháng 6</span>
+                        </div>
+
+                    </div>
+
+                </article>
+
+                <!-- SẢN PHẨM BÁN CHẠY -->
+                <article class="panel">
+
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <i class="fa-solid fa-ranking-star"></i>
+                            Sản phẩm bán chạy
+                        </h2>
+                    </div>
+
+                    <div class="rank-list">
+
+                        <div class="rank-item">
+                            <div class="rank-top">
+                                <span>Nike Air Force 1</span>
+                                <span>92 đôi</span>
+                            </div>
+
+                            <div class="progress">
+                                <div style="width:92%"></div>
+                            </div>
+                        </div>
+
+                        <div class="rank-item">
+                            <div class="rank-top">
+                                <span>Adidas Superstar</span>
+                                <span>76 đôi</span>
+                            </div>
+
+                            <div class="progress">
+                                <div style="width:76%"></div>
+                            </div>
+                        </div>
+
+                        <div class="rank-item">
+                            <div class="rank-top">
+                                <span>Converse Chuck Taylor</span>
+                                <span>64 đôi</span>
+                            </div>
+
+                            <div class="progress">
+                                <div style="width:64%"></div>
+                            </div>
+                        </div>
+
+                        <div class="rank-item">
+                            <div class="rank-top">
+                                <span>Vans Old Skool</span>
+                                <span>51 đôi</span>
+                            </div>
+
+                            <div class="progress">
+                                <div style="width:51%"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </article>
+
+            </div>
+
+            <!-- BẢNG BÁO CÁO -->
+            <article class="panel table-panel">
+
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        Báo cáo doanh thu gần đây
+                    </h2>
+                </div>
+
+                <div class="table-wrapper">
+
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Mã báo cáo</th>
+                            <th>Thời gian</th>
+                            <th>Số đơn</th>
+                            <th>Sản phẩm bán</th>
+                            <th>Doanh thu</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                        </thead>
+
+                        <tbody>
+                        <tr>
+                            <td>#BC001</td>
+                            <td>Tháng 6/2026</td>
+                            <td>68</td>
+                            <td>105 đôi</td>
+                            <td class="money">290.000.000 đ</td>
+                            <td>
+                                <span class="status">Hoàn thành</span>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>#BC002</td>
+                            <td>Tháng 5/2026</td>
+                            <td>51</td>
+                            <td>76 đôi</td>
+                            <td class="money">195.000.000 đ</td>
+                            <td>
+                                <span class="status">Hoàn thành</span>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>#BC003</td>
+                            <td>Tháng 4/2026</td>
+                            <td>59</td>
+                            <td>89 đôi</td>
+                            <td class="money">230.000.000 đ</td>
+                            <td>
+                                <span class="status">Hoàn thành</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+
+            </article>
+
+        </section>
+
+    </main>
+
+</div>
+
+</body>
+</html>

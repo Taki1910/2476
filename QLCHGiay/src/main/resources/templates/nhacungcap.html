@@ -1,2 +1,998 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quản lý nhà cung cấp</title><link rel="stylesheet" th:href="@{/css/app.css}"></head><body><aside class="sidebar"><div class="brand">QLCH<span>Giày</span></div><nav class="nav">
-<a th:href="@{/dashboard}"><span>🏠 Tổng quan</span></a><a th:href="@{/sanpham}"><span>👟 Sản phẩm</span></a><a th:href="@{/kho}"><span>📦 Kho hàng</span></a><a th:href="@{/khachhang}"><span>👥 Khách hàng</span></a><a th:href="@{/hoadon}"><span>🧾 Hóa đơn</span></a><a th:href="@{/nhacungcap}"><span>🚚 Nhà cung cấp</span></a><a th:href="@{/baocao}"><span>📊 Báo cáo</span></a><a th:href="@{/chatbot}"><span>🤖 Chatbot</span></a><a th:href="@{/logout}"><span>↪ Đăng xuất</span></a></nav></aside><main class="main"><div class="top"><h1>Quản lý nhà cung cấp</h1><div class="user">Cửa hàng Sneaker</div></div><section class="card"><div class="toolbar"><input class="search" placeholder="Tìm nhà cung cấp..."><button class="btn">+ Thêm nhà cung cấp</button></div><table><thead><tr><th>Mã</th><th>Tên nhà cung cấp</th><th>Số điện thoại</th><th>Email</th><th>Địa chỉ</th><th>Trạng thái</th></tr></thead><tbody><tr th:each="x:${items}"><td th:text="${x.id}"></td><td th:text="${x.tenNCC}"></td><td th:text="${x.soDienThoai}"></td><td th:text="${x.email}"></td><td th:text="${x.diaChi}"></td><td><span class="badge" th:text="${x.trangThai}"></span></td></tr></tbody></table></section></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Quản lý nhà cung cấp - KICKS ZONE</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0d0c0b;
+            color: #f5f5f5;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 232px;
+            display: flex;
+            flex-direction: column;
+            background: #121110;
+            border-right: 1px solid #292725;
+            z-index: 100;
+        }
+
+        .brand {
+            height: 76px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 18px;
+            border-bottom: 1px solid #292725;
+            color: #ff6a1a;
+            font-size: 17px;
+            font-weight: 800;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5420, #ff9500);
+            color: white;
+            box-shadow: 0 0 16px rgba(255, 106, 26, 0.35);
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 18px 12px;
+        }
+
+        .nav a {
+            min-height: 43px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 0 14px;
+            border-radius: 9px;
+            color: #a8a5a2;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .nav a i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav a:hover {
+            color: white;
+            background: #211d1a;
+        }
+
+        .nav a.active {
+            color: white;
+            background: linear-gradient(90deg, #ff5722, #ff9400);
+            box-shadow: 0 5px 15px rgba(255, 93, 24, 0.3);
+        }
+
+        .logout {
+            margin-top: auto;
+            padding: 18px 12px;
+            border-top: 1px solid #292725;
+        }
+
+        .logout a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            color: #ff6060;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .main {
+            width: calc(100% - 232px);
+            margin-left: 232px;
+        }
+
+        .topbar {
+            height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            background: #0f0e0d;
+            border-bottom: 1px solid #292725;
+        }
+
+        .topbar h1 {
+            font-size: 21px;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .top-search {
+            width: 230px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            background: #171513;
+            border: 1px solid #2d2a27;
+            border-radius: 10px;
+            color: #777;
+        }
+
+        .top-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: white;
+        }
+
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            font-weight: bold;
+        }
+
+        .user-info strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .user-info small {
+            color: #85817e;
+            font-size: 11px;
+        }
+
+        .content {
+            padding: 28px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            padding: 18px;
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 14px;
+        }
+
+        .stat-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .stat-title {
+            color: #918c87;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            margin-top: 12px;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .stat-note {
+            margin-top: 8px;
+            color: #2ad99c;
+            font-size: 11px;
+        }
+
+        .stat-icon {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: rgba(255, 106, 26, 0.14);
+            color: #ff6a1a;
+        }
+
+        .panel {
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #2b2825;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 16px;
+        }
+
+        .panel-title i {
+            color: #ff6a1a;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-box {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 13px;
+            background: #1b1816;
+            border: 1px solid #332f2b;
+            border-radius: 9px;
+            color: #77716d;
+        }
+
+        .filter-box input {
+            width: 220px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: white;
+        }
+
+        .status-filter {
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid #332f2b;
+            border-radius: 9px;
+            outline: none;
+            background: #1b1816;
+            color: #aaa5a1;
+        }
+
+        .create-btn {
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 15px;
+            border: none;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .create-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(255, 94, 20, 0.24);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1050px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 15px 16px;
+            text-align: left;
+            border-bottom: 1px solid #292623;
+            font-size: 13px;
+        }
+
+        th {
+            color: #8b8580;
+            background: #171513;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        td {
+            color: #ddd8d4;
+        }
+
+        tbody tr {
+            transition: 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #1c1917;
+        }
+
+        .supplier-code {
+            color: #ff7727;
+            font-weight: 700;
+        }
+
+        .supplier {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .supplier-avatar {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 9px;
+            background: rgba(255, 106, 26, 0.14);
+            color: #ff6a1a;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .supplier-name {
+            font-weight: 700;
+        }
+
+        .supplier-sub {
+            margin-top: 3px;
+            color: #77716d;
+            font-size: 10px;
+        }
+
+        .contact {
+            color: #ffb16c;
+            white-space: nowrap;
+        }
+
+        .email {
+            color: #8bbcff;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .badge-success {
+            background: rgba(39, 211, 154, 0.13);
+            color: #2be0a0;
+        }
+
+        .badge-warning {
+            background: rgba(255, 171, 44, 0.14);
+            color: #ffb43c;
+        }
+
+        .badge-danger {
+            background: rgba(255, 79, 89, 0.14);
+            color: #ff6470;
+        }
+
+        .action-group {
+            display: flex;
+            gap: 7px;
+        }
+
+        .action-btn {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid #35302c;
+            border-radius: 8px;
+            background: #1b1816;
+            color: #aaa4a0;
+            text-decoration: none;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: #ff6a1a;
+            color: #ff6a1a;
+        }
+
+        .empty-row td {
+            padding: 45px;
+            color: #817b76;
+            text-align: center;
+        }
+
+        .empty-icon {
+            display: block;
+            margin-bottom: 12px;
+            color: #ff6a1a;
+            font-size: 28px;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            color: #827c77;
+            font-size: 12px;
+        }
+
+        .page-buttons {
+            display: flex;
+            gap: 7px;
+        }
+
+        .page-btn {
+            min-width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid #332f2b;
+            border-radius: 8px;
+            background: #1b1816;
+            color: #a9a39f;
+            cursor: pointer;
+        }
+
+        .page-btn.active {
+            border-color: #ff6a1a;
+            background: #ff6a1a;
+            color: white;
+        }
+
+        @media (max-width: 1150px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .panel-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .toolbar {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .sidebar {
+                width: 72px;
+            }
+
+            .brand {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .brand-text,
+            .nav a span,
+            .logout span {
+                display: none;
+            }
+
+            .nav a {
+                justify-content: center;
+            }
+
+            .main {
+                width: calc(100% - 72px);
+                margin-left: 72px;
+            }
+
+            .top-search,
+            .user-info {
+                display: none;
+            }
+
+            .content {
+                padding: 15px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-box {
+                width: 100%;
+            }
+
+            .filter-box input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-logo">
+                <i class="fa-solid fa-shoe-prints"></i>
+            </div>
+
+            <span class="brand-text">KICKS ZONE</span>
+        </div>
+
+        <nav class="nav">
+            <a th:href="@{/dashboard}">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Bảng điều khiển</span>
+            </a>
+
+            <a th:href="@{/sanpham}">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span>Giày &amp; Dép</span>
+            </a>
+
+            <a th:href="@{/kho}">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Kho hàng</span>
+            </a>
+
+            <a th:href="@{/khachhang}">
+                <i class="fa-solid fa-users"></i>
+                <span>Khách hàng</span>
+            </a>
+
+            <a th:href="@{/hoadon}">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Hóa đơn</span>
+            </a>
+
+            <a th:href="@{/baocao}">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Báo cáo</span>
+            </a>
+
+            <a th:href="@{/nhacungcap}" class="active">
+                <i class="fa-solid fa-truck"></i>
+                <span>Nhà cung cấp</span>
+            </a>
+
+            <a th:href="@{/chatbot}">
+                <i class="fa-solid fa-robot"></i>
+                <span>Chatbot hỗ trợ</span>
+            </a>
+        </nav>
+
+        <div class="logout">
+            <a th:href="@{/logout}">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Đăng xuất</span>
+            </a>
+        </div>
+
+    </aside>
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <h1>Quản lý nhà cung cấp</h1>
+
+            <div class="top-actions">
+
+                <div class="top-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Tìm kiếm nhanh...">
+                </div>
+
+                <div class="user-box">
+                    <div class="avatar">N</div>
+
+                    <div class="user-info">
+                        <strong>Nguyễn Văn A</strong>
+                        <small>Admin</small>
+                    </div>
+                </div>
+
+            </div>
+
+        </header>
+
+        <section class="content">
+
+            <div class="stats">
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Tổng nhà cung cấp</div>
+
+                            <div class="stat-value"
+                                 th:text="${items != null ? #lists.size(items) : 0}">
+                                0
+                            </div>
+
+                            <div class="stat-note">
+                                <i class="fa-solid fa-truck"></i>
+                                Toàn bộ đối tác
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-truck-fast"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Đang hợp tác</div>
+                            <div class="stat-value">12</div>
+
+                            <div class="stat-note">
+                                <i class="fa-solid fa-circle-check"></i>
+                                Hoạt động bình thường
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-handshake"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Tạm ngừng</div>
+                            <div class="stat-value">2</div>
+
+                            <div class="stat-note" style="color:#ffb43c">
+                                <i class="fa-solid fa-pause"></i>
+                                Cần kiểm tra
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div>
+                            <div class="stat-title">Nhập hàng tháng này</div>
+                            <div class="stat-value">18 đơn</div>
+
+                            <div class="stat-note">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                Tăng so với tháng trước
+                            </div>
+                        </div>
+
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-boxes-packing"></i>
+                        </div>
+                    </div>
+                </article>
+
+            </div>
+
+            <section class="panel">
+
+                <div class="panel-header">
+
+                    <h2 class="panel-title">
+                        <i class="fa-solid fa-address-card"></i>
+                        Danh sách nhà cung cấp
+                    </h2>
+
+                    <div class="toolbar">
+
+                        <div class="filter-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+
+                            <input type="text"
+                                   id="supplierSearch"
+                                   placeholder="Tìm tên, số điện thoại..."
+                                   oninput="filterSuppliers()">
+                        </div>
+
+                        <select class="status-filter"
+                                id="statusFilter"
+                                onchange="filterSuppliers()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="hoạt động">Hoạt động</option>
+                            <option value="đang hợp tác">Đang hợp tác</option>
+                            <option value="tạm ngừng">Tạm ngừng</option>
+                            <option value="ngừng hợp tác">Ngừng hợp tác</option>
+                        </select>
+
+                        <a th:href="@{/nhacungcap/them}" class="create-btn">
+                            <i class="fa-solid fa-plus"></i>
+                            Thêm nhà cung cấp
+                        </a>
+
+                    </div>
+
+                </div>
+
+                <div class="table-wrapper">
+
+                    <table id="supplierTable">
+
+                        <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Nhà cung cấp</th>
+                            <th>Số điện thoại</th>
+                            <th>Email</th>
+                            <th>Địa chỉ</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                        </thead>
+
+                        <tbody>
+
+                        <tr th:each="x : ${items}">
+
+                            <td class="supplier-code"
+                                th:text="${x.id != null ? '#NCC-' + x.id : '#NCC'}">
+                                #NCC-1
+                            </td>
+
+                            <td>
+                                <div class="supplier">
+
+                                    <div class="supplier-avatar"
+                                         th:text="${x.tenNCC != null && !#strings.isEmpty(x.tenNCC)
+                                         ? #strings.substring(x.tenNCC, 0, 1)
+                                         : 'N'}">
+                                        N
+                                    </div>
+
+                                    <div>
+                                        <div class="supplier-name"
+                                             th:text="${x.tenNCC != null ? x.tenNCC : '-'}">
+                                            Nike Việt Nam
+                                        </div>
+
+                                        <div class="supplier-sub">
+                                            Đối tác cung ứng sản phẩm
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </td>
+
+                            <td class="contact"
+                                th:text="${x.soDienThoai != null ? x.soDienThoai : '-'}">
+                                0987654321
+                            </td>
+
+                            <td class="email"
+                                th:text="${x.email != null ? x.email : '-'}">
+                                supplier@example.com
+                            </td>
+
+                            <td th:text="${x.diaChi != null ? x.diaChi : '-'}">
+                                Hà Nội
+                            </td>
+
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${x.trangThai != null
+                                      && (#strings.containsIgnoreCase(x.trangThai, 'hoạt động')
+                                      || #strings.containsIgnoreCase(x.trangThai, 'hợp tác'))
+                                      ? ' badge-success'
+                                      : (
+                                          x.trangThai != null
+                                          && (#strings.containsIgnoreCase(x.trangThai, 'tạm'))
+                                          ? ' badge-warning'
+                                          : ' badge-danger'
+                                      )}">
+
+                                    <i th:class="${x.trangThai != null
+                                    && (#strings.containsIgnoreCase(x.trangThai, 'hoạt động')
+                                    || #strings.containsIgnoreCase(x.trangThai, 'hợp tác'))
+                                    ? 'fa-solid fa-circle-check'
+                                    : (
+                                        x.trangThai != null
+                                        && #strings.containsIgnoreCase(x.trangThai, 'tạm')
+                                        ? 'fa-solid fa-clock'
+                                        : 'fa-solid fa-circle-xmark'
+                                    )}"></i>
+
+                                    <span th:text="${x.trangThai != null
+                                    ? x.trangThai
+                                    : 'Chưa cập nhật'}">
+                                        Hoạt động
+                                    </span>
+
+                                </span>
+                            </td>
+
+                            <td>
+                                <div class="action-group">
+
+                                    <a class="action-btn"
+                                       th:href="@{/nhacungcap/{id}(id=${x.id})}"
+                                       title="Xem chi tiết">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
+
+                                    <a class="action-btn"
+                                       th:href="@{/nhacungcap/sua/{id}(id=${x.id})}"
+                                       title="Chỉnh sửa">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </a>
+
+                                    <a class="action-btn"
+                                       th:href="@{/nhacungcap/xoa/{id}(id=${x.id})}"
+                                       title="Xóa"
+                                       onclick="return confirm('Bạn có chắc muốn xóa nhà cung cấp này?')">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </a>
+
+                                </div>
+                            </td>
+
+                        </tr>
+
+                        <tr class="empty-row"
+                            th:if="${items == null || #lists.isEmpty(items)}">
+                            <td colspan="7">
+                                <i class="fa-solid fa-truck-ramp-box empty-icon"></i>
+                                Chưa có dữ liệu nhà cung cấp.
+                            </td>
+                        </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="pagination">
+
+                    <span>
+                        Hiển thị
+                        <strong th:text="${items != null ? #lists.size(items) : 0}">
+                            0
+                        </strong>
+                        nhà cung cấp
+                    </span>
+
+                    <div class="page-buttons">
+                        <button class="page-btn" type="button">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+
+                        <button class="page-btn active" type="button">1</button>
+
+                        <button class="page-btn" type="button">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+    function filterSuppliers() {
+        const keyword = document
+            .getElementById("supplierSearch")
+            .value
+            .toLowerCase()
+            .trim();
+
+        const selectedStatus = document
+            .getElementById("statusFilter")
+            .value
+            .toLowerCase()
+            .trim();
+
+        const rows = document.querySelectorAll(
+            "#supplierTable tbody tr:not(.empty-row)"
+        );
+
+        rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+
+            const badge = row.querySelector(".badge");
+            const rowStatus = badge
+                ? badge.textContent.toLowerCase().trim()
+                : "";
+
+            const matchesKeyword =
+                keyword === "" || rowText.includes(keyword);
+
+            const matchesStatus =
+                selectedStatus === "" || rowStatus.includes(selectedStatus);
+
+            row.style.display =
+                matchesKeyword && matchesStatus ? "" : "none";
+        });
+    }
+</script>
+
+</body>
+</html>

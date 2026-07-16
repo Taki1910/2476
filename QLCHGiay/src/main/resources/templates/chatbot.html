@@ -1,2 +1,860 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trợ lý cửa hàng</title><link rel="stylesheet" th:href="@{/css/app.css}"></head><body><aside class="sidebar"><div class="brand">QLCH<span>Giày</span></div><nav class="nav">
-<a th:href="@{/dashboard}"><span>🏠 Tổng quan</span></a><a th:href="@{/sanpham}"><span>👟 Sản phẩm</span></a><a th:href="@{/kho}"><span>📦 Kho hàng</span></a><a th:href="@{/khachhang}"><span>👥 Khách hàng</span></a><a th:href="@{/hoadon}"><span>🧾 Hóa đơn</span></a><a th:href="@{/nhacungcap}"><span>🚚 Nhà cung cấp</span></a><a th:href="@{/baocao}"><span>📊 Báo cáo</span></a><a th:href="@{/chatbot}"><span>🤖 Chatbot</span></a><a th:href="@{/logout}"><span>↪ Đăng xuất</span></a></nav></aside><main class="main"><div class="top"><h1>Trợ lý cửa hàng</h1><div class="user">Cửa hàng Sneaker</div></div><section class="card"><h2>Chatbot hỗ trợ</h2><p>Nhập câu hỏi về sản phẩm, tồn kho hoặc hóa đơn.</p><input class="search" style="width:80%" placeholder="Nhập câu hỏi..."><button class="btn">Gửi</button></section></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Trợ lý cửa hàng - KICKS ZONE</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0d0c0b;
+            color: #f5f5f5;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 232px;
+            display: flex;
+            flex-direction: column;
+            background: #121110;
+            border-right: 1px solid #292725;
+            z-index: 100;
+        }
+
+        .brand {
+            height: 76px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 18px;
+            border-bottom: 1px solid #292725;
+            color: #ff6a1a;
+            font-size: 17px;
+            font-weight: 800;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5420, #ff9500);
+            color: white;
+            box-shadow: 0 0 16px rgba(255, 106, 26, 0.35);
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 18px 12px;
+        }
+
+        .nav a {
+            min-height: 43px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 0 14px;
+            border-radius: 9px;
+            color: #a8a5a2;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .nav a i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav a:hover {
+            background: #211d1a;
+            color: white;
+        }
+
+        .nav a.active {
+            color: white;
+            background: linear-gradient(90deg, #ff5722, #ff9400);
+            box-shadow: 0 5px 15px rgba(255, 93, 24, 0.3);
+        }
+
+        .logout {
+            margin-top: auto;
+            padding: 18px 12px;
+            border-top: 1px solid #292725;
+        }
+
+        .logout a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            color: #ff6060;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* MAIN */
+        .main {
+            width: calc(100% - 232px);
+            margin-left: 232px;
+        }
+
+        .topbar {
+            height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            background: #0f0e0d;
+            border-bottom: 1px solid #292725;
+        }
+
+        .topbar h1 {
+            font-size: 21px;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .top-search {
+            width: 230px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            background: #171513;
+            border: 1px solid #2d2a27;
+            border-radius: 10px;
+            color: #777;
+        }
+
+        .top-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: white;
+        }
+
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            font-weight: bold;
+        }
+
+        .user-info strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .user-info small {
+            color: #85817e;
+            font-size: 11px;
+        }
+
+        .content {
+            padding: 28px;
+        }
+
+        /* CHATBOT */
+        .chat-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            min-height: calc(100vh - 132px);
+        }
+
+        .assistant-panel,
+        .chat-panel {
+            background: #151311;
+            border: 1px solid #2b2825;
+            border-radius: 15px;
+        }
+
+        .assistant-panel {
+            padding: 22px;
+        }
+
+        .bot-avatar {
+            width: 72px;
+            height: 72px;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 16px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #ff4f20, #ff9600);
+            color: white;
+            font-size: 30px;
+            box-shadow: 0 0 25px rgba(255, 96, 22, 0.25);
+        }
+
+        .assistant-panel h2 {
+            text-align: center;
+            font-size: 19px;
+            margin-bottom: 8px;
+        }
+
+        .assistant-panel > p {
+            color: #99938e;
+            text-align: center;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .quick-title {
+            margin-bottom: 12px;
+            color: #d9d4d0;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .quick-list {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .quick-question {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #302c29;
+            border-radius: 10px;
+            background: #1b1816;
+            color: #c8c3bf;
+            text-align: left;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .quick-question:hover {
+            color: white;
+            border-color: #ff6a1a;
+            background: #251b15;
+        }
+
+        .bot-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            margin-top: 22px;
+            color: #29d79a;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #29d79a;
+            box-shadow: 0 0 10px rgba(41, 215, 154, 0.7);
+        }
+
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 22px;
+            border-bottom: 1px solid #2b2825;
+        }
+
+        .chat-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-user-icon {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(255, 102, 25, 0.14);
+            color: #ff6a1a;
+        }
+
+        .chat-user strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .chat-user small {
+            color: #88827d;
+            font-size: 11px;
+        }
+
+        .clear-btn {
+            padding: 9px 12px;
+            border: 1px solid #332e2a;
+            border-radius: 9px;
+            background: #1b1816;
+            color: #aaa4a0;
+            cursor: pointer;
+        }
+
+        .clear-btn:hover {
+            color: white;
+            border-color: #ff6a1a;
+        }
+
+        .messages {
+            flex: 1;
+            min-height: 420px;
+            max-height: calc(100vh - 300px);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .message {
+            max-width: 75%;
+            display: flex;
+            gap: 10px;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 9px;
+            background: #24201d;
+            color: #ff6a1a;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+        }
+
+        .bubble {
+            padding: 13px 15px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .message.bot .bubble {
+            background: #201d1a;
+            border: 1px solid #302c28;
+            color: #ddd8d4;
+            border-top-left-radius: 4px;
+        }
+
+        .message.user .bubble {
+            background: linear-gradient(135deg, #ff5722, #ff8700);
+            color: white;
+            border-top-right-radius: 4px;
+        }
+
+        .message-time {
+            margin-top: 5px;
+            color: #6e6863;
+            font-size: 10px;
+        }
+
+        .message.user .message-time {
+            text-align: right;
+        }
+
+        .chat-input-area {
+            padding: 18px 22px;
+            border-top: 1px solid #2b2825;
+        }
+
+        .chat-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            height: 48px;
+            padding: 0 16px;
+            border: 1px solid #332f2b;
+            border-radius: 11px;
+            background: #1b1816;
+            color: white;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #ff6a1a;
+            box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.1);
+        }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            display: grid;
+            place-items: center;
+            border: none;
+            border-radius: 11px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(255, 94, 20, 0.25);
+        }
+
+        .input-note {
+            margin-top: 9px;
+            color: #77716d;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        @media (max-width: 1000px) {
+            .chat-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .assistant-panel {
+                display: none;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .sidebar {
+                width: 72px;
+            }
+
+            .brand {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .brand-text,
+            .nav a span,
+            .logout span {
+                display: none;
+            }
+
+            .nav a {
+                justify-content: center;
+            }
+
+            .main {
+                width: calc(100% - 72px);
+                margin-left: 72px;
+            }
+
+            .top-search,
+            .user-info {
+                display: none;
+            }
+
+            .content {
+                padding: 15px;
+            }
+
+            .message {
+                max-width: 88%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-logo">
+                <i class="fa-solid fa-shoe-prints"></i>
+            </div>
+
+            <span class="brand-text">KICKS ZONE</span>
+        </div>
+
+        <nav class="nav">
+            <a th:href="@{/dashboard}">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Bảng điều khiển</span>
+            </a>
+
+            <a th:href="@{/sanpham}">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <span>Giày &amp; Dép</span>
+            </a>
+
+            <a th:href="@{/kho}">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Kho hàng</span>
+            </a>
+
+            <a th:href="@{/khachhang}">
+                <i class="fa-solid fa-users"></i>
+                <span>Khách hàng</span>
+            </a>
+
+            <a th:href="@{/hoadon}">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Hóa đơn</span>
+            </a>
+
+            <a th:href="@{/baocao}">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Báo cáo</span>
+            </a>
+
+            <a th:href="@{/nhacungcap}">
+                <i class="fa-solid fa-truck"></i>
+                <span>Nhà cung cấp</span>
+            </a>
+
+            <a th:href="@{/chatbot}" class="active">
+                <i class="fa-solid fa-robot"></i>
+                <span>Chatbot hỗ trợ</span>
+            </a>
+        </nav>
+
+        <div class="logout">
+            <a th:href="@{/logout}">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Đăng xuất</span>
+            </a>
+        </div>
+
+    </aside>
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <h1>Trợ lý cửa hàng</h1>
+
+            <div class="top-actions">
+
+                <div class="top-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Tìm kiếm nhanh...">
+                </div>
+
+                <div class="user-box">
+                    <div class="avatar">N</div>
+
+                    <div class="user-info">
+                        <strong>Nguyễn Văn A</strong>
+                        <small>Admin</small>
+                    </div>
+                </div>
+
+            </div>
+
+        </header>
+
+        <section class="content">
+
+            <div class="chat-layout">
+
+                <!-- THÔNG TIN CHATBOT -->
+                <aside class="assistant-panel">
+
+                    <div class="bot-avatar">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+
+                    <h2>KICKS Assistant</h2>
+
+                    <p>
+                        Trợ lý hỗ trợ tra cứu sản phẩm, tồn kho,
+                        khách hàng và hóa đơn của cửa hàng.
+                    </p>
+
+                    <div class="quick-title">Câu hỏi gợi ý</div>
+
+                    <div class="quick-list">
+                        <button class="quick-question"
+                                type="button"
+                                onclick="setQuestion('Sản phẩm nào đang sắp hết hàng?')">
+                            Sản phẩm nào đang sắp hết hàng?
+                        </button>
+
+                        <button class="quick-question"
+                                type="button"
+                                onclick="setQuestion('Doanh thu hôm nay là bao nhiêu?')">
+                            Doanh thu hôm nay là bao nhiêu?
+                        </button>
+
+                        <button class="quick-question"
+                                type="button"
+                                onclick="setQuestion('Sản phẩm nào bán chạy nhất?')">
+                            Sản phẩm nào bán chạy nhất?
+                        </button>
+
+                        <button class="quick-question"
+                                type="button"
+                                onclick="setQuestion('Có bao nhiêu hóa đơn mới?')">
+                            Có bao nhiêu hóa đơn mới?
+                        </button>
+                    </div>
+
+                    <div class="bot-status">
+                        <span class="status-dot"></span>
+                        Đang hoạt động
+                    </div>
+
+                </aside>
+
+                <!-- KHUNG CHAT -->
+                <section class="chat-panel">
+
+                    <div class="chat-header">
+
+                        <div class="chat-user">
+                            <div class="chat-user-icon">
+                                <i class="fa-solid fa-headset"></i>
+                            </div>
+
+                            <div>
+                                <strong>Chatbot hỗ trợ cửa hàng</strong>
+                                <small>Phản hồi tự động</small>
+                            </div>
+                        </div>
+
+                        <button type="button"
+                                class="clear-btn"
+                                onclick="clearChat()">
+                            <i class="fa-solid fa-trash"></i>
+                            Xóa trò chuyện
+                        </button>
+
+                    </div>
+
+                    <div class="messages" id="messages">
+
+                        <div class="message bot">
+                            <div class="message-avatar">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+
+                            <div>
+                                <div class="bubble">
+                                    Xin chào! Tôi là trợ lý KICKS ZONE.
+                                    Bạn có thể hỏi tôi về sản phẩm, tồn kho,
+                                    khách hàng hoặc hóa đơn.
+                                </div>
+
+                                <div class="message-time">Vừa xong</div>
+                            </div>
+                        </div>
+
+                        <div class="message user">
+                            <div class="message-avatar">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+
+                            <div>
+                                <div class="bubble">
+                                    Sản phẩm nào đang sắp hết hàng?
+                                </div>
+
+                                <div class="message-time">10:30</div>
+                            </div>
+                        </div>
+
+                        <div class="message bot">
+                            <div class="message-avatar">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+
+                            <div>
+                                <div class="bubble">
+                                    Nike Air Force 1 màu trắng, size 41 hiện chỉ còn
+                                    2 đôi trong kho. Bạn nên nhập thêm hàng sớm.
+                                </div>
+
+                                <div class="message-time">10:30</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="chat-input-area">
+
+                        <form class="chat-form"
+                              id="chatForm"
+                              onsubmit="sendMessage(event)">
+
+                            <input type="text"
+                                   id="questionInput"
+                                   class="chat-input"
+                                   placeholder="Nhập câu hỏi về sản phẩm, tồn kho hoặc hóa đơn..."
+                                   autocomplete="off">
+
+                            <button type="submit" class="send-btn">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+
+                        </form>
+
+                        <div class="input-note">
+                            Nội dung chatbot hiện đang sử dụng phản hồi mẫu.
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+    function setQuestion(question) {
+        const input = document.getElementById("questionInput");
+        input.value = question;
+        input.focus();
+    }
+
+    function sendMessage(event) {
+        event.preventDefault();
+
+        const input = document.getElementById("questionInput");
+        const messages = document.getElementById("messages");
+        const question = input.value.trim();
+
+        if (!question) {
+            return;
+        }
+
+        const userMessage = document.createElement("div");
+        userMessage.className = "message user";
+        userMessage.innerHTML = `
+            <div class="message-avatar">
+                <i class="fa-solid fa-user"></i>
+            </div>
+
+            <div>
+                <div class="bubble"></div>
+                <div class="message-time">Vừa xong</div>
+            </div>
+        `;
+
+        userMessage.querySelector(".bubble").textContent = question;
+        messages.appendChild(userMessage);
+
+        input.value = "";
+        messages.scrollTop = messages.scrollHeight;
+
+        setTimeout(() => {
+            const botMessage = document.createElement("div");
+            botMessage.className = "message bot";
+            botMessage.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+
+                <div>
+                    <div class="bubble">
+                        Tôi đã nhận được câu hỏi của bạn.
+                        Chức năng trả lời từ dữ liệu SQL sẽ được kết nối ở bước tiếp theo.
+                    </div>
+
+                    <div class="message-time">Vừa xong</div>
+                </div>
+            `;
+
+            messages.appendChild(botMessage);
+            messages.scrollTop = messages.scrollHeight;
+        }, 500);
+    }
+
+    function clearChat() {
+        const messages = document.getElementById("messages");
+
+        messages.innerHTML = `
+            <div class="message bot">
+                <div class="message-avatar">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+
+                <div>
+                    <div class="bubble">
+                        Cuộc trò chuyện đã được xóa.
+                        Tôi có thể hỗ trợ gì cho bạn?
+                    </div>
+
+                    <div class="message-time">Vừa xong</div>
+                </div>
+            </div>
+        `;
+    }
+</script>
+
+</body>
+</html>
