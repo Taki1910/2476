@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hệ thống quản lý cửa hàng giày Kicks Zone - Trang tổng quan">
+    <title>Bảng điều khiển - KICKS ZONE</title>
+    <!-- Google Fonts Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Modern Color Palette using CSS Variables */
+        :root {
+            /* Default Mode: Dark Athletic/Sneaker Theme */
+            --bg-color: #0b0a09;
+            --surface-color: #141211;
+            --surface-hover: rgba(40, 35, 30, 0.7);
+            --border-color: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 87, 34, 0.3);
+            --text-main: #fcfcfc;
+            --text-sub: #a19e9a;
+            --primary-color: #ff5722;
+            --primary-hover: #e64a19;
+            --primary-light: rgba(255, 87, 34, 0.12);
+            --accent-success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.12);
+            --success-text: #34d399;
+            --accent-warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.12);
+            --warning-text: #fbbf24;
+            --accent-danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.12);
+            --danger-text: #f87171;
+            --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 20px 35px -5px rgba(0, 0, 0, 0.4);
+            --header-bg: rgba(20, 18, 16, 0.75);
+            --sidebar-bg: #141211;
+            --card-glow: 0 0 15px rgba(255, 87, 34, 0.05);
+        }
+
+        :root.light-mode {
+            /* Light Mode Theme */
+            --bg-color: #f7f6f5;
+            --surface-color: #ffffff;
+            --surface-hover: #faf9f8;
+            --border-color: #f0edea;
+            --border-hover: rgba(255, 87, 34, 0.2);
+            --text-main: #2b2724;
+            --text-sub: #78706b;
+            --primary-color: #e64a19;
+            --primary-hover: #bf360c;
+            --primary-light: #fbe9e7;
+            --accent-success: #1b5e20;
+            --success-bg: #e8f5e9;
+            --success-text: #2e7d32;
+            --accent-warning: #e65100;
+            --warning-bg: #fff3e0;
+            --warning-text: #ef6c00;
+            --accent-danger: #b71c1c;
+            --danger-bg: #ffebee;
+            --danger-text: #c62828;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+            --shadow-md: 0 4px 12px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --shadow-lg: 0 15px 25px -3px rgba(0,0,0,0.06), 0 4px 12px -2px rgba(0,0,0,0.03);
+            --header-bg: rgba(255, 255, 255, 0.8);
+            --sidebar-bg: #ffffff;
+            --card-glow: 0 0 0 transparent;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+            transition: background-color var(--transition), color var(--transition);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-sub);
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 270px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 24px 20px;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand-icon-wrapper {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(255, 87, 34, 0.3);
+        }
+
+        .brand-icon {
+            font-size: 22px;
+            color: white;
+        }
+
+        .brand-name {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            line-height: 1.25;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 14px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .menu-item {
+            margin-bottom: 6px;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            color: var(--text-sub);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 10px;
+            transition: var(--transition);
+        }
+
+        .menu-link i {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .menu-link:hover {
+            color: var(--primary-color);
+            background-color: var(--surface-hover);
+        }
+
+        .menu-link:hover i {
+            transform: scale(1.15);
+        }
+
+        .menu-item.active .menu-link {
+            color: white;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            box-shadow: 0 4px 12px rgba(255, 87, 34, 0.25);
+        }
+
+        .sidebar-footer {
+            padding: 20px 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .logout-link {
+            color: #f87171;
+        }
+
+        .logout-link:hover {
+            background-color: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+        }
+
+        /* Main Content Container */
+        .main-container {
+            flex: 1;
+            margin-left: 270px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            transition: var(--transition);
+        }
+
+        /* Top Header */
+        .header {
+            height: 75px;
+            background-color: var(--header-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            transition: var(--transition);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--text-main);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .menu-toggle:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-main);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box input {
+            width: 260px;
+            height: 42px;
+            padding: 0 16px 0 40px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-main);
+            background-color: rgba(40, 35, 30, 0.3);
+            transition: var(--transition);
+        }
+
+        .search-box input:focus {
+            border-color: var(--primary-color);
+            background-color: var(--surface-color);
+            box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.15);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            color: var(--text-sub);
+            font-size: 14px;
+        }
+
+        .header-action-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-sub);
+            font-size: 16px;
+            cursor: pointer;
+            position: relative;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .header-action-btn:hover {
+            background-color: var(--surface-hover);
+            color: var(--text-main);
+            border-color: var(--text-sub);
+        }
+
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 7px;
+            height: 7px;
+            background-color: var(--accent-danger);
+            border-radius: 50%;
+            border: 2px solid var(--surface-color);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-left: 15px;
+            border-left: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+
+        .avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        /* Main Content Body */
+        .content-body {
+            padding: 30px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            transition: var(--transition);
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .kpi-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 140px;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: var(--transition);
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        .kpi-card:hover::before {
+            background: var(--primary-color);
+        }
+
+        .kpi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .kpi-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-sub);
+        }
+
+        .kpi-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .kpi-icon.blue { background-color: var(--success-bg); color: var(--success-text); }
+        .kpi-icon.green { background-color: var(--primary-light); color: var(--primary-color); }
+        .kpi-icon.orange { background-color: var(--warning-bg); color: var(--warning-text); }
+        .kpi-icon.purple { background-color: rgba(156, 39, 176, 0.12); color: #e040fb; }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 8px;
+        }
+
+        .kpi-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .trend-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .trend-badge.up { background-color: var(--success-bg); color: var(--success-text); }
+        .trend-badge.down { background-color: var(--danger-bg); color: var(--danger-text); }
+
+        .trend-text {
+            color: var(--text-sub);
+        }
+
+        /* Charts Section Layout */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        .chart-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+        }
+
+        .chart-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-actions select {
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 12px;
+            outline: none;
+            color: var(--text-sub);
+            background-color: var(--surface-color);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .chart-actions select:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chart-container {
+            position: relative;
+            flex: 1;
+            min-height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Bottom Grid: Tables & Alerts */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        .table-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            transition: var(--transition);
+        }
+
+        .table-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .table-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .view-all-btn {
+            font-size: 12px;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 700;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .view-all-btn:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-color);
+        }
+
+        /* Table Design */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .custom-table th {
+            color: var(--text-sub);
+            font-weight: 700;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(40, 35, 30, 0.15);
+        }
+
+        .custom-table td {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .custom-table tbody tr {
+            transition: var(--transition);
+        }
+
+        .custom-table tbody tr:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge.completed { background-color: var(--success-bg); color: var(--success-text); }
+        .status-badge.pending { background-color: var(--warning-bg); color: var(--warning-text); }
+        .status-badge.cancelled { background-color: var(--danger-bg); color: var(--danger-text); }
+
+        .invoice-id {
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        /* Stock Alerts Card */
+        .alert-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+        }
+
+        .alert-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        .alert-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            background-color: rgba(40, 35, 30, 0.15);
+            border-radius: 10px;
+            border-left: 4px solid var(--accent-danger);
+            transition: var(--transition);
+        }
+
+        .alert-item.warning {
+            border-left-color: var(--accent-warning);
+        }
+
+        .alert-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .alert-product {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .alert-desc {
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        .alert-qty {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .alert-qty.danger { background-color: var(--danger-bg); color: var(--danger-text); }
+        .alert-qty.warning { background-color: var(--warning-bg); color: var(--warning-text); }
+
+        /* Quick Actions Grid */
+        .quick-actions-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .action-card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-main);
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-md);
+            color: var(--primary-color);
+        }
+
+        .action-card i {
+            font-size: 22px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .action-card span {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* Backdrop Mask for Mobile Sidebar */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 95;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -270px;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .main-container {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            .search-box input {
+                width: 190px;
+            }
+
+            .header {
+                padding: 0 20px;
+            }
+
+            .content-body {
+                padding: 20px;
+                gap: 20px;
+            }
+
+            .quick-actions-bar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            .search-box {
+                display: none;
+            }
+            .quick-actions-bar {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Backdrop for Mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar Menu -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon-wrapper">
+                <i class="fa-solid fa-shoe-prints brand-icon"></i>
+            </div>
+            <span class="brand-name">KICKS ZONE</span>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li class="menu-item active">
+                <a th:href="@{/dashboard}" class="menu-link">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Bảng điều khiển</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/sanpham}" class="menu-link">
+                    <i class="fa-solid fa-shoe-prints"></i>
+                    <span>Giày &amp; Dép</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/sanpham}" class="menu-link">
+                    <i class="fa-solid fa-spray-can-sparkles"></i>
+                    <span>Phụ kiện giày</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/kho}" class="menu-link">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                    <span>Kho hàng</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/khachhang}" class="menu-link">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Khách hàng</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/hoadon}" class="menu-link">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Hóa đơn</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/baocao}" class="menu-link">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Báo cáo</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/nhacungcap}" class="menu-link">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                    <span>Nhà cung cấp</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a th:href="@{/chatbot}" class="menu-link">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Chatbot hỗ trợ</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-link">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Cài đặt</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="menu-item">
+                <a th:href="@{/logout}" class="menu-link logout-link">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Đăng xuất</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Top Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggleBtn">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <h1 class="page-title">Bảng điều khiển</h1>
+            </div>
+
+            <div class="header-right">
+                <!-- Search Box -->
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Tìm kiếm nhanh...">
+                </div>
+
+                <!-- Theme Toggle Button -->
+                <button class="header-action-btn" id="themeToggleBtn" title="Chuyển chế độ Sáng/Tối">
+                    <i class="fa-solid fa-sun" id="themeIcon"></i>
+                </button>
+
+                <!-- Notifications -->
+                <button class="header-action-btn" title="Thông báo">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="badge"></span>
+                </button>
+
+                <!-- User Profile Info -->
+                <div class="user-profile">
+                    <div class="avatar" title="Thông tin tài khoản"
+                         th:text="${userName != null ? #strings.substring(userName, 0, 1) : 'K'}">K</div>
+                    <div class="user-info">
+                        <span class="user-name" th:text="${userName != null ? userName : 'Nhân viên'}">Nhân viên</span>
+                        <span class="user-role" th:text="${userRole != null ? userRole : 'Quản lý cửa hàng'}">Quản lý cửa hàng</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Body -->
+        <main class="content-body">
+            <!-- Quick Action Buttons -->
+            <div class="quick-actions-bar">
+                <a th:href="@{/hoadon}" class="action-card">
+                    <i class="fa-solid fa-file-circle-plus"></i>
+                    <span>Tạo hóa đơn</span>
+                </a>
+                <a th:href="@{/sanpham}" class="action-card">
+                    <i class="fa-solid fa-shoe-prints"></i>
+                    <span>Thêm giày mới</span>
+                </a>
+                <a th:href="@{/kho}" class="action-card">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                    <span>Nhập kho hàng</span>
+                </a>
+                <a th:href="@{/baocao}" class="action-card">
+                    <i class="fa-solid fa-file-export"></i>
+                    <span>Xuất báo cáo</span>
+                </a>
+            </div>
+
+            <!-- KPI Row Grid -->
+            <section class="kpi-grid">
+                <!-- KPI 1 -->
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-title">Doanh thu hôm nay</span>
+                        <div class="kpi-icon blue">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="kpi-value">48.500.000 đ</div>
+                        <div class="kpi-footer">
+                            <span class="trend-badge up">
+                                <i class="fa-solid fa-arrow-trend-up"></i> 15.2%
+                            </span>
+                            <span class="trend-text">so với hôm qua</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI 2 -->
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-title">Giày đã bán</span>
+                        <div class="kpi-icon green">
+                            <i class="fa-solid fa-shoe-prints"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="kpi-value">28 đôi</div>
+                        <div class="kpi-footer">
+                            <span class="trend-badge up">
+                                <i class="fa-solid fa-arrow-trend-up"></i> 8.2%
+                            </span>
+                            <span class="trend-text">so với hôm qua</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI 3 -->
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-title">Hóa đơn mới</span>
+                        <div class="kpi-icon orange">
+                            <i class="fa-solid fa-receipt"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="kpi-value">18 đơn</div>
+                        <div class="kpi-footer">
+                            <span class="trend-badge up">
+                                <i class="fa-solid fa-arrow-trend-up"></i> 5.0%
+                            </span>
+                            <span class="trend-text">so với tuần trước</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI 4 -->
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-title">Khách hàng mới</span>
+                        <div class="kpi-icon purple">
+                            <i class="fa-solid fa-user-plus"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="kpi-value">+12 khách</div>
+                        <div class="kpi-footer">
+                            <span class="trend-badge up">
+                                <i class="fa-solid fa-arrow-trend-up"></i> 12.4%
+                            </span>
+                            <span class="trend-text">so với tháng trước</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Row Grid -->
+            <section class="charts-grid">
+                <!-- Line Chart Card -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h2 class="chart-title">
+                            <i class="fa-solid fa-chart-line" style="color: var(--primary-color);"></i>
+                            Doanh thu giày & phụ kiện 2026
+                        </h2>
+                        <div class="chart-actions">
+                            <select id="timeRange">
+                                <option value="6months">6 tháng gần nhất</option>
+                                <option value="year">Cả năm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Doughnut Chart Card -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h2 class="chart-title">
+                            <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i>
+                            Thị phần thương hiệu
+                        </h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Row Grid: Tables and Inventory Warnings -->
+            <section class="bottom-grid">
+                <!-- Recent Invoices Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h2 class="table-title">
+                            <i class="fa-solid fa-receipt" style="color: var(--primary-color);"></i>
+                            Giao dịch gần đây
+                        </h2>
+                        <a th:href="@{/hoadon}" class="view-all-btn">Xem tất cả</a>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã hóa đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>Sản phẩm giao dịch</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><a href="#" class="invoice-id">#HD-0948</a></td>
+                                    <td>Nguyễn Văn Bình</td>
+                                    <td>Nike Air Force 1 '07 (Size 41)</td>
+                                    <td>2.990.000 đ</td>
+                                    <td>
+                                        <span class="status-badge completed">
+                                            <i class="fa-solid fa-circle-check"></i> Đã thanh toán
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="invoice-id">#HD-0947</a></td>
+                                    <td>Trần Thị Hồng</td>
+                                    <td>Adidas UltraBoost Light (Size 42)</td>
+                                    <td>4.500.000 đ</td>
+                                    <td>
+                                        <span class="status-badge completed">
+                                            <i class="fa-solid fa-circle-check"></i> Đã thanh toán
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="invoice-id">#HD-0946</a></td>
+                                    <td>Lê Hoàng Nam</td>
+                                    <td>Air Jordan 1 Retro High (Size 40)</td>
+                                    <td>5.490.000 đ</td>
+                                    <td>
+                                        <span class="status-badge pending">
+                                            <i class="fa-solid fa-circle-notch fa-spin"></i> Chờ xử lý
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="invoice-id">#HD-0945</a></td>
+                                    <td>Phạm Minh Tuấn</td>
+                                    <td>Puma Slipstream Lo (Size 43)</td>
+                                    <td>2.190.000 đ</td>
+                                    <td>
+                                        <span class="status-badge completed">
+                                            <i class="fa-solid fa-circle-check"></i> Đã thanh toán
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#" class="invoice-id">#HD-0944</a></td>
+                                    <td>Vũ Ngọc Linh</td>
+                                    <td>Bình xịt chống nước Crep Protect</td>
+                                    <td>150.000 đ</td>
+                                    <td>
+                                        <span class="status-badge cancelled">
+                                            <i class="fa-solid fa-circle-xmark"></i> Đã hủy
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Stock Warnings Card -->
+                <div class="alert-card">
+                    <div class="table-header">
+                        <h2 class="table-title">
+                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i>
+                            Cảnh báo tồn kho ít
+                        </h2>
+                        <a th:href="@{/kho}" class="view-all-btn">Tới Kho</a>
+                    </div>
+                    <ul class="alert-list">
+                        <li class="alert-item">
+                            <div class="alert-info">
+                                <span class="alert-product">Nike Air Force 1 '07 (Size 41)</span>
+                                <span class="alert-desc">Màu Trắng Cổ Điển, Bản Phổ Thông</span>
+                            </div>
+                            <span class="alert-qty danger">Còn 2 đôi</span>
+                        </li>
+                        <li class="alert-item">
+                            <div class="alert-info">
+                                <span class="alert-product">Adidas UltraBoost Light (Size 42)</span>
+                                <span class="alert-desc">Core Black, Ram Đế Boost Mới</span>
+                            </div>
+                            <span class="alert-qty danger">Còn 1 đôi</span>
+                        </li>
+                        <li class="alert-item warning">
+                            <div class="alert-info">
+                                <span class="alert-product">Air Jordan 1 Retro High (Size 40)</span>
+                                <span class="alert-desc">Chicago Colorway, Bản Cổ Cao</span>
+                            </div>
+                            <span class="alert-qty warning">Còn 3 đôi</span>
+                        </li>
+                        <li class="alert-item warning">
+                            <div class="alert-info">
+                                <span class="alert-product">Bình xịt chống nước Crep Protect</span>
+                                <span class="alert-desc">Công nghệ phủ nano bảo vệ giày</span>
+                            </div>
+                            <span class="alert-qty warning">Còn 5 chai</span>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Chart rendering logic and Mobile layout toggling -->
+    <script>
+        // Toggle Sidebar on Mobile
+        const menuToggleBtn = document.getElementById('menuToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
+        }
+
+        menuToggleBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // Theme Toggle Logic
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeIcon = document.getElementById('themeIcon');
+        const htmlElement = document.documentElement;
+
+        // Check for saved theme preference or default to dark mode
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'light') {
+            htmlElement.classList.add('light-mode');
+            themeIcon.className = 'fa-solid fa-moon';
+        } else {
+            htmlElement.classList.remove('light-mode');
+            themeIcon.className = 'fa-solid fa-sun';
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            if (htmlElement.classList.contains('light-mode')) {
+                htmlElement.classList.remove('light-mode');
+                themeIcon.className = 'fa-solid fa-sun';
+                localStorage.setItem('theme', 'dark');
+                updateChartsForTheme(true);
+            } else {
+                htmlElement.classList.add('light-mode');
+                themeIcon.className = 'fa-solid fa-moon';
+                localStorage.setItem('theme', 'light');
+                updateChartsForTheme(false);
+            }
+        });
+
+        // Chart.js Configuration
+        let revenueChart;
+        let categoryChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check current mode to set appropriate initial colours
+            const isDark = !htmlElement.classList.contains('light-mode');
+            const initialTextColor = isDark ? '#a19e9a' : '#78706b';
+            const initialGridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
+
+            // Doanh thu Line Chart
+            const revCtx = document.getElementById('revenueChart').getContext('2d');
+            
+            // Create gradient color for line chart background
+            const orangeGradient = revCtx.createLinearGradient(0, 0, 0, 400);
+            orangeGradient.addColorStop(0, 'rgba(255, 87, 34, 0.35)');
+            orangeGradient.addColorStop(1, 'rgba(255, 87, 34, 0.0)');
+
+            revenueChart = new Chart(revCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'],
+                    datasets: [{
+                        label: 'Doanh thu (triệu VNĐ)',
+                        data: [120, 185, 142, 230, 195, 290],
+                        borderColor: '#ff5722',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ff5722',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        tension: 0.35,
+                        fill: true,
+                        backgroundColor: orangeGradient
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            padding: 12,
+                            cornerRadius: 10,
+                            backgroundColor: '#141211',
+                            titleFont: { size: 13, weight: 'bold', family: "'Plus Jakarta Sans', sans-serif" },
+                            bodyFont: { size: 13, family: "'Plus Jakarta Sans', sans-serif" },
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.formattedValue + '.000.000 đ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: initialTextColor,
+                                font: {
+                                    family: "'Plus Jakarta Sans', sans-serif",
+                                    size: 11,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: initialGridColor
+                            },
+                            ticks: {
+                                color: initialTextColor,
+                                font: {
+                                    family: "'Plus Jakarta Sans', sans-serif",
+                                    size: 11,
+                                    weight: '600'
+                                },
+                                callback: function(value) {
+                                    return value + 'M';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Brand Category Doughnut Chart
+            const catCtx = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(catCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Nike', 'Adidas', 'Jordan', 'Puma', 'Phụ kiện'],
+                    datasets: [{
+                        data: [40, 30, 15, 10, 5],
+                        backgroundColor: [
+                            '#ff5722', // Nike orange
+                            '#2196f3', // Adidas blue
+                            '#e91e63', // Jordan red/pink
+                            '#4caf50', // Puma green
+                            '#9c27b0'  // Accessories purple
+                        ],
+                        borderWidth: 2,
+                        borderColor: isDark ? '#141211' : '#ffffff',
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15,
+                                color: isDark ? '#fcfcfc' : '#2b2724',
+                                font: {
+                                    family: "'Plus Jakarta Sans', sans-serif",
+                                    size: 11,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            padding: 12,
+                            cornerRadius: 10,
+                            backgroundColor: '#141211',
+                            titleFont: { family: "'Plus Jakarta Sans', sans-serif" },
+                            bodyFont: { family: "'Plus Jakarta Sans', sans-serif" },
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            // Demo handler for dropdown selection changes
+            document.getElementById('timeRange').addEventListener('change', function(e) {
+                if (e.target.value === 'year') {
+                    revenueChart.data.labels = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+                    revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290, 310, 280, 340, 380, 320, 425];
+                } else {
+                    revenueChart.data.labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'];
+                    revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290];
+                }
+                revenueChart.update();
+            });
+        });
+
+        // Function to update Chart.js colors dynamically based on theme
+        function updateChartsForTheme(isDark) {
+            if (!revenueChart || !categoryChart) return;
+
+            const textColor = isDark ? '#a19e9a' : '#78706b';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
+            const chartBorderColor = isDark ? '#141211' : '#ffffff';
+            const legendTextColor = isDark ? '#fcfcfc' : '#2b2724';
+
+            // Update axes colors
+            revenueChart.options.scales.x.ticks.color = textColor;
+            revenueChart.options.scales.y.ticks.color = textColor;
+            revenueChart.options.scales.y.grid.color = gridColor;
+
+            // Update doughnut chart styling
+            categoryChart.data.datasets[0].borderColor = chartBorderColor;
+            categoryChart.options.plugins.legend.labels.color = legendTextColor;
+
+            // Update charts
+            revenueChart.update();
+            categoryChart.update();
+        }
+    </script>
+</body>
+</html>

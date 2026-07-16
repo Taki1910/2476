@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hệ thống quản lý cửa hàng giày Kicks Zone - Trang đăng nhập">
+    <title>Đăng nhập - KICKS ZONE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #ff5722, #ff9800);
+            --primary-hover: linear-gradient(135deg, #e64a19, #f57c00);
+            --bg-dark: #0c0b0a;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-main: #fcfcfc;
+            --text-sub: #a19e9a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .bg-glow-1, .bg-glow-2 {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .bg-glow-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(255, 87, 34, 0.12) 0%, transparent 70%);
+            top: -10%; left: -10%;
+        }
+
+        .bg-glow-2 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(255, 152, 0, 0.08) 0%, transparent 70%);
+            bottom: -15%; right: -10%;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            min-height: 640px;
+            margin: 20px;
+            display: flex;
+            background: rgba(20, 18, 16, 0.45);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            z-index: 10;
+        }
+
+        .login-box {
+            width: 45%;
+            min-width: 400px;
+            padding: 56px 64px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .logo-icon {
+            width: 56px; height: 56px;
+            background: var(--primary-gradient);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 20px rgba(255, 87, 34, 0.3);
+        }
+
+        .logo-icon i { color: #fff; font-size: 26px; }
+
+        .logo h2 {
+            font-size: 26px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 60%, #ffcc80);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo p { margin-top: 6px; color: var(--text-sub); font-size: 14px; }
+        .logo { margin-bottom: 36px; }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group { margin-bottom: 22px; }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ffe0b2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper { position: relative; }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-sub);
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            height: 50px;
+            padding: 0 16px 0 46px;
+            background: rgba(40, 35, 30, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.25s;
+        }
+
+        input:focus {
+            border-color: #ff5722;
+            background: rgba(40, 35, 30, 0.7);
+            box-shadow: 0 0 16px rgba(255, 87, 34, 0.2);
+        }
+
+        .remember-forgot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 28px;
+            color: var(--text-sub);
+        }
+
+        .remember { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .remember input { width: 16px; height: 16px; accent-color: #ff5722; }
+
+        .forgot-link { color: #ff8a65; text-decoration: none; }
+        .forgot-link:hover { color: #ffe0b2; }
+
+        button[type="submit"] {
+            width: 100%;
+            height: 50px;
+            border: none;
+            border-radius: 12px;
+            background: var(--primary-gradient);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
+        }
+
+        button[type="submit"]:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .image-box {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 100%;
+            background: #1a1512;
+        }
+
+        .image-box img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+
+        .image-box::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 45%, rgba(12, 11, 10, 0.55) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @media (max-width: 960px) {
+            .container { max-width: 480px; min-height: auto; }
+            .login-box { width: 100%; min-width: unset; padding: 44px 32px; }
+            .image-box { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .login-box { padding: 36px 22px; }
+            .logo h2 { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-glow-1"></div>
+<div class="bg-glow-2"></div>
+
+<div class="container">
+    <div class="login-box">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fa-solid fa-shoe-prints"></i>
+            </div>
+            <h2>SNEAKER STORE</h2>
+            <p>Hệ thống Quản lý Cửa hàng Giày Sneaker</p>
+        </div>
+
+        <div th:if="${error}" class="alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span th:text="${error}">Sai tên đăng nhập hoặc mật khẩu</span>
+        </div>
+
+        <form th:action="@{/login}" method="post">
+            <div class="form-group">
+                <label for="username">Tên đăng nhập</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" name="username"
+                           placeholder="Nhập tên tài khoản" required autocomplete="username"
+                           th:value="${username}">
+                    <i class="fa-regular fa-user"></i>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mật khẩu</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password"
+                           placeholder="Nhập mật khẩu" required autocomplete="current-password">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+            </div>
+
+            <div class="remember-forgot">
+                <label class="remember">
+                    <input type="checkbox" name="remember">
+                    <span>Ghi nhớ đăng nhập</span>
+                </label>
+                <a href="#" class="forgot-link">Quên mật khẩu?</a>
+            </div>
+
+            <button type="submit">
+                Đăng nhập <i class="fa-solid fa-arrow-right-to-bracket" style="margin-left: 6px;"></i>
+            </button>
+        </form>
+    </div>
+
+    <div class="image-box">
+        <img src="https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcRKt2dNaHz64CoaAJS9NLd7smbWmBHF5zLndUzpeh5y8v2RV6gQRKPKc5ROM42E"
+             alt="Sneaker Store">
+    </div>
+</div>
+
+</body>
+</html>
