@@ -593,11 +593,6 @@
                 <span>Giày &amp; Dép</span>
             </a>
 
-            <a th:href="@{/kho}">
-                <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Kho hàng</span>
-            </a>
-
             <a th:href="@{/khachhang}">
                 <i class="fa-solid fa-users"></i>
                 <span>Khách hàng</span>
@@ -691,7 +686,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Đã thanh toán</div>
-                            <div class="stat-value">18</div>
+                            <div class="stat-value" th:text="${completedCount}">0</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-check"></i>
@@ -709,7 +704,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Đang xử lý</div>
-                            <div class="stat-value">4</div>
+                            <div class="stat-value" th:text="${pendingCount}">0</div>
 
                             <div class="stat-note" style="color:#ffb43c">
                                 <i class="fa-solid fa-clock"></i>
@@ -727,7 +722,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Doanh thu hóa đơn</div>
-                            <div class="stat-value">48.500.000 đ</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(invoiceRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-arrow-trend-up"></i>
@@ -889,6 +884,7 @@
                                        title="In hóa đơn">
                                         <i class="fa-solid fa-print"></i>
                                     </a>
+                                    <form method="post" th:action="@{/hoadon/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
 
                                 </div>
                             </td>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="ed07c536-b55a-4711-93dc-90665223d92e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/QLCHGiay.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jarRepositories.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/QuanLyBanHang.sql" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/QuanLyBanHang.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/QuanLyCuaHangGiay.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/DashboardController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/DashboardController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SanPhamRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SanPhamRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/baocao.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/baocao.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/chatbot.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/chatbot.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/dashboard.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/kho.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham.html" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="66" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Taki1910&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Trung3626/DA1.git&quot;,
+    &quot;accountId&quot;: &quot;64038f8b-6b28-4b4b-b31a-166dd28c9ab4&quot;
+  }
+}</component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0000663290321365" />
+      <entry key="MS500" value="1.1459959243266398" />
+      <entry key="S2" value="1.6181376304604758" />
+      <entry key="S5" value="1.8249622450062417" />
+      <entry key="S10" value="1.9082743225514203" />
+      <entry key="S30" value="1.9684391671144534" />
+      <entry key="S60" value="1.9840930683194822" />
+      <entry key="M2" value="1.9920146512625116" />
+      <entry key="M5" value="1.9967981758512474" />
+      <entry key="M10" value="1.9983978044102697" />
+      <entry key="M15" value="1.998931584177917" />
+      <entry key="M30" value="1.9994656493236358" />
+      <entry key="H1" value="1.9997327889609482" />
+      <entry key="H2" value="1.9998663855540642" />
+      <entry key="H4" value="1.9999331905452804" />
+      <entry key="D1" value="1.9999888647809019" />
+      <entry key="W1" value="1.999998409246823" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="6.685446144066432E-5" />
+      <entry key="MS500" value="0.2014716329059833" />
+      <entry key="S2" value="1.1034548653452492" />
+      <entry key="S5" value="1.5738388886751702" />
+      <entry key="S10" value="1.7736509132152356" />
+      <entry key="S30" value="1.9213853635617741" />
+      <entry key="S60" value="1.960282699716641" />
+      <entry key="M2" value="1.9800377438049677" />
+      <entry key="M5" value="1.9919900884925483" />
+      <entry key="M10" value="1.9959908640499713" />
+      <entry key="M15" value="1.9973263128745986" />
+      <entry key="M30" value="1.9986626913011838" />
+      <entry key="H1" value="1.9993312293246515" />
+      <entry key="H2" value="1.9996655855756" />
+      <entry key="H4" value="1.9998327855154634" />
+      <entry key="D1" value="1.9999721299091415" />
+      <entry key="W1" value="1.9999960185337107" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3GcPSz5RWZAZSPu4aq15HEH44vW" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.QlchGiayApplication.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+    <configuration name="QlchGiayApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="qlch-giay" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.qlchgiay.QlchGiayApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.24374.151" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.24374.151" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ed07c536-b55a-4711-93dc-90665223d92e" name="Changes" comment="" />
+      <created>1784267890633</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1784267890633</updated>
+      <workItem from="1784267896505" duration="3389000" />
+      <workItem from="1784337049091" duration="2821000" />
+      <workItem from="1784375479777" duration="137000" />
+      <workItem from="1784517399830" duration="212000" />
+      <workItem from="1784527443439" duration="3092000" />
+      <workItem from="1784531376720" duration="3079000" />
+      <workItem from="1784538843608" duration="370000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

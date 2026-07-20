@@ -600,11 +600,6 @@
                 <span>Giày &amp; Dép</span>
             </a>
 
-            <a th:href="@{/kho}">
-                <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Kho hàng</span>
-            </a>
-
             <a th:href="@{/khachhang}">
                 <i class="fa-solid fa-users"></i>
                 <span>Khách hàng</span>
@@ -696,7 +691,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Đang hợp tác</div>
-                            <div class="stat-value">12</div>
+                            <div class="stat-value" th:text="${activeCount}">0</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-circle-check"></i>
@@ -714,7 +709,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Tạm ngừng</div>
-                            <div class="stat-value">2</div>
+                            <div class="stat-value" th:text="${inactiveCount}">0</div>
 
                             <div class="stat-note" style="color:#ffb43c">
                                 <i class="fa-solid fa-pause"></i>
@@ -732,7 +727,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Nhập hàng tháng này</div>
-                            <div class="stat-value">18 đơn</div>
+                            <div class="stat-value" th:text="${items != null ? #lists.size(items) : 0}">0</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-arrow-trend-up"></i>
@@ -898,12 +893,7 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <a class="action-btn"
-                                       th:href="@{/nhacungcap/xoa/{id}(id=${x.id})}"
-                                       title="Xóa"
-                                       onclick="return confirm('Bạn có chắc muốn xóa nhà cung cấp này?')">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </a>
+                                    <form method="post" th:action="@{/nhacungcap/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa nhà cung cấp này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
 
                                 </div>
                             </td>

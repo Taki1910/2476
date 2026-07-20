@@ -5,7 +5,7 @@ USE QuanLyBanHang;
 GO
 
 /* =========================
-   LO?I S?N PH?M
+   LOẠI SẢN PHẨM
 ========================= */
 
 CREATE TABLE Loai(
@@ -20,7 +20,7 @@ CREATE TABLE Loai(
 
 
 /* =========================
-   M�U S?C
+   MÀU SẮC
 ========================= */
 
 CREATE TABLE Mau(
@@ -35,7 +35,7 @@ CREATE TABLE Mau(
 
 
 /* =========================
-   CH?T LI?U
+   CHẤT LIỆU
 ========================= */
 
 CREATE TABLE ChatLieu(
@@ -65,7 +65,7 @@ CREATE TABLE Size(
 
 
 /* =========================
-   NH� CUNG C?P
+   NHÀ CUNG CẤP
 ========================= */
 
 CREATE TABLE NhaCungCap(
@@ -86,7 +86,7 @@ CREATE TABLE NhaCungCap(
 
 
 /* =========================
-   S?N PH?M
+   SẢN PHẨM
 ========================= */
 
 CREATE TABLE SanPham(
@@ -123,7 +123,7 @@ CREATE TABLE SanPham(
 
 
 /* =========================
-   CHI TI?T S?N PH?M
+   CHI TIẾT SẢN PHẨM
 ========================= */
 
 CREATE TABLE ChiTietSanPham(
@@ -154,7 +154,7 @@ CREATE TABLE ChiTietSanPham(
 
 
 /* =========================
-   CH?C V?
+   CHỨC VỤ
 ========================= */
 
 CREATE TABLE ChucVu(
@@ -165,7 +165,7 @@ CREATE TABLE ChucVu(
 
 );
 /* =========================
-   NH�N VI�N
+   NHÂN VIÊN
 ========================= */
 
 CREATE TABLE NhanVien(
@@ -193,7 +193,7 @@ CREATE TABLE NhanVien(
 
 
 /* =========================
-   KH�CH H�NG
+   KHÁCH HÀNG
 ========================= */
 
 CREATE TABLE KhachHang(
@@ -213,7 +213,7 @@ diaChi NVARCHAR(200)
 
 
 /* =========================
-   T�I KHO?N
+   TÀI KHOẢN
 ========================= */
 
 CREATE TABLE TaiKhoan(
@@ -237,7 +237,7 @@ CREATE TABLE TaiKhoan(
 
 
 /* =========================
-   CHI TI?T GI? H�NG
+   CHI TIẾT GIỎ HÀNG
 ========================= */
 
 CREATE TABLE ChiTietGioHang(
@@ -268,7 +268,7 @@ CREATE TABLE ChiTietGioHang(
 
 
 /* =========================
-   ??N H�NG
+   ĐƠN HÀNG
 ========================= */
 
 CREATE TABLE DonHang(
@@ -295,7 +295,7 @@ CREATE TABLE DonHang(
 
 
 /* =========================
-   H�A ??N
+   HÓA ĐƠN
 ========================= */
 
 CREATE TABLE HoaDon(
@@ -322,7 +322,7 @@ CREATE TABLE HoaDon(
 
 
 /* =========================
-   CHI TI?T H�A ??N
+   CHI TIẾT HÓA ĐƠN
 ========================= */
 
 CREATE TABLE ChiTietHoaDon(
@@ -349,7 +349,7 @@ CREATE TABLE ChiTietHoaDon(
 
 
 /* =========================
-   THANH TO�N
+   THANH TOÁN
 ========================= */
 
 CREATE TABLE ThanhToan(
@@ -373,31 +373,31 @@ CREATE TABLE ThanhToan(
 
 INSERT INTO Loai(tenLoai, tonKho)
 VALUES
-(N'Gi�y Sneaker',50),
-(N'Gi�y Th? Thao',40),
-(N'D�p',20),
-(N'Gi�y Boot',15);
+(N'Giày Sneaker',50),
+(N'Giày Thể Thao',40),
+(N'Dép',20),
+(N'Giày Boot',15);
 
 /* =========================
-   M�U S?C
+   MÀU SẮC
 ========================= */
 
 INSERT INTO Mau(tenMau, tonKho)
 VALUES
-(N'Tr?ng',30),
-(N'?en',40),
-(N'??',20),
+(N'Trắng',30),
+(N'Đen',40),
+(N'Đỏ',20),
 (N'Xanh',15);
 
 /* =========================
-   CH?T LI?U
+   CHẤT LIỆU
 ========================= */
 
 INSERT INTO ChatLieu(tenChatLieu, tonKho)
 VALUES
 (N'Da',30),
 (N'Canvas',40),
-(N'V?i',25),
+(N'Vải',25),
 (N'Cao su',50);
 
 /* =========================
@@ -413,18 +413,18 @@ VALUES
 ('42',20);
 
 /* =========================
-   NH� CUNG C?P
+   NHÀ CUNG CẤP
 ========================= */
 
 INSERT INTO NhaCungCap
 (tenNCC,soDienThoai,email,diaChi,trangThai)
 VALUES
-(N'Nike Vi?t Nam','0901111111','nike@gmail.com',N'H� N?i',N'Ho?t ??ng'),
-(N'Adidas Vi?t Nam','0902222222','adidas@gmail.com',N'HCM',N'Ho?t ??ng'),
-(N'Converse Vi?t Nam','0903333333','converse@gmail.com',N'?� N?ng',N'Ho?t ??ng');
+(N'Nike Việt Nam','0901111111','nike@gmail.com',N'Hà Nội',N'Hoạt động'),
+(N'Adidas Việt Nam','0902222222','adidas@gmail.com',N'TP. Hồ Chí Minh',N'Hoạt động'),
+(N'Converse Việt Nam','0903333333','converse@gmail.com',N'Đà Nẵng',N'Hoạt động');
 
 /* =========================
-   S?N PH?M
+   SẢN PHẨM
 ========================= */
 
 INSERT INTO SanPham
@@ -437,95 +437,95 @@ VALUES
 (N'Vans Old Skool',2,2,2,2,1900000,18);
 
 /* =========================
-   CHI TI?T S?N PH?M
+   CHI TIẾT SẢN PHẨM
 ========================= */
 
 INSERT INTO ChiTietSanPham
 (maSP,maNCC,moTa,hinhAnh,xuatXu,thuongHieu,trangThai)
 VALUES
-(1,1,N'Gi�y Nike Air Force 1 ch�nh h�ng','af1.jpg',N'Vi?t Nam','Nike',N'C�n h�ng'),
-(2,2,N'Adidas Superstar','superstar.jpg',N'Vi?t Nam','Adidas',N'C�n h�ng'),
-(3,3,N'Converse Chuck Taylor','converse.jpg',N'Vi?t Nam','Converse',N'C�n h�ng'),
-(4,1,N'Nike Jordan Low','jordan.jpg',N'Indonesia','Nike',N'C�n h�ng'),
-(5,3,N'Vans Old Skool','vans.jpg',N'Trung Qu?c','Vans',N'C�n h�ng');
+(1,1,N'Giày Nike Air Force 1 chính hãng','af1.jpg',N'Việt Nam',N'Nike',N'Còn hàng'),
+(2,2,N'Adidas Superstar','superstar.jpg',N'Việt Nam',N'Adidas',N'Còn hàng'),
+(3,3,N'Converse Chuck Taylor','converse.jpg',N'Việt Nam',N'Converse',N'Còn hàng'),
+(4,1,N'Nike Jordan Low','jordan.jpg',N'Indonesia',N'Nike',N'Còn hàng'),
+(5,3,N'Vans Old Skool','vans.jpg',N'Trung Quốc',N'Vans',N'Còn hàng');
 
 /* =========================
-   CH?C V?
+   CHỨC VỤ
 ========================= */
 
 INSERT INTO ChucVu(tenChucVu)
 VALUES
-(N'Qu?n l�'),
-(N'Nh�n vi�n');
+(N'Quản lý'),
+(N'Nhân viên');
 
 /* =========================
-   NH�N VI�N
+   NHÂN VIÊN
 ========================= */
 
 INSERT INTO NhanVien
 (tenNhanVien,gioiTinh,soDienThoai,namSinh,queQuan,maChucVu,trangThai)
 VALUES
-(N'Nguy?n V?n A',1,'0911111111',1998,N'H� N?i',1,N'?ang l�m'),
-(N'Tr?n Th? B',0,'0922222222',2000,N'HCM',2,N'?ang l�m'),
-(N'L� V?n C',1,'0933333333',1999,N'?� N?ng',2,N'?ang l�m');
+(N'Nguyễn Văn A',1,'0911111111',1998,N'Hà Nội',1,N'Đang làm'),
+(N'Trần Thị B',0,'0922222222',2000,N'TP. Hồ Chí Minh',2,N'Đang làm'),
+(N'Lê Văn C',1,'0933333333',1999,N'Đà Nẵng',2,N'Đang làm');
 
 /* =========================
-   KH�CH H�NG
+   KHÁCH HÀNG
 ========================= */
 
 INSERT INTO KhachHang
 (tenKH,gioiTinh,namSinh,soDienThoai,diaChi)
 VALUES
-(N'Ph?m Ki�n Trung',1,2004,'0988888888',N'H� N?i'),
-(N'Nguy?n Th? D',0,2002,'0977777777',N'HCM'),
-(N'Ho�ng V?n E',1,1999,'0966666666',N'?� N?ng');
+(N'Phạm Kiên Trung',1,2004,'0988888888',N'Hà Nội'),
+(N'Nguyễn Thị D',0,2002,'0977777777',N'TP. Hồ Chí Minh'),
+(N'Hoàng Văn E',1,1999,'0966666666',N'Đà Nẵng');
 
 /* =========================
-   T�I KHO?N
+   TÀI KHOẢN
 ========================= */
 
 INSERT INTO TaiKhoan
 (tenDangNhap,matKhau,vaiTro,maNhanVien,trangThai)
 VALUES
-('admin','123456',N'Admin',1,N'Ho?t ??ng'),
-('nhanvien1','123456',N'Nh�n vi�n',2,N'Ho?t ??ng'),
-('nhanvien2','123456',N'Nh�n vi�n',3,N'Ho?t ??ng');
+('admin','123456',N'Admin',1,N'Hoạt động'),
+('nhanvien1','123456',N'Nhân viên',2,N'Hoạt động'),
+('nhanvien2','123456',N'Nhân viên',3,N'Hoạt động');
 
 /* =========================
-   CHI TI?T GI? H�NG
+   CHI TIẾT GIỎ HÀNG
 ========================= */
 
 INSERT INTO ChiTietGioHang
 (maKH,maChiTietSP,soLuong,donGia,trangThai)
 VALUES
-(1,1,1,2500000,N'?ang ch?n'),
-(2,2,2,2200000,N'?ang ch?n'),
-(3,3,1,1800000,N'?ang ch?n');
+(1,1,1,2500000,N'Đang chọn'),
+(2,2,2,2200000,N'Đang chọn'),
+(3,3,1,1800000,N'Đang chọn');
 
 /* =========================
-   ??N H�NG
+   ĐƠN HÀNG
 ========================= */
 
 INSERT INTO DonHang
 (maKH,maNhanVien,ngayDatHang,tongTien,trangThai)
 VALUES
-(1,1,'2026-07-01',2500000,N'?� x�c nh?n'),
-(2,2,'2026-07-02',4400000,N'?ang giao'),
-(3,3,'2026-07-03',1800000,N'Ho�n th�nh');
+(1,1,'2026-07-01',2500000,N'Đã xác nhận'),
+(2,2,'2026-07-02',4400000,N'Đang giao'),
+(3,3,'2026-07-03',1800000,N'Hoàn thành');
 
 /* =========================
-   H�A ??N
+   HÓA ĐƠN
 ========================= */
 
 INSERT INTO HoaDon
 (maDonHang,maNhanVien,ngayLap,tongTien,trangThai)
 VALUES
-(1,1,'2026-07-01',2500000,N'?� thanh to�n'),
-(2,2,'2026-07-02',4400000,N'?� thanh to�n'),
-(3,3,'2026-07-03',1800000,N'?� thanh to�n');
+(1,1,'2026-07-01',2500000,N'Đã thanh toán'),
+(2,2,'2026-07-02',4400000,N'Đã thanh toán'),
+(3,3,'2026-07-03',1800000,N'Đã thanh toán');
 
 /* =========================
-   CHI TI?T H�A ??N
+   CHI TIẾT HÓA ĐƠN
 ========================= */
 
 INSERT INTO ChiTietHoaDon
@@ -536,12 +536,12 @@ VALUES
 (3,3,1,1800000);
 
 /* =========================
-   THANH TO�N
+   THANH TOÁN
 ========================= */
 
 INSERT INTO ThanhToan
 (maHoaDon,phuongThuc,ngayThanhToan,soTien,trangThai)
 VALUES
-(1,N'Ti?n m?t','2026-07-01',2500000,N'Th�nh c�ng'),
-(2,N'Chuy?n kho?n','2026-07-02',4400000,N'Th�nh c�ng'),
-(3,N'V� ?i?n t?','2026-07-03',1800000,N'Th�nh c�ng');
+(1,N'Tiền mặt','2026-07-01',2500000,N'Thành công'),
+(2,N'Chuyển khoản','2026-07-02',4400000,N'Thành công'),
+(3,N'Ví điện tử','2026-07-03',1800000,N'Thành công');

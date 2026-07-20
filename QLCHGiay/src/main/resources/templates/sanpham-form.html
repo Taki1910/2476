@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle} + ' - KICKS ZONE'">Sản phẩm - KICKS ZONE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#0d0c0b;color:#f5f5f5;font-family:Arial,sans-serif}
+        .page{max-width:900px;margin:0 auto;padding:42px 20px}.back{color:#aaa5a1;text-decoration:none;font-size:14px}.back:hover{color:#ff6a1a}
+        .card{margin-top:22px;background:#151311;border:1px solid #2b2825;border-radius:16px;overflow:hidden}
+        .header{padding:22px 26px;border-bottom:1px solid #2b2825}.header h1{margin:0 0 7px;font-size:23px}.header p{margin:0;color:#8d8782;font-size:13px}
+        form{padding:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.full{grid-column:1/-1}
+        label{display:block;margin-bottom:8px;color:#c9c4bf;font-size:13px;font-weight:700}input,select{width:100%;height:44px;padding:0 13px;border:1px solid #37322e;border-radius:9px;background:#1b1816;color:#fff;outline:none}input:focus,select:focus{border-color:#ff6a1a;box-shadow:0 0 0 3px rgba(255,106,26,.12)}
+        .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #2b2825}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border:0;border-radius:9px;text-decoration:none;font-weight:700;cursor:pointer}.cancel{background:#26221f;color:#c6c1bd}.save{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}
+        @media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:20px 14px}}
+    </style>
+</head>
+<body>
+<main class="page">
+    <a class="back" th:href="@{/sanpham}"><i class="fa-solid fa-arrow-left"></i> Quay lại danh sách</a>
+    <section class="card">
+        <div class="header"><h1 th:text="${pageTitle}">Thêm sản phẩm</h1><p>Nhập đầy đủ thông tin giày hoặc dép.</p></div>
+        <form method="post" th:action="${sanPham.id == null} ? @{/sanpham/them} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
+            <div class="grid">
+                <div class="full"><label for="tenSP">Tên sản phẩm *</label><input id="tenSP" name="tenSP" maxlength="100" required th:value="${sanPham.tenSP}"></div>
+                <div><label for="maLoai">Loại</label><select id="maLoai" name="maLoai"><option value="">-- Chọn loại --</option><option th:each="x : ${loaiList}" th:value="${x.id}" th:text="${x.tenLoai}" th:selected="${sanPham.maLoai != null && sanPham.maLoai.id == x.id}"></option></select></div>
+                <div><label for="maMau">Màu</label><select id="maMau" name="maMau"><option value="">-- Chọn màu --</option><option th:each="x : ${mauList}" th:value="${x.id}" th:text="${x.tenMau}" th:selected="${sanPham.maMau != null && sanPham.maMau.id == x.id}"></option></select></div>
+                <div><label for="maChatLieu">Chất liệu</label><select id="maChatLieu" name="maChatLieu"><option value="">-- Chọn chất liệu --</option><option th:each="x : ${chatLieuList}" th:value="${x.id}" th:text="${x.tenChatLieu}" th:selected="${sanPham.maChatLieu != null && sanPham.maChatLieu.id == x.id}"></option></select></div>
+                <div><label for="maSize">Size</label><select id="maSize" name="maSize"><option value="">-- Chọn size --</option><option th:each="x : ${sizeList}" th:value="${x.id}" th:text="${x.tenSize}" th:selected="${sanPham.maSize != null && sanPham.maSize.id == x.id}"></option></select></div>
+                <div><label for="gia">Giá bán (VNĐ) *</label><input id="gia" name="gia" type="number" min="0" step="0.01" required th:value="${sanPham.gia != null ? sanPham.gia : 0}"></div>
+                <div><label for="tonKho">Số lượng tồn *</label><input id="tonKho" name="tonKho" type="number" min="0" required th:value="${sanPham.tonKho != null ? sanPham.tonKho : 0}"></div>
+            </div>
+            <div class="actions"><a class="btn cancel" th:href="@{/sanpham}">Hủy</a><button class="btn save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Lưu sản phẩm</button></div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

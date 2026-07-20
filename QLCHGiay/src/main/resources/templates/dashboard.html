@@ -1516,12 +1516,6 @@
             </a>
         </li>
         <li class="menu-item">
-            <a th:href="@{/kho}" class="menu-link">
-                <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Kho hàng</span>
-            </a>
-        </li>
-        <li class="menu-item">
             <a th:href="@{/khachhang}" class="menu-link">
                 <i class="fa-solid fa-users-gear"></i>
                 <span>Khách hàng</span>
@@ -1622,10 +1616,6 @@
                 <i class="fa-solid fa-shoe-prints"></i>
                 <span>Thêm giày mới</span>
             </a>
-            <a th:href="@{/kho}" class="action-card">
-                <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Nhập kho hàng</span>
-            </a>
             <a th:href="@{/baocao}" class="action-card">
                 <i class="fa-solid fa-file-export"></i>
                 <span>Xuất báo cáo</span>
@@ -1643,7 +1633,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="kpi-value">48.500.000 đ</div>
+                <div class="kpi-value" th:text="${#numbers.formatDecimal(todayRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 15.2%
@@ -1662,7 +1652,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="kpi-value">28 đôi</div>
+                <div class="kpi-value" th:text="${soldCount + ' đôi'}">0 đôi</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 8.2%
@@ -1681,7 +1671,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="kpi-value">18 đơn</div>
+                <div class="kpi-value" th:text="${invoiceCount + ' đơn'}">0 đơn</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 5.0%
@@ -1700,7 +1690,7 @@
                     </div>
                 </div>
                 <div>
-                    <div class="kpi-value">+12 khách</div>
+                <div class="kpi-value" th:text="${customerCount + ' khách'}">0 khách</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 12.4%
@@ -1737,7 +1727,7 @@
                 <div class="chart-header">
                     <h2 class="chart-title">
                         <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i>
-                        Thị phần thương hiệu
+                        Cơ cấu danh mục sản phẩm
                     </h2>
                 </div>
                 <div class="chart-container">
@@ -1769,18 +1759,18 @@
                         </tr>
                         </thead>
                         <tbody>
-                        <tr>
-                            <td><a href="#" class="invoice-id">#HD-0948</a></td>
-                            <td>Nguyễn Văn Bình</td>
-                            <td>Nike Air Force 1 '07 (Size 41)</td>
-                            <td>2.990.000 đ</td>
+                        <tr th:each="x:${recentInvoices}">
+                            <td><a th:href="@{/hoadon/{id}(id=${x.id})}" class="invoice-id" th:text="${'#HD-' + x.id}">#HD</a></td>
+                            <td th:text="${x.maDonHang != null && x.maDonHang.maKH != null ? x.maDonHang.maKH.tenKH : '-'}">-</td>
+                            <td th:text="${x.maDonHang != null ? '#DH-' + x.maDonHang.id : '-'}">-</td>
+                            <td th:text="${#numbers.formatDecimal(x.tongTien ?: 0,0,'COMMA',0,'POINT') + ' đ'}">0 đ</td>
                             <td>
                                         <span class="status-badge completed">
-                                            <i class="fa-solid fa-circle-check"></i> Đã thanh toán
+                                            <i class="fa-solid fa-circle-check"></i> <span th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
                                         </span>
                             </td>
                         </tr>
-                        <tr>
+                        <tr th:remove="all">
                             <td><a href="#" class="invoice-id">#HD-0947</a></td>
                             <td>Trần Thị Hồng</td>
                             <td>Adidas UltraBoost Light (Size 42)</td>
@@ -1791,7 +1781,7 @@
                                         </span>
                             </td>
                         </tr>
-                        <tr>
+                        <tr th:remove="all">
                             <td><a href="#" class="invoice-id">#HD-0946</a></td>
                             <td>Lê Hoàng Nam</td>
                             <td>Air Jordan 1 Retro High (Size 40)</td>
@@ -1802,7 +1792,7 @@
                                         </span>
                             </td>
                         </tr>
-                        <tr>
+                        <tr th:remove="all">
                             <td><a href="#" class="invoice-id">#HD-0945</a></td>
                             <td>Phạm Minh Tuấn</td>
                             <td>Puma Slipstream Lo (Size 43)</td>
@@ -1813,7 +1803,7 @@
                                         </span>
                             </td>
                         </tr>
-                        <tr>
+                        <tr th:remove="all">
                             <td><a href="#" class="invoice-id">#HD-0944</a></td>
                             <td>Vũ Ngọc Linh</td>
                             <td>Bình xịt chống nước Crep Protect</td>
@@ -1836,31 +1826,31 @@
                         <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i>
                         Cảnh báo tồn kho ít
                     </h2>
-                    <a th:href="@{/kho}" class="view-all-btn">Tới Kho</a>
+                    <a th:href="@{/sanpham}" class="view-all-btn">Xem sản phẩm</a>
                 </div>
                 <ul class="alert-list">
-                    <li class="alert-item">
+                    <li class="alert-item" th:each="x:${lowStockProducts}">
                         <div class="alert-info">
-                            <span class="alert-product">Nike Air Force 1 '07 (Size 41)</span>
-                            <span class="alert-desc">Màu Trắng Cổ Điển, Bản Phổ Thông</span>
+                            <span class="alert-product" th:text="${x.tenSP}">Sản phẩm</span>
+                            <span class="alert-desc" th:text="${(x.maMau != null ? x.maMau.tenMau : 'Chưa rõ màu') + ' · Size ' + (x.maSize != null ? x.maSize.tenSize : '-')}">Thông tin</span>
                         </div>
-                        <span class="alert-qty danger">Còn 2 đôi</span>
+                        <span class="alert-qty danger" th:text="${'Còn ' + (x.tonKho ?: 0) + ' đôi'}">Còn 0 đôi</span>
                     </li>
-                    <li class="alert-item">
+                    <li class="alert-item" th:remove="all">
                         <div class="alert-info">
                             <span class="alert-product">Adidas UltraBoost Light (Size 42)</span>
                             <span class="alert-desc">Core Black, Ram Đế Boost Mới</span>
                         </div>
                         <span class="alert-qty danger">Còn 1 đôi</span>
                     </li>
-                    <li class="alert-item warning">
+                    <li class="alert-item warning" th:remove="all">
                         <div class="alert-info">
                             <span class="alert-product">Air Jordan 1 Retro High (Size 40)</span>
                             <span class="alert-desc">Chicago Colorway, Bản Cổ Cao</span>
                         </div>
                         <span class="alert-qty warning">Còn 3 đôi</span>
                     </li>
-                    <li class="alert-item warning">
+                    <li class="alert-item warning" th:remove="all">
                         <div class="alert-info">
                             <span class="alert-product">Bình xịt chống nước Crep Protect</span>
                             <span class="alert-desc">Công nghệ phủ nano bảo vệ giày</span>
@@ -1874,7 +1864,7 @@
 </div>
 
 <!-- Chart rendering logic and Mobile layout toggling -->
-<script>
+<script th:inline="javascript">
     // Toggle Sidebar on Mobile
     const menuToggleBtn = document.getElementById('menuToggleBtn');
     const sidebar = document.getElementById('sidebar');
@@ -1938,10 +1928,10 @@
         revenueChart = new Chart(revCtx, {
             type: 'line',
             data: {
-                labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'],
+                labels: /*[[${monthLabels}]]*/ [],
                 datasets: [{
                     label: 'Doanh thu (triệu VNĐ)',
-                    data: [120, 185, 142, 230, 195, 290],
+                    data: /*[[${monthRevenues}]]*/ [],
                     borderColor: '#ff5722',
                     borderWidth: 3,
                     pointBackgroundColor: '#ff5722',
@@ -2013,9 +2003,9 @@
         categoryChart = new Chart(catCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Nike', 'Adidas', 'Jordan', 'Puma', 'Phụ kiện'],
+                labels: /*[[${categoryLabels}]]*/ [],
                 datasets: [{
-                    data: [40, 30, 15, 10, 5],
+                    data: /*[[${categoryValues}]]*/ [],
                     backgroundColor: [
                         '#ff5722', // Nike orange
                         '#2196f3', // Adidas blue

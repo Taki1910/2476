@@ -303,8 +303,7 @@
             color: white;
         }
 
-        .category-filter,
-        .stock-filter {
+        .advanced-filter select {
             height: 40px;
             padding: 0 12px;
             border: 1px solid #332f2b;
@@ -313,6 +312,77 @@
             background: #1b1816;
             color: #aaa5a1;
         }
+
+        .filter-toggle {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            display: grid;
+            place-items: center;
+            border: 1px solid #332f2b;
+            border-radius: 9px;
+            background: #1b1816;
+            color: #aaa5a1;
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .filter-toggle:hover,
+        .filter-toggle.active {
+            border-color: #ff6a1a;
+            background: rgba(255, 106, 26, .12);
+            color: #ff6a1a;
+        }
+
+        .filter-count {
+            position: absolute;
+            top: -7px;
+            right: -7px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            display: none;
+            place-items: center;
+            border: 2px solid #151311;
+            border-radius: 10px;
+            background: #ff6a1a;
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .filter-count.visible { display: grid; }
+
+        .advanced-filter {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+            gap: 12px;
+            max-height: 0;
+            padding: 0 20px;
+            overflow: hidden;
+            border-bottom: 0 solid #2b2825;
+            opacity: 0;
+            transition: max-height .25s ease, padding .25s ease, opacity .2s ease, border-width .25s ease;
+        }
+
+        .advanced-filter.open {
+            max-height: 110px;
+            padding: 15px 20px;
+            border-bottom-width: 1px;
+            opacity: 1;
+        }
+
+        .reset-filter {
+            height: 40px;
+            padding: 0 14px;
+            border: 0;
+            background: transparent;
+            color: #aaa5a1;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .reset-filter:hover { color: #ff6470; }
 
         .create-btn {
             height: 40px;
@@ -536,6 +606,9 @@
                 width: 100%;
                 flex-wrap: wrap;
             }
+
+            .advanced-filter { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+            .advanced-filter.open { max-height: 170px; }
         }
 
         @media (max-width: 760px) {
@@ -583,6 +656,9 @@
             .filter-box input {
                 width: 100%;
             }
+
+            .advanced-filter { grid-template-columns: 1fr; }
+            .advanced-filter.open { max-height: 300px; }
         }
     </style>
 </head>
@@ -610,11 +686,6 @@
             <a th:href="@{/sanpham}" class="active">
                 <i class="fa-solid fa-shoe-prints"></i>
                 <span>Giày &amp; Dép</span>
-            </a>
-
-            <a th:href="@{/kho}">
-                <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Kho hàng</span>
             </a>
 
             <a th:href="@{/khachhang}">
@@ -680,6 +751,9 @@
 
         <section class="content">
 
+            <div th:if="${success}" th:text="${success}" style="margin-bottom:16px;padding:13px 16px;border-radius:9px;background:rgba(39,211,154,.13);color:#2be0a0"></div>
+            <div th:if="${error}" th:text="${error}" style="margin-bottom:16px;padding:13px 16px;border-radius:9px;background:rgba(255,79,89,.14);color:#ff6470"></div>
+
             <div class="stats">
 
                 <article class="stat-card">
@@ -708,7 +782,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Còn hàng</div>
-                            <div class="stat-value">24</div>
+                            <div class="stat-value" th:text="${availableCount}">0</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-circle-check"></i>
@@ -726,7 +800,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Sắp hết hàng</div>
-                            <div class="stat-value">6</div>
+                            <div class="stat-value" th:text="${lowStockCount}">0</div>
 
                             <div class="stat-note" style="color:#ffb43c">
                                 <i class="fa-solid fa-triangle-exclamation"></i>
@@ -744,7 +818,7 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Hết hàng</div>
-                            <div class="stat-value">2</div>
+                            <div class="stat-value" th:text="${outOfStockCount}">0</div>
 
                             <div class="stat-note" style="color:#ff6470">
                                 <i class="fa-solid fa-circle-xmark"></i>
@@ -780,23 +854,13 @@
                                    oninput="filterProducts()">
                         </div>
 
-                        <select class="category-filter"
-                                id="categoryFilter"
-                                onchange="filterProducts()">
-                            <option value="">Tất cả loại</option>
-                            <option value="giày">Giày</option>
-                            <option value="dép">Dép</option>
-                            <option value="sneaker">Sneaker</option>
-                        </select>
-
-                        <select class="stock-filter"
-                                id="stockFilter"
-                                onchange="filterProducts()">
-                            <option value="">Tất cả tồn kho</option>
-                            <option value="còn hàng">Còn hàng</option>
-                            <option value="sắp hết hàng">Sắp hết hàng</option>
-                            <option value="hết hàng">Hết hàng</option>
-                        </select>
+                        <button class="filter-toggle" id="filterToggle" type="button"
+                                title="Bộ lọc nâng cao" aria-label="Mở bộ lọc nâng cao"
+                                aria-expanded="false" aria-controls="advancedFilter"
+                                onclick="toggleAdvancedFilter()">
+                            <i class="fa-solid fa-filter"></i>
+                            <span class="filter-count" id="filterCount">0</span>
+                        </button>
 
                         <a th:href="@{/sanpham/them}" class="create-btn">
                             <i class="fa-solid fa-plus"></i>
@@ -805,6 +869,30 @@
 
                     </div>
 
+                </div>
+
+                <div class="advanced-filter" id="advancedFilter">
+                    <select id="categoryFilter" aria-label="Lọc theo loại" onchange="filterProducts()">
+                        <option value="">Tất cả loại</option>
+                        <option th:each="x : ${loaiList}" th:value="${x.tenLoai}" th:text="${x.tenLoai}"></option>
+                    </select>
+                    <select id="colorFilter" aria-label="Lọc theo màu" onchange="filterProducts()">
+                        <option value="">Tất cả màu</option>
+                        <option th:each="x : ${mauList}" th:value="${x.tenMau}" th:text="${x.tenMau}"></option>
+                    </select>
+                    <select id="sizeFilter" aria-label="Lọc theo size" onchange="filterProducts()">
+                        <option value="">Tất cả size</option>
+                        <option th:each="x : ${sizeList}" th:value="${x.tenSize}" th:text="${x.tenSize}"></option>
+                    </select>
+                    <select id="stockFilter" aria-label="Lọc theo tồn kho" onchange="filterProducts()">
+                        <option value="">Tất cả tồn kho</option>
+                        <option value="available">Còn hàng</option>
+                        <option value="low">Sắp hết hàng</option>
+                        <option value="out">Hết hàng</option>
+                    </select>
+                    <button class="reset-filter" type="button" onclick="resetFilters()">
+                        <i class="fa-solid fa-rotate-left"></i> Xóa lọc
+                    </button>
                 </div>
 
                 <div class="table-wrapper">
@@ -826,7 +914,11 @@
 
                         <tbody>
 
-                        <tr th:each="x : ${items}">
+                        <tr th:each="x : ${items}"
+                            th:attr="data-category=${x.maLoai != null ? x.maLoai.tenLoai : ''},
+                                     data-color=${x.maMau != null ? x.maMau.tenMau : ''},
+                                     data-size=${x.maSize != null ? x.maSize.tenSize : ''},
+                                     data-stock=${x.tonKho == null || x.tonKho == 0 ? 'out' : (x.tonKho <= 5 ? 'low' : 'available')}">
 
                             <td class="product-code"
                                 th:text="${x.id != null ? '#SP-' + x.id : '#SP'}">
@@ -928,12 +1020,12 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <a class="action-btn delete-btn"
-                                       th:href="@{/sanpham/xoa/{id}(id=${x.id})}"
-                                       title="Xóa"
-                                       onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </a>
+                                    <form method="post" th:action="@{/sanpham/xoa/{id}(id=${x.id})}"
+                                          onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
+                                        <button class="action-btn delete-btn" type="submit" title="Xóa">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
 
                                 </div>
                             </td>
@@ -987,60 +1079,66 @@
 </div>
 
 <script>
+    function normalizeText(value) {
+        return (value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+    }
+
+    function toggleAdvancedFilter() {
+        const panel = document.getElementById("advancedFilter");
+        const button = document.getElementById("filterToggle");
+        const isOpen = panel.classList.toggle("open");
+        button.classList.toggle("active", isOpen);
+        button.setAttribute("aria-expanded", isOpen);
+        button.setAttribute("aria-label", isOpen ? "Đóng bộ lọc nâng cao" : "Mở bộ lọc nâng cao");
+    }
+
     function filterProducts() {
-        const keyword = document
-            .getElementById("productSearch")
-            .value
-            .toLowerCase()
-            .trim();
-
-        const selectedCategory = document
-            .getElementById("categoryFilter")
-            .value
-            .toLowerCase()
-            .trim();
-
-        const selectedStock = document
-            .getElementById("stockFilter")
-            .value
-            .toLowerCase()
-            .trim();
+        const keyword = normalizeText(document.getElementById("productSearch").value);
+        const selectedCategory = normalizeText(document.getElementById("categoryFilter").value);
+        const selectedColor = normalizeText(document.getElementById("colorFilter").value);
+        const selectedSize = normalizeText(document.getElementById("sizeFilter").value);
+        const selectedStock = document.getElementById("stockFilter").value;
 
         const rows = document.querySelectorAll(
             "#productTable tbody tr:not(.empty-row)"
         );
 
         rows.forEach(row => {
-            const rowText = row.textContent.toLowerCase();
-
-            const attributes = row.querySelectorAll(".attribute");
-            const category = attributes.length > 0
-                ? attributes[0].textContent.toLowerCase().trim()
-                : "";
-
-            const stockBadge = row.querySelector(".stock-badge");
-            const stockText = stockBadge
-                ? stockBadge.textContent.toLowerCase().trim()
-                : "";
-
-            const matchesKeyword =
-                keyword === "" || rowText.includes(keyword);
-
-            const matchesCategory =
-                selectedCategory === "" ||
-                category.includes(selectedCategory);
-
-            const matchesStock =
-                selectedStock === "" ||
-                stockText.includes(selectedStock);
+            const rowText = normalizeText(row.textContent);
+            const category = normalizeText(row.dataset.category);
+            const color = normalizeText(row.dataset.color);
+            const size = normalizeText(row.dataset.size);
+            const matchesKeyword = keyword === "" || rowText.includes(keyword);
+            const matchesCategory = selectedCategory === "" || category === selectedCategory;
+            const matchesColor = selectedColor === "" || color === selectedColor;
+            const matchesSize = selectedSize === "" || size === selectedSize;
+            const matchesStock = selectedStock === "" || row.dataset.stock === selectedStock;
 
             row.style.display =
                 matchesKeyword &&
                 matchesCategory &&
+                matchesColor &&
+                matchesSize &&
                 matchesStock
                     ? ""
                     : "none";
         });
+
+        const activeCount = [selectedCategory, selectedColor, selectedSize, selectedStock]
+            .filter(Boolean).length;
+        const badge = document.getElementById("filterCount");
+        badge.textContent = activeCount;
+        badge.classList.toggle("visible", activeCount > 0);
+    }
+
+    function resetFilters() {
+        ["categoryFilter", "colorFilter", "sizeFilter", "stockFilter"]
+            .forEach(id => document.getElementById(id).value = "");
+        filterProducts();
     }
 </script>
 

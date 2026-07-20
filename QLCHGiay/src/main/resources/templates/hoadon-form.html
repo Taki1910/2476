@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title th:text="${pageTitle}">Hóa đơn</title>
+<style>body{background:#0d0c0b;color:#eee;font:16px Arial}.box{max-width:720px;margin:45px auto;padding:28px;background:#171513;border-radius:16px}h1{color:#ff6a1a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}label{display:block;margin-bottom:7px;color:#aaa}input,select{box-sizing:border-box;width:100%;padding:12px;background:#211e1b;color:#fff;border:1px solid #3a3531;border-radius:8px}.btn{display:inline-block;margin-top:24px;padding:12px 18px;border:0;border-radius:8px;background:#39332e;color:#fff;text-decoration:none}.primary{background:#ff6422}</style></head>
+<body><main class="box"><h1 th:text="${pageTitle}"></h1>
+<form method="post" th:action="${item.id == null} ? @{/hoadon/them} : @{/hoadon/sua/{id}(id=${item.id})}"><div class="grid">
+<div><label>Đơn hàng</label><select name="maDonHang"><option value="">Không gắn đơn hàng</option><option th:each="x:${donHangList}" th:value="${x.id}" th:text="${'#DH-' + x.id}" th:selected="${item.maDonHang != null && item.maDonHang.id == x.id}"></option></select></div>
+<div><label>Nhân viên</label><select name="maNhanVien"><option value="">Chưa phân công</option><option th:each="x:${nhanVienList}" th:value="${x.id}" th:text="${x.tenNhanVien}" th:selected="${item.maNhanVien != null && item.maNhanVien.id == x.id}"></option></select></div>
+<div><label>Ngày lập *</label><input type="date" name="ngayLap" required th:value="${item.ngayLap}"></div>
+<div><label>Tổng tiền *</label><input type="number" name="tongTien" required min="0" step="1000" th:value="${item.tongTien}"></div>
+<div><label>Trạng thái</label><select name="trangThai"><option value="Chờ thanh toán" th:selected="${item.trangThai == 'Chờ thanh toán'}">Chờ thanh toán</option><option value="Đang xử lý" th:selected="${item.trangThai == 'Đang xử lý'}">Đang xử lý</option><option value="Đã thanh toán" th:selected="${item.trangThai == 'Đã thanh toán'}">Đã thanh toán</option><option value="Hoàn thành" th:selected="${item.trangThai == 'Hoàn thành'}">Hoàn thành</option><option value="Đã hủy" th:selected="${item.trangThai == 'Đã hủy'}">Đã hủy</option></select></div>
+</div><button class="btn primary">Lưu</button> <a class="btn" th:href="@{/hoadon}">Hủy</a></form></main></body></html>
