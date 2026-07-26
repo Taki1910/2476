@@ -29,8 +29,8 @@ public class KhachHang {
     @Column(name = "namSinh")
     private Integer namSinh;
 
-    @Size(max = 15)
-    @Column(name = "soDienThoai", length = 15)
+    @Size(max = 10)
+    @Column(name = "soDienThoai", length = 10)
     private String soDienThoai;
 
     @Size(max = 200)

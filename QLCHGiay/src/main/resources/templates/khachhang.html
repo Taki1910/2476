@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/table-pagination.js}" src="/js/table-pagination.js"></script>
 
     <title>Quản lý khách hàng - KICKS ZONE</title>
 
@@ -566,6 +568,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 
 <body>
@@ -890,25 +893,8 @@
 
                 <div class="pagination">
 
-                    <span>
-                        Hiển thị
-                        <strong th:text="${items != null ? #lists.size(items) : 0}">
-                            0
-                        </strong>
-                        khách hàng
-                    </span>
-
-                    <div class="page-buttons">
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-
-                        <button class="page-btn active" type="button">1</button>
-
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </button>
-                    </div>
+                    <span id="customerPageInfo" aria-live="polite">Hiển thị 0 khách hàng</span>
+                    <div class="page-buttons" id="customerPageButtons"></div>
 
                 </div>
 
@@ -921,7 +907,9 @@
 </div>
 
 <script>
-    function filterCustomers() {
+    let customerPagination;
+
+    function createCustomerFilter() {
         const keyword = document
             .getElementById("customerSearch")
             .value
@@ -934,11 +922,7 @@
             .toLowerCase()
             .trim();
 
-        const rows = document.querySelectorAll(
-            "#customerTable tbody tr:not(.empty-row)"
-        );
-
-        rows.forEach(row => {
+        return (row) => {
             const rowText = row.textContent.toLowerCase();
 
             const genderElement = row.querySelector(".gender-badge");
@@ -952,10 +936,24 @@
             const matchesGender =
                 selectedGender === "" || rowGender === selectedGender;
 
-            row.style.display =
-                matchesKeyword && matchesGender ? "" : "none";
-        });
+            return matchesKeyword && matchesGender;
+        };
     }
+
+    function filterCustomers() {
+        customerPagination.refresh(createCustomerFilter());
+    }
+
+    customerPagination = TablePagination.create({
+        tableSelector: "#customerTable",
+        infoSelector: "#customerPageInfo",
+        buttonsSelector: "#customerPageButtons",
+        pageSize: 10,
+        itemLabel: "khách hàng",
+        emptyMessage: "Không tìm thấy khách hàng phù hợp.",
+        filter: createCustomerFilter()
+    });
+    filterCustomers();
 </script>
 
 </body>

@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/table-pagination.js}" src="/js/table-pagination.js"></script>
 
     <title>Quản lý hóa đơn - KICKS ZONE</title>
 
@@ -565,6 +567,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 
 <body>
@@ -766,7 +769,7 @@
                             <option value="đã thanh toán">Đã thanh toán</option>
                             <option value="hoàn thành">Hoàn thành</option>
                             <option value="đang xử lý">Đang xử lý</option>
-                            <option value="chờ thanh toán">Chờ thanh toán</option>
+                            <option value="chưa thanh toán">Chưa thanh toán</option>
                             <option value="đã hủy">Đã hủy</option>
                         </select>
 
@@ -786,7 +789,7 @@
                         <thead>
                         <tr>
                             <th>Mã hóa đơn</th>
-                            <th>Đơn hàng</th>
+                            <th>Khách hàng / Đơn hàng</th>
                             <th>Nhân viên</th>
                             <th>Ngày lập</th>
                             <th>Tổng tiền</th>
@@ -804,11 +807,7 @@
                                 #HD-1
                             </td>
 
-                            <td th:text="${x.maDonHang != null && x.maDonHang.id != null
-                                ? '#DH-' + x.maDonHang.id
-                                : '-'}">
-                                #DH-1
-                            </td>
+                            <td><strong th:text="${x.maDonHang != null && x.maDonHang.maKH != null ? x.maDonHang.maKH.tenKH : 'Khách lẻ'}">Khách hàng</strong><div style="color:var(--text-muted);font-size:12px;margin-top:4px" th:text="${x.maDonHang != null ? '#DH-' + x.maDonHang.id : '-'}">#DH</div></td>
 
                             <td>
                                 <div class="employee">
@@ -849,8 +848,8 @@
                                 <span class="badge"
                                       th:classappend="${
                                           x.trangThai != null
-                                          && (#strings.containsIgnoreCase(x.trangThai, 'hoàn')
-                                          || #strings.containsIgnoreCase(x.trangThai, 'thanh toán'))
+                                          && (#strings.containsIgnoreCase(x.trangThai, 'hoàn thành')
+                                          || #strings.containsIgnoreCase(x.trangThai, 'đã thanh toán'))
                                           ? ' badge-success'
                                           : (
                                               x.trangThai != null
@@ -879,11 +878,7 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <a class="action-btn"
-                                       th:href="@{/hoadon/in/{id}(id=${x.id})}"
-                                       title="In hóa đơn">
-                                        <i class="fa-solid fa-print"></i>
-                                    </a>
+                                    <form method="post" th:action="@{/hoadon/in/{id}(id=${x.id})}"><button type="submit" class="action-btn" title="In hóa đơn"><i class="fa-solid fa-print"></i></button></form>
                                     <form method="post" th:action="@{/hoadon/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
 
                                 </div>
@@ -907,25 +902,8 @@
 
                 <div class="pagination">
 
-                    <span>
-                        Hiển thị
-                        <strong th:text="${items != null ? #lists.size(items) : 0}">
-                            0
-                        </strong>
-                        hóa đơn
-                    </span>
-
-                    <div class="page-buttons">
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-
-                        <button class="page-btn active" type="button">1</button>
-
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </button>
-                    </div>
+                    <span id="invoicePageInfo" aria-live="polite">Hiển thị 0 hóa đơn</span>
+                    <div class="page-buttons" id="invoicePageButtons"></div>
 
                 </div>
 
@@ -938,7 +916,9 @@
 </div>
 
 <script>
-    function filterInvoices() {
+    let invoicePagination;
+
+    function createInvoiceFilter() {
         const keyword = document
             .getElementById("invoiceSearch")
             .value
@@ -951,11 +931,7 @@
             .toLowerCase()
             .trim();
 
-        const rows = document.querySelectorAll(
-            "#invoiceTable tbody tr:not(.empty-row)"
-        );
-
-        rows.forEach(row => {
+        return (row) => {
             const rowText = row.textContent.toLowerCase();
 
             const statusElement = row.querySelector(".badge");
@@ -969,10 +945,24 @@
             const matchesStatus =
                 selectedStatus === "" || rowStatus.includes(selectedStatus);
 
-            row.style.display =
-                matchesKeyword && matchesStatus ? "" : "none";
-        });
+            return matchesKeyword && matchesStatus;
+        };
     }
+
+    function filterInvoices() {
+        invoicePagination.refresh(createInvoiceFilter());
+    }
+
+    invoicePagination = TablePagination.create({
+        tableSelector: "#invoiceTable",
+        infoSelector: "#invoicePageInfo",
+        buttonsSelector: "#invoicePageButtons",
+        pageSize: 10,
+        itemLabel: "hóa đơn",
+        emptyMessage: "Không tìm thấy hóa đơn phù hợp.",
+        filter: createInvoiceFilter()
+    });
+    filterInvoices();
 </script>
 
 </body>

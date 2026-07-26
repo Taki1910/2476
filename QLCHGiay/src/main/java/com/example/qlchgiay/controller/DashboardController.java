@@ -69,7 +69,7 @@ public class DashboardController {
     @GetMapping("/baocao") public String baoCao(HttpSession s,Model m) {if(!loggedIn(s))return "redirect:/login";loadAnalytics(m);return "baocao";}
     @GetMapping("/chatbot") public String chatbot(HttpSession s) { return loggedIn(s) ? "chatbot" : "redirect:/login"; }
     private boolean loggedIn(HttpSession s) { return s.getAttribute("user") instanceof TaiKhoan; }
-    private boolean isCompleted(String s){if(s==null)return false;String v=s.toLowerCase();return v.contains("thanh toán")||v.contains("hoàn thành");}
+    private boolean isCompleted(String s){if(s==null)return false;String v=s.toLowerCase();return v.contains("đã thanh toán")||v.contains("hoàn thành");}
     private void loadAnalytics(Model model){
         var invoices=hoaDonRepo.findAll();var details=chiTietHoaDonRepo.findAll();LocalDate today=LocalDate.now();
         BigDecimal total=invoices.stream().filter(x->isCompleted(x.getTrangThai())).map(x->x.getTongTien()==null?BigDecimal.ZERO:x.getTongTien()).reduce(BigDecimal.ZERO,BigDecimal::add);

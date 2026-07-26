@@ -5,5 +5,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 @Repository
 public interface SanPhamRepo extends JpaRepository<SanPham, Integer> {
+    List<SanPham> findAllByOrderByTenSPAsc();
     List<SanPham> findTop5ByTonKhoLessThanEqualOrderByTonKhoAsc(Integer threshold);
 }

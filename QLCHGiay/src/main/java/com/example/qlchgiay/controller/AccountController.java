@@ -69,6 +69,15 @@ public class AccountController {
         return "redirect:/login";
     }
 
+    @GetMapping("/caidat")
+    public String settings(HttpSession session, Model model) {
+        if (!(session.getAttribute("user") instanceof TaiKhoan user)) return "redirect:/login";
+        model.addAttribute("user", user);
+        model.addAttribute("userName", session.getAttribute("userName"));
+        model.addAttribute("userRole", session.getAttribute("userRole"));
+        return "caidat";
+    }
+
     private boolean isInactive(String trangThai) {
         if (trangThai == null || trangThai.isBlank()) {
             return false;

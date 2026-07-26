@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/table-pagination.js}" src="/js/table-pagination.js"></script>
 
     <title>Quản lý sản phẩm - KICKS ZONE</title>
 
@@ -661,6 +663,7 @@
             .advanced-filter.open { max-height: 300px; }
         }
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 
 <body>
@@ -1048,25 +1051,8 @@
 
                 <div class="pagination">
 
-                    <span>
-                        Hiển thị
-                        <strong th:text="${items != null ? #lists.size(items) : 0}">
-                            0
-                        </strong>
-                        sản phẩm
-                    </span>
-
-                    <div class="page-buttons">
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-
-                        <button class="page-btn active" type="button">1</button>
-
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </button>
-                    </div>
+                    <span id="productPageInfo" aria-live="polite">Hiển thị 0 sản phẩm</span>
+                    <div class="page-buttons" id="productPageButtons"></div>
 
                 </div>
 
@@ -1079,6 +1065,8 @@
 </div>
 
 <script>
+    let productPagination;
+
     function normalizeText(value) {
         return (value || "")
             .normalize("NFD")
@@ -1096,18 +1084,14 @@
         button.setAttribute("aria-label", isOpen ? "Đóng bộ lọc nâng cao" : "Mở bộ lọc nâng cao");
     }
 
-    function filterProducts() {
+    function createProductFilter() {
         const keyword = normalizeText(document.getElementById("productSearch").value);
         const selectedCategory = normalizeText(document.getElementById("categoryFilter").value);
         const selectedColor = normalizeText(document.getElementById("colorFilter").value);
         const selectedSize = normalizeText(document.getElementById("sizeFilter").value);
         const selectedStock = document.getElementById("stockFilter").value;
 
-        const rows = document.querySelectorAll(
-            "#productTable tbody tr:not(.empty-row)"
-        );
-
-        rows.forEach(row => {
+        return (row) => {
             const rowText = normalizeText(row.textContent);
             const category = normalizeText(row.dataset.category);
             const color = normalizeText(row.dataset.color);
@@ -1118,21 +1102,26 @@
             const matchesSize = selectedSize === "" || size === selectedSize;
             const matchesStock = selectedStock === "" || row.dataset.stock === selectedStock;
 
-            row.style.display =
-                matchesKeyword &&
+            return matchesKeyword &&
                 matchesCategory &&
                 matchesColor &&
                 matchesSize &&
-                matchesStock
-                    ? ""
-                    : "none";
-        });
+                matchesStock;
+        };
+    }
 
-        const activeCount = [selectedCategory, selectedColor, selectedSize, selectedStock]
+    function filterProducts() {
+        const activeCount = [
+            document.getElementById("categoryFilter").value,
+            document.getElementById("colorFilter").value,
+            document.getElementById("sizeFilter").value,
+            document.getElementById("stockFilter").value
+        ]
             .filter(Boolean).length;
         const badge = document.getElementById("filterCount");
         badge.textContent = activeCount;
         badge.classList.toggle("visible", activeCount > 0);
+        productPagination.refresh(createProductFilter());
     }
 
     function resetFilters() {
@@ -1140,6 +1129,17 @@
             .forEach(id => document.getElementById(id).value = "");
         filterProducts();
     }
+
+    productPagination = TablePagination.create({
+        tableSelector: "#productTable",
+        infoSelector: "#productPageInfo",
+        buttonsSelector: "#productPageButtons",
+        pageSize: 10,
+        itemLabel: "sản phẩm",
+        emptyMessage: "Không tìm thấy sản phẩm phù hợp.",
+        filter: createProductFilter()
+    });
+    filterProducts();
 </script>
 
 </body>

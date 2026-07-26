@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/table-pagination.js}" src="/js/table-pagination.js"></script>
 
     <title>Quản lý nhà cung cấp - KICKS ZONE</title>
 
@@ -573,6 +575,7 @@
             }
         }
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 
 <body>
@@ -916,25 +919,8 @@
 
                 <div class="pagination">
 
-                    <span>
-                        Hiển thị
-                        <strong th:text="${items != null ? #lists.size(items) : 0}">
-                            0
-                        </strong>
-                        nhà cung cấp
-                    </span>
-
-                    <div class="page-buttons">
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-
-                        <button class="page-btn active" type="button">1</button>
-
-                        <button class="page-btn" type="button">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </button>
-                    </div>
+                    <span id="supplierPageInfo" aria-live="polite">Hiển thị 0 nhà cung cấp</span>
+                    <div class="page-buttons" id="supplierPageButtons"></div>
 
                 </div>
 
@@ -947,7 +933,9 @@
 </div>
 
 <script>
-    function filterSuppliers() {
+    let supplierPagination;
+
+    function createSupplierFilter() {
         const keyword = document
             .getElementById("supplierSearch")
             .value
@@ -960,11 +948,7 @@
             .toLowerCase()
             .trim();
 
-        const rows = document.querySelectorAll(
-            "#supplierTable tbody tr:not(.empty-row)"
-        );
-
-        rows.forEach(row => {
+        return (row) => {
             const rowText = row.textContent.toLowerCase();
 
             const badge = row.querySelector(".badge");
@@ -978,10 +962,24 @@
             const matchesStatus =
                 selectedStatus === "" || rowStatus.includes(selectedStatus);
 
-            row.style.display =
-                matchesKeyword && matchesStatus ? "" : "none";
-        });
+            return matchesKeyword && matchesStatus;
+        };
     }
+
+    function filterSuppliers() {
+        supplierPagination.refresh(createSupplierFilter());
+    }
+
+    supplierPagination = TablePagination.create({
+        tableSelector: "#supplierTable",
+        infoSelector: "#supplierPageInfo",
+        buttonsSelector: "#supplierPageButtons",
+        pageSize: 10,
+        itemLabel: "nhà cung cấp",
+        emptyMessage: "Không tìm thấy nhà cung cấp phù hợp.",
+        filter: createSupplierFilter()
+    });
+    filterSuppliers();
 </script>
 
 </body>

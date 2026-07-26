@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cài đặt - KICKS ZONE</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0d0c0b;
+            --panel: #171513;
+            --soft: #211e1b;
+            --line: #36312d;
+            --text: #f7f4f1;
+            --muted: #aaa29b;
+            --orange: #ff6422;
+            --orange-soft: rgba(255, 100, 34, 0.12);
+        }
+
+        :root.light-mode {
+            --bg: #edf2f7;
+            --panel: #ffffff;
+            --soft: #e8eef5;
+            --line: #cbd5e1;
+            --text: #0f172a;
+            --muted: #475569;
+            --orange-soft: #fff1e8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px Arial, Helvetica, sans-serif;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        button,
+        select {
+            font: inherit;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: 100vh;
+        }
+
+        .side {
+            padding: 28px 20px;
+            border-right: 1px solid var(--line);
+            background: var(--panel);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 40px;
+            font-size: 19px;
+            font-weight: 800;
+        }
+
+        .brand i {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            background: var(--orange);
+            color: #ffffff;
+            border-radius: 12px;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 5px;
+            padding: 13px;
+            color: var(--muted);
+            text-decoration: none;
+            border-radius: 10px;
+        }
+
+        .nav a:hover {
+            background: var(--soft);
+            color: var(--text);
+        }
+
+        .nav a.active {
+            background: var(--orange-soft);
+            color: #ff7d44;
+        }
+
+        .main {
+            width: 100%;
+            max-width: 1050px;
+            padding: 40px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 30px;
+        }
+
+        .header p {
+            margin: 8px 0 30px;
+            color: var(--muted);
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 17px;
+            margin-bottom: 20px;
+            padding: 22px;
+            background: linear-gradient(120deg, rgba(255, 100, 34, 0.2), transparent), var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 17px;
+        }
+
+        .avatar {
+            width: 58px;
+            height: 58px;
+            display: grid;
+            flex: 0 0 auto;
+            place-items: center;
+            background: var(--orange);
+            color: #ffffff;
+            border-radius: 50%;
+            font-size: 23px;
+            font-weight: bold;
+        }
+
+        .profile h2 {
+            margin: 0 0 5px;
+            font-size: 18px;
+        }
+
+        .profile p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            padding: 23px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 17px;
+        }
+
+        .card h2 {
+            margin: 0 0 7px;
+            font-size: 17px;
+        }
+
+        .desc {
+            margin: 0 0 21px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .setting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding: 16px 0;
+            border-top: 1px solid var(--line);
+        }
+
+        .setting-copy {
+            min-width: 0;
+        }
+
+        .setting strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .setting small {
+            color: var(--muted);
+        }
+
+        select {
+            min-width: 135px;
+            padding: 10px;
+            background: var(--soft);
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 9px;
+        }
+
+        .theme-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            flex: 0 0 auto;
+            padding: 4px;
+            background: var(--soft);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+        }
+
+        .theme-option {
+            min-width: 82px;
+            padding: 9px 12px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .theme-option i {
+            margin-right: 6px;
+        }
+
+        .theme-option.active {
+            background: var(--orange);
+            color: #ffffff;
+            box-shadow: 0 5px 14px rgba(255, 100, 34, 0.22);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 27px;
+            flex: 0 0 auto;
+            padding: 0;
+            border: 0;
+            border-radius: 20px;
+            background: #4b4642;
+            cursor: pointer;
+        }
+
+        .toggle::after {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 19px;
+            height: 19px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: left 0.2s;
+        }
+
+        .toggle.on {
+            background: var(--orange);
+        }
+
+        .toggle.on::after {
+            left: 25px;
+        }
+
+        .notice {
+            margin-top: 20px;
+            padding: 14px 17px;
+            border: 1px solid rgba(255, 100, 34, 0.3);
+            background: var(--orange-soft);
+            color: var(--muted);
+            border-radius: 11px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 760px) {
+            .layout {
+                display: block;
+            }
+
+            .side {
+                padding: 16px;
+                border-right: 0;
+                border-bottom: 1px solid var(--line);
+            }
+
+            .brand {
+                margin: 0;
+            }
+
+            .nav {
+                display: none;
+            }
+
+            .main {
+                padding: 25px 16px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .setting {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .theme-options,
+            select {
+                width: 100%;
+            }
+        }
+    </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="side">
+        <div class="brand">
+            <i class="fa-solid fa-shoe-prints"></i>
+            <span>SNEAKER STORE</span>
+        </div>
+        <nav class="nav" aria-label="Điều hướng chính">
+            <a th:href="@{/dashboard}">
+                <i class="fa-solid fa-chart-pie"></i>
+                Bảng điều khiển
+            </a>
+            <a th:href="@{/hoadon}">
+                <i class="fa-solid fa-file-invoice"></i>
+                Hóa đơn
+            </a>
+            <a class="active" th:href="@{/caidat}" aria-current="page">
+                <i class="fa-solid fa-sliders"></i>
+                Cài đặt
+            </a>
+            <a th:href="@{/logout}">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                Đăng xuất
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="header">
+            <h1>Cài đặt</h1>
+            <p>Tùy chỉnh giao diện và cách hệ thống hoạt động trên thiết bị này.</p>
+        </header>
+
+        <section class="profile">
+            <div class="avatar"
+                 th:text="${userName != null && !#strings.isEmpty(userName) ? #strings.substring(userName, 0, 1) : 'U'}">
+                U
+            </div>
+            <div>
+                <h2 th:text="${userName != null ? userName : user.tenDangNhap}">Người dùng</h2>
+                <p>
+                    <span th:text="${userRole != null ? userRole : 'Nhân viên'}">Nhân viên</span>
+                    <span aria-hidden="true"> · </span>
+                    <span th:text="${'@' + user.tenDangNhap}">@taikhoan</span>
+                </p>
+            </div>
+        </section>
+
+        <div class="grid">
+            <section class="card">
+                <h2>
+                    <i class="fa-solid fa-palette" style="color: var(--orange)"></i>
+                    Giao diện
+                </h2>
+                <p class="desc">Chọn giao diện phù hợp với môi trường làm việc.</p>
+
+                <div class="setting">
+                    <div class="setting-copy">
+                        <strong>Chế độ sáng / tối</strong>
+                        <small id="themeStatus">Đang dùng chế độ tối</small>
+                    </div>
+                    <div class="theme-options" role="group" aria-label="Chọn chế độ giao diện">
+                        <button class="theme-option" type="button" data-theme-choice="dark">
+                            <i class="fa-solid fa-moon"></i>Tối
+                        </button>
+                        <button class="theme-option" type="button" data-theme-choice="light">
+                            <i class="fa-solid fa-sun"></i>Sáng
+                        </button>
+                    </div>
+                </div>
+
+                <div class="setting">
+                    <div class="setting-copy">
+                        <strong>Cỡ hiển thị</strong>
+                        <small>Thay đổi kích thước chữ</small>
+                    </div>
+                    <select id="fontSize" aria-label="Cỡ hiển thị">
+                        <option value="14">Nhỏ</option>
+                        <option value="15">Vừa</option>
+                        <option value="17">Lớn</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>
+                    <i class="fa-solid fa-bell" style="color: var(--orange)"></i>
+                    Thông báo
+                </h2>
+                <p class="desc">Chọn các cảnh báo cần hiển thị khi bán hàng.</p>
+
+                <div class="setting">
+                    <div class="setting-copy">
+                        <strong>Cảnh báo tồn kho</strong>
+                        <small>Khi sản phẩm còn từ 5 đôi</small>
+                    </div>
+                    <button class="toggle pref"
+                            type="button"
+                            data-key="stockAlerts"
+                            aria-label="Bật hoặc tắt cảnh báo tồn kho"></button>
+                </div>
+
+                <div class="setting">
+                    <div class="setting-copy">
+                        <strong>Xác nhận trước khi xóa</strong>
+                        <small>Hạn chế thao tác nhầm</small>
+                    </div>
+                    <button class="toggle pref"
+                            type="button"
+                            data-key="deleteConfirm"
+                            aria-label="Bật hoặc tắt xác nhận trước khi xóa"></button>
+                </div>
+            </section>
+        </div>
+
+        <div class="notice">
+            <i class="fa-solid fa-circle-info"></i>
+            Lựa chọn được đồng bộ giữa Cài đặt, Dashboard và các trang quản lý chính; tùy chọn được lưu tự động trên trình duyệt này.
+        </div>
+    </main>
+</div>
+
+<script>
+    const themeButtons = document.querySelectorAll('[data-theme-choice]');
+    const themeStatus = document.getElementById('themeStatus');
+
+    function syncThemeControls(theme = window.appTheme.get()) {
+        themeButtons.forEach((button) => {
+            const isActive = button.dataset.themeChoice === theme;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+        themeStatus.textContent = theme === 'light'
+            ? 'Đang dùng chế độ sáng'
+            : 'Đang dùng chế độ tối';
+    }
+
+    themeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            window.appTheme.set(button.dataset.themeChoice);
+        });
+    });
+
+    window.addEventListener('app-theme-change', (event) => {
+        syncThemeControls(event.detail.theme);
+    });
+    syncThemeControls();
+
+    const fontSize = document.getElementById('fontSize');
+    fontSize.value = localStorage.getItem('fontSize') || '15';
+    document.body.style.fontSize = `${fontSize.value}px`;
+    fontSize.addEventListener('change', () => {
+        document.body.style.fontSize = `${fontSize.value}px`;
+        localStorage.setItem('fontSize', fontSize.value);
+    });
+
+    document.querySelectorAll('.pref').forEach((toggle) => {
+        const key = toggle.dataset.key;
+        const enabled = localStorage.getItem(key) !== 'false';
+        toggle.classList.toggle('on', enabled);
+        toggle.setAttribute('aria-pressed', String(enabled));
+
+        toggle.addEventListener('click', () => {
+            const isEnabled = toggle.classList.toggle('on');
+            toggle.setAttribute('aria-pressed', String(isEnabled));
+            localStorage.setItem(key, String(isEnabled));
+        });
+    });
+</script>
+</body>
+</html>

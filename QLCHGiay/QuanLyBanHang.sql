@@ -489,7 +489,7 @@ INSERT INTO TaiKhoan
 VALUES
 ('admin','123456',N'Admin',1,N'Hoạt động'),
 ('nhanvien1','123456',N'Nhân viên',2,N'Hoạt động'),
-('nhanvien2','123456',N'Nhân viên',3,N'Hoạt động');
+('khachhang1','123456',N'Khách hàng',3,N'Hoạt động');
 
 /* =========================
    CHI TIẾT GIỎ HÀNG

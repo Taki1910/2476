@@ -78,7 +78,13 @@ public class KhachHangController {
         if (name.isEmpty() || name.length() > 100) throw new IllegalArgumentException("Tên khách hàng không hợp lệ.");
         int year = java.time.Year.now().getValue();
         if (x.getNamSinh() != null && (x.getNamSinh() < 1900 || x.getNamSinh() > year)) throw new IllegalArgumentException("Năm sinh không hợp lệ.");
+        String phone = x.getSoDienThoai() == null ? "" : x.getSoDienThoai().trim();
+        if (!phone.isEmpty() && !phone.matches("^0\\d{9}$"))
+            throw new IllegalArgumentException("Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0.");
+        if (!phone.isEmpty() && (x.getId() == null ? repo.existsBySoDienThoai(phone) : repo.existsBySoDienThoaiAndIdNot(phone, x.getId())))
+            throw new IllegalArgumentException("Số điện thoại đã thuộc về một khách hàng khác.");
         x.setTenKH(name);
+        x.setSoDienThoai(phone.isEmpty() ? null : phone);
     }
     private String missing(RedirectAttributes ra) { ra.addFlashAttribute("error", "Không tìm thấy khách hàng."); return "redirect:/khachhang"; }
     private boolean loggedIn(HttpSession s) { return s.getAttribute("user") instanceof TaiKhoan; }

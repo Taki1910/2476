@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Hệ thống quản lý cửa hàng giày Kicks Zone - Trang tổng quan">
     <title>Bảng điều khiển - KICKS ZONE</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
     <!-- Google Fonts Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,13 +49,13 @@
 
         :root.light-mode {
             /* Light Mode Theme */
-            --bg-color: #f7f6f5;
+            --bg-color: #edf2f7;
             --surface-color: #ffffff;
-            --surface-hover: #faf9f8;
-            --border-color: #f0edea;
-            --border-hover: rgba(255, 87, 34, 0.2);
-            --text-main: #2b2724;
-            --text-sub: #78706b;
+            --surface-hover: #f1f5f9;
+            --border-color: #cbd5e1;
+            --border-hover: rgba(230, 74, 25, 0.45);
+            --text-main: #0f172a;
+            --text-sub: #475569;
             --primary-color: #e64a19;
             --primary-hover: #bf360c;
             --primary-light: #fbe9e7;
@@ -67,12 +68,12 @@
             --accent-danger: #b71c1c;
             --danger-bg: #ffebee;
             --danger-text: #c62828;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-            --shadow-md: 0 4px 12px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            --shadow-lg: 0 15px 25px -3px rgba(0,0,0,0.06), 0 4px 12px -2px rgba(0,0,0,0.03);
-            --header-bg: rgba(255, 255, 255, 0.8);
+            --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.08);
+            --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.09);
+            --shadow-lg: 0 18px 36px rgba(15, 23, 42, 0.12);
+            --header-bg: rgba(255, 255, 255, 0.96);
             --sidebar-bg: #ffffff;
-            --card-glow: 0 0 0 transparent;
+            --card-glow: 0 0 0 1px rgba(203, 213, 225, 0.65);
         }
 
         * {
@@ -839,7 +840,7 @@
             }
         }
 
-        :root {
+        :root:not(.light-mode) {
             --bg-color: #0d0c0b;
             --surface-color: #151311;
             --surface-hover: #1c1917;
@@ -868,8 +869,8 @@
         }
 
         body {
-            background: #0d0c0b;
-            color: #f5f5f5;
+            background: var(--bg-color);
+            color: var(--text-main);
         }
 
         .fa,
@@ -1480,6 +1481,107 @@
             }
         }
 
+        /* Light mode overrides for the compact dashboard styles above. */
+        :root.light-mode .sidebar {
+            background: var(--sidebar-bg);
+            border-right-color: var(--border-color);
+            box-shadow: 10px 0 28px rgba(15, 23, 42, .08);
+        }
+
+        :root.light-mode .sidebar-brand,
+        :root.light-mode .sidebar-footer {
+            border-color: var(--border-color);
+        }
+
+        :root.light-mode .menu-link {
+            color: var(--text-sub);
+        }
+
+        :root.light-mode .menu-link:hover {
+            color: var(--text-main);
+            background: #e7edf4;
+        }
+
+        :root.light-mode .menu-item.active .menu-link {
+            color: #fff;
+        }
+
+        :root.light-mode .header {
+            background: var(--header-bg);
+            border-bottom-color: var(--border-color);
+            box-shadow: 0 5px 18px rgba(15, 23, 42, .07);
+        }
+
+        :root.light-mode .search-box input,
+        :root.light-mode .header-action-btn,
+        :root.light-mode .chart-actions select,
+        :root.light-mode .view-all-btn {
+            color: var(--text-main);
+            background: #f8fafc;
+            border-color: #b8c5d3;
+        }
+
+        :root.light-mode .search-box input::placeholder {
+            color: #64748b;
+        }
+
+        :root.light-mode .action-card,
+        :root.light-mode .kpi-card,
+        :root.light-mode .chart-card,
+        :root.light-mode .table-card,
+        :root.light-mode .alert-card {
+            color: var(--text-main);
+            background: var(--surface-color);
+            border-color: var(--border-color);
+            box-shadow: var(--shadow-md);
+        }
+
+        :root.light-mode .action-card:hover,
+        :root.light-mode .kpi-card:hover,
+        :root.light-mode .chart-card:hover,
+        :root.light-mode .table-card:hover,
+        :root.light-mode .alert-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-lg);
+        }
+
+        :root.light-mode .kpi-title,
+        :root.light-mode .trend-text,
+        :root.light-mode .custom-table th,
+        :root.light-mode .user-role {
+            color: var(--text-sub) !important;
+        }
+
+        :root.light-mode .kpi-value {
+            color: var(--text-main) !important;
+        }
+
+        :root.light-mode .custom-table th {
+            background: #e9eff6;
+        }
+
+        :root.light-mode .custom-table th,
+        :root.light-mode .custom-table td {
+            border-bottom-color: #d5dee8;
+        }
+
+        :root.light-mode .custom-table tbody tr:hover {
+            background: var(--surface-hover);
+        }
+
+        :root.light-mode .alert-item {
+            background: #f1f5f9;
+            border: 1px solid #d5dee8;
+        }
+
+        :root.light-mode .trend-badge.up {
+            color: #15803d !important;
+        }
+
+        :root.light-mode .trend-badge.down {
+            color: #dc2626 !important;
+        }
+
     </style>
 </head>
 <body>
@@ -1546,7 +1648,7 @@
             </a>
         </li>
         <li class="menu-item">
-            <a href="#" class="menu-link">
+            <a th:href="@{/caidat}" class="menu-link">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Cài đặt</span>
             </a>
@@ -1765,8 +1867,9 @@
                             <td th:text="${x.maDonHang != null ? '#DH-' + x.maDonHang.id : '-'}">-</td>
                             <td th:text="${#numbers.formatDecimal(x.tongTien ?: 0,0,'COMMA',0,'POINT') + ' đ'}">0 đ</td>
                             <td>
-                                        <span class="status-badge completed">
-                                            <i class="fa-solid fa-circle-check"></i> <span th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
+                                        <span class="status-badge"
+                                              th:classappend="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? ' completed' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? ' cancelled' : ' pending')}">
+                                            <i th:class="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? 'fa-solid fa-circle-check' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-clock')}"></i> <span th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
                                         </span>
                             </td>
                         </tr>
@@ -1882,35 +1985,32 @@
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const themeIcon = document.getElementById('themeIcon');
     const htmlElement = document.documentElement;
-
-    // Check for saved theme preference or default to dark mode
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    if (savedTheme === 'light') {
-        htmlElement.classList.add('light-mode');
-        themeIcon.className = 'fa-solid fa-moon';
-    } else {
-        htmlElement.classList.remove('light-mode');
-        themeIcon.className = 'fa-solid fa-sun';
-    }
-
-    themeToggleBtn.addEventListener('click', () => {
-        if (htmlElement.classList.contains('light-mode')) {
-            htmlElement.classList.remove('light-mode');
-            themeIcon.className = 'fa-solid fa-sun';
-            localStorage.setItem('theme', 'dark');
-            updateChartsForTheme(true);
-        } else {
-            htmlElement.classList.add('light-mode');
-            themeIcon.className = 'fa-solid fa-moon';
-            localStorage.setItem('theme', 'light');
-            updateChartsForTheme(false);
-        }
-    });
-
-    // Chart.js Configuration
     let revenueChart;
     let categoryChart;
 
+    function syncDashboardTheme(theme = window.appTheme.get()) {
+        const isLight = theme === 'light';
+        themeIcon.className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        themeToggleBtn.setAttribute(
+            'aria-label',
+            isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'
+        );
+        themeToggleBtn.title = isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng';
+        updateChartsForTheme(!isLight);
+    }
+
+    syncDashboardTheme();
+
+    themeToggleBtn.addEventListener('click', () => {
+        const nextTheme = htmlElement.classList.contains('light-mode') ? 'dark' : 'light';
+        window.appTheme.set(nextTheme);
+    });
+
+    window.addEventListener('app-theme-change', (event) => {
+        syncDashboardTheme(event.detail.theme);
+    });
+
+    // Chart.js Configuration
     document.addEventListener('DOMContentLoaded', function() {
         // Check current mode to set appropriate initial colours
         const isDark = !htmlElement.classList.contains('light-mode');

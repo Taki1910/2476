@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface ChiTietHoaDonRepo extends JpaRepository<ChiTietHoaDon, Integer> {
     List<ChiTietHoaDon> findByMaHoaDonId(Integer hoaDonId);
+    void deleteByMaHoaDonId(Integer hoaDonId);
 }

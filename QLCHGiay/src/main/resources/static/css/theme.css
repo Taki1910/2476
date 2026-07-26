@@ -1,0 +1,284 @@
+:root {
+    color-scheme: dark;
+}
+
+.page-buttons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.page-btn {
+    font-weight: 700;
+}
+
+.page-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+}
+
+:root.light-mode {
+    color-scheme: light;
+    --bg: #edf2f7;
+    --panel: #ffffff;
+    --field: #f8fafc;
+    --soft: #e8eef5;
+    --line: #cbd5e1;
+    --text: #0f172a;
+    --muted: #475569;
+    --text-muted: #334155;
+    --text-sub: #334155;
+}
+
+html.light-mode body {
+    background: #edf2f7 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .sidebar,
+html.light-mode .side,
+html.light-mode .topbar,
+html.light-mode .panel,
+html.light-mode .stat-card,
+html.light-mode .table-panel,
+html.light-mode .assistant-panel,
+html.light-mode .chat-panel,
+html.light-mode .card,
+html.light-mode .box {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+html.light-mode .sidebar,
+html.light-mode .side {
+    border-right-color: #c5d0dd !important;
+    box-shadow: 10px 0 28px rgba(15, 23, 42, 0.08);
+}
+
+html.light-mode .topbar {
+    border-bottom: 1px solid #cbd5e1 !important;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.07);
+}
+
+html.light-mode .brand,
+html.light-mode .logout,
+html.light-mode .panel-header,
+html.light-mode .chat-header,
+html.light-mode .chat-input-area,
+html.light-mode .header,
+html.light-mode .title,
+html.light-mode .actions,
+html.light-mode .summary,
+html.light-mode .setting,
+html.light-mode th,
+html.light-mode td,
+html.light-mode .row,
+html.light-mode .item {
+    border-color: #d5dee8 !important;
+}
+
+html.light-mode .nav a,
+html.light-mode .logout a,
+html.light-mode .top-search i,
+html.light-mode .stat-title,
+html.light-mode .stat-note,
+html.light-mode .panel-title small,
+html.light-mode .user-info span,
+html.light-mode .desc,
+html.light-mode .hint,
+html.light-mode .back,
+html.light-mode label,
+html.light-mode small {
+    color: #334155 !important;
+}
+
+html.light-mode .nav a:hover {
+    background: #e7edf4 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .nav a.active {
+    color: #ffffff !important;
+}
+
+html.light-mode .top-search,
+html.light-mode .filter-box,
+html.light-mode .period-select,
+html.light-mode .status-filter,
+html.light-mode .gender-filter,
+html.light-mode input,
+html.light-mode select,
+html.light-mode textarea,
+html.light-mode .quick-question,
+html.light-mode .product-card,
+html.light-mode .product-row,
+html.light-mode .switcher {
+    background: #f8fafc !important;
+    border-color: #b8c5d3 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode input::placeholder,
+html.light-mode textarea::placeholder {
+    color: #64748b !important;
+}
+
+html.light-mode .table-wrapper,
+html.light-mode .messages {
+    background: #ffffff !important;
+}
+
+html.light-mode table thead,
+html.light-mode th {
+    background: #e9eff6 !important;
+    color: #334155 !important;
+}
+
+html.light-mode table tbody td {
+    color: #334155 !important;
+}
+
+html.light-mode .product-name,
+html.light-mode .customer-name,
+html.light-mode .supplier-name,
+html.light-mode .employee {
+    color: #243247 !important;
+}
+
+html.light-mode .topbar h1,
+html.light-mode .page-title,
+html.light-mode .panel-title,
+html.light-mode .stat-value {
+    color: #1e293b !important;
+}
+
+html.light-mode .attribute {
+    background: #eef3f8 !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+    font-weight: 600;
+    box-shadow: none !important;
+}
+
+html.light-mode tbody tr:hover {
+    background: #f1f5f9 !important;
+}
+
+html.light-mode .user-box,
+html.light-mode .toolbar,
+html.light-mode .notice,
+html.light-mode .empty-row,
+html.light-mode .catalog-empty,
+html.light-mode .empty-cart,
+html.light-mode .box {
+    border-color: #cbd5e1 !important;
+}
+
+html.light-mode .user-box,
+html.light-mode .toolbar,
+html.light-mode .notice {
+    background: #f8fafc !important;
+}
+
+html.light-mode .bubble.bot {
+    background: #e8eef5 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .btn:not(.primary):not(.save):not(.create-btn),
+html.light-mode .back,
+html.light-mode .page-btn,
+html.light-mode .action-btn,
+html.light-mode .filter-toggle,
+html.light-mode .reset-filter,
+html.light-mode .clear-btn,
+html.light-mode .quick-question,
+html.light-mode .view-all-btn,
+html.light-mode .header-action-btn {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+    border: 1px solid #aebdcd !important;
+    box-shadow: 0 2px 5px rgba(15, 23, 42, 0.08);
+}
+
+html.light-mode .page-btn:hover:not(:disabled),
+html.light-mode .action-btn:hover,
+html.light-mode .filter-toggle:hover,
+html.light-mode .reset-filter:hover,
+html.light-mode .clear-btn:hover,
+html.light-mode .quick-question:hover,
+html.light-mode .view-all-btn:hover,
+html.light-mode .header-action-btn:hover {
+    background: #fff1e8 !important;
+    border-color: #f97316 !important;
+    color: #c2410c !important;
+}
+
+html.light-mode .page-btn.active {
+    background: #f05a1a !important;
+    border-color: #f05a1a !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(240, 90, 26, 0.28);
+}
+
+html.light-mode .page-btn:disabled {
+    background: #f1f5f9 !important;
+    border-color: #d7e0ea !important;
+    color: #94a3b8 !important;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+html.light-mode .delete-btn,
+html.light-mode .action-btn[title="Xóa"] {
+    background: #fff1f2 !important;
+    border-color: #fecdd3 !important;
+    color: #be123c !important;
+}
+
+html.light-mode .create-btn,
+html.light-mode .send-btn,
+html.light-mode .btn.primary,
+html.light-mode .btn.save {
+    color: #ffffff !important;
+}
+
+html.light-mode .pagination,
+html.light-mode .empty-row td,
+html.light-mode .product-sub,
+html.light-mode .customer-sub,
+html.light-mode .supplier-sub,
+html.light-mode .input-note,
+html.light-mode .contact,
+html.light-mode .email {
+    color: #52657b !important;
+}
+
+html.light-mode .profile {
+    background: linear-gradient(120deg, rgba(255, 100, 34, 0.14), transparent), #ffffff !important;
+}
+
+html.light-mode .product-card:hover,
+html.light-mode .product-card:focus-visible {
+    background: #fff3eb !important;
+}
+
+@media print {
+    :root,
+    :root.light-mode {
+        color-scheme: light;
+    }
+}
+
+@media (max-width: 640px) {
+    .pagination {
+        align-items: flex-start !important;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .page-buttons {
+        justify-content: flex-start;
+    }
+}

@@ -32,7 +32,7 @@ public class ChiTietHoaDon {
     private BigDecimal donGia;
 
     @ColumnDefault("[soLuong]*[donGia]")
-    @Column(name = "thanhTien", precision = 29, scale = 2)
+    @Column(name = "thanhTien", precision = 29, scale = 2, insertable = false, updatable = false)
     private BigDecimal thanhTien;
 
 
