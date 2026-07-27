@@ -1,1 +1,93 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title th:text="${pageTitle}">Khách hàng</title><style>*{box-sizing:border-box}body{margin:0;background:#0d0c0b;color:#eee;font-family:Arial}.box{max-width:720px;margin:45px auto;padding:28px;background:#171513;border:1px solid #302c29;border-radius:16px}h1{color:#ff6a1a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.full{grid-column:1/-1}label{display:block;margin-bottom:7px;color:#aaa}input,select{width:100%;padding:12px;background:#211e1b;color:#fff;border:1px solid #3a3531;border-radius:8px}.hint{display:block;color:#8f8984;font-size:12px;margin-top:6px}.actions{display:flex;gap:12px;margin-top:24px}.btn{padding:12px 18px;border:0;border-radius:8px;text-decoration:none;color:#fff;background:#39332e}.primary{background:#ff6422}@media(max-width:600px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><main class="box"><h1 th:text="${pageTitle}">Khách hàng</h1><form method="post" th:action="${item.id == null} ? @{/khachhang/them} : @{/khachhang/sua/{id}(id=${item.id})}"><div class="grid"><div class="full"><label>Họ tên *</label><input name="tenKH" required maxlength="100" th:value="${item.tenKH}"></div><div><label>Giới tính</label><select name="gioiTinh"><option value="true" th:selected="${item.gioiTinh == true}">Nam</option><option value="false" th:selected="${item.gioiTinh == false}">Nữ</option></select></div><div><label>Năm sinh</label><input type="number" name="namSinh" min="1900" th:max="${T(java.time.Year).now().value}" th:value="${item.namSinh}"></div><div><label>Số điện thoại</label><input name="soDienThoai" maxlength="10" inputmode="numeric" pattern="0[0-9]{9}" title="Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0" placeholder="0xxxxxxxxx" th:value="${item.soDienThoai}"><small class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small></div><div><label>Địa chỉ</label><input name="diaChi" maxlength="200" th:value="${item.diaChi}"></div></div><div class="actions"><button class="btn primary" type="submit">Lưu</button><a class="btn" th:href="@{/khachhang}">Hủy</a></div></form></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title th:text="${pageTitle}">Khách hàng</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0d0c0b; color: #eee; font-family: Arial; }
+        .box {
+            max-width: 720px;
+            margin: 45px auto;
+            padding: 28px;
+            background: #171513;
+            border: 1px solid #302c29;
+            border-radius: 16px;
+        }
+        h1 { color: #ff6a1a; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .full { grid-column: 1/-1; }
+        label { display: block; margin-bottom: 7px; color: #aaa; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #211e1b;
+            color: #fff;
+            border: 1px solid #3a3531;
+            border-radius: 8px;
+        }
+        .hint { display: block; color: #8f8984; font-size: 12px; margin-top: 6px; }
+        .actions { display: flex; gap: 12px; margin-top: 24px; }
+        .btn {
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #fff;
+            background: #39332e;
+        }
+        .primary { background: #ff6422; }
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+            .full { grid-column: auto; }
+        }
+    </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+</head>
+<body>
+<main class="box">
+    <h1 th:text="${pageTitle}">Khách hàng</h1>
+    <form method="post"
+          th:action="${item.id == null} ? @{/khachhang/them} : @{/khachhang/sua/{id}(id=${item.id})}">
+        <div class="grid">
+            <div class="full">
+                <label>Họ tên *</label>
+                <input name="tenKH" required maxlength="100" th:value="${item.tenKH}">
+            </div>
+            <div>
+                <label>Giới tính</label>
+                <select name="gioiTinh">
+                    <option value="true" th:selected="${item.gioiTinh == true}">Nam</option>
+                    <option value="false" th:selected="${item.gioiTinh == false}">Nữ</option>
+                </select>
+            </div>
+            <div>
+                <label>Năm sinh</label>
+                <input type="number" name="namSinh" min="1900"
+                       th:max="${T(java.time.Year).now().value}"
+                       th:value="${item.namSinh}">
+            </div>
+            <div>
+                <label>Số điện thoại</label>
+                <input name="soDienThoai" maxlength="10" inputmode="numeric"
+                       pattern="0[0-9]{9}"
+                       title="Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0"
+                       placeholder="0xxxxxxxxx" th:value="${item.soDienThoai}">
+                <small class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small>
+            </div>
+            <div>
+                <label>Địa chỉ</label>
+                <input name="diaChi" maxlength="200" th:value="${item.diaChi}">
+            </div>
+        </div>
+        <div class="actions">
+            <button class="btn primary" type="submit">Lưu</button>
+            <a class="btn" th:href="@{/khachhang}">Hủy</a>
+        </div>
+    </form>
+</main>
+</body>
+</html>

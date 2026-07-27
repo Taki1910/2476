@@ -68,21 +68,179 @@ public class DashboardController {
     @GetMapping("/nhacungcap") public String nhaCungCap(HttpSession s, Model m) { if (!loggedIn(s)) return "redirect:/login";var items=nhaCungCapRepo.findAll();m.addAttribute("items",items);m.addAttribute("activeCount",items.stream().filter(x->x.getTrangThai()==null||x.getTrangThai().toLowerCase().contains("hoạt")).count());m.addAttribute("inactiveCount",items.stream().filter(x->x.getTrangThai()!=null&&!x.getTrangThai().toLowerCase().contains("hoạt")).count());return "nhacungcap"; }
     @GetMapping("/baocao") public String baoCao(HttpSession s,Model m) {if(!loggedIn(s))return "redirect:/login";loadAnalytics(m);return "baocao";}
     @GetMapping("/chatbot") public String chatbot(HttpSession s) { return loggedIn(s) ? "chatbot" : "redirect:/login"; }
-    private boolean loggedIn(HttpSession s) { return s.getAttribute("user") instanceof TaiKhoan; }
-    private boolean isCompleted(String s){if(s==null)return false;String v=s.toLowerCase();return v.contains("đã thanh toán")||v.contains("hoàn thành");}
-    private void loadAnalytics(Model model){
-        var invoices=hoaDonRepo.findAll();var details=chiTietHoaDonRepo.findAll();LocalDate today=LocalDate.now();
-        BigDecimal total=invoices.stream().filter(x->isCompleted(x.getTrangThai())).map(x->x.getTongTien()==null?BigDecimal.ZERO:x.getTongTien()).reduce(BigDecimal.ZERO,BigDecimal::add);
-        BigDecimal todayRevenue=invoices.stream().filter(x->today.equals(x.getNgayLap())&&isCompleted(x.getTrangThai())).map(x->x.getTongTien()==null?BigDecimal.ZERO:x.getTongTien()).reduce(BigDecimal.ZERO,BigDecimal::add);
-        int sold=details.stream().mapToInt(x->x.getSoLuong()==null?0:x.getSoLuong()).sum();
-        model.addAttribute("totalRevenue",total);model.addAttribute("todayRevenue",todayRevenue);model.addAttribute("soldCount",sold);model.addAttribute("invoiceCount",invoices.size());model.addAttribute("customerCount",khachHangRepo.count());
-        model.addAttribute("recentInvoices",invoices.stream().sorted(Comparator.comparing(com.example.qlchgiay.model.HoaDon::getNgayLap,Comparator.nullsLast(Comparator.reverseOrder()))).limit(5).toList());
-        model.addAttribute("lowStockProducts",sanPhamRepo.findTop5ByTonKhoLessThanEqualOrderByTonKhoAsc(5));
-        List<String> labels=new ArrayList<>();List<BigDecimal> revenues=new ArrayList<>();List<Map<String,Object>> reports=new ArrayList<>();
-        for(int i=5;i>=0;i--){YearMonth ym=YearMonth.now().minusMonths(i);labels.add("T"+ym.getMonthValue()+"/"+ym.getYear());var monthly=invoices.stream().filter(x->x.getNgayLap()!=null&&YearMonth.from(x.getNgayLap()).equals(ym)&&isCompleted(x.getTrangThai())).toList();BigDecimal rev=monthly.stream().map(x->x.getTongTien()==null?BigDecimal.ZERO:x.getTongTien()).reduce(BigDecimal.ZERO,BigDecimal::add);revenues.add(rev);int qty=details.stream().filter(d->d.getMaHoaDon()!=null&&monthly.stream().anyMatch(h->h.getId().equals(d.getMaHoaDon().getId()))).mapToInt(d->d.getSoLuong()==null?0:d.getSoLuong()).sum();Map<String,Object> row=new LinkedHashMap<>();row.put("period",labels.get(labels.size()-1));row.put("orders",monthly.size());row.put("quantity",qty);row.put("revenue",rev);reports.add(0,row);}
-        model.addAttribute("monthLabels",labels);model.addAttribute("monthRevenues",revenues);model.addAttribute("monthlyReports",reports);
-        BigDecimal maxRevenue=revenues.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);List<Map<String,Object>> chartRows=new ArrayList<>();for(int i=0;i<labels.size();i++){Map<String,Object> row=new LinkedHashMap<>();row.put("label",labels.get(i));row.put("revenue",revenues.get(i));row.put("height",maxRevenue.signum()==0?0:revenues.get(i).multiply(BigDecimal.valueOf(100)).divide(maxRevenue,0,java.math.RoundingMode.HALF_UP));chartRows.add(row);}model.addAttribute("chartRows",chartRows);
-        Map<String,Integer> sales=new HashMap<>();for(var d:details){String name=d.getMaChiTietSP()!=null&&d.getMaChiTietSP().getMaSP()!=null?d.getMaChiTietSP().getMaSP().getTenSP():"Khác";sales.merge(name,d.getSoLuong()==null?0:d.getSoLuong(),Integer::sum);}model.addAttribute("topProducts",sales.entrySet().stream().sorted(Map.Entry.<String,Integer>comparingByValue().reversed()).limit(5).toList());
-        Map<String,Long> categories=new LinkedHashMap<>();for(var p:sanPhamRepo.findAll()){String name=p.getMaLoai()==null?"Chưa phân loại":p.getMaLoai().getTenLoai();categories.merge(name,1L,Long::sum);}model.addAttribute("categoryLabels",categories.keySet());model.addAttribute("categoryValues",categories.values());
+    private boolean loggedIn(HttpSession s) {
+        return s.getAttribute("user") instanceof TaiKhoan;
+    }
+
+    private boolean isCompleted(String status) {
+        if (status == null) {
+            return false;
+        }
+        String value = status.toLowerCase();
+        return value.contains("đã thanh toán") || value.contains("hoàn thành");
+    }
+
+    private void loadAnalytics(Model model) {
+        var invoices = hoaDonRepo.findAll();
+        var details = chiTietHoaDonRepo.findAll();
+        LocalDate today = LocalDate.now();
+        YearMonth currentMonth = YearMonth.from(today);
+
+        var completedInvoices = invoices.stream()
+                .filter(invoice -> isCompleted(invoice.getTrangThai()))
+                .toList();
+        BigDecimal totalRevenue = completedInvoices.stream()
+                .map(invoice -> safeMoney(invoice.getTongTien()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal todayRevenue = completedInvoices.stream()
+                .filter(invoice -> today.equals(invoice.getNgayLap()))
+                .map(invoice -> safeMoney(invoice.getTongTien()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        int soldCount = details.stream()
+                .filter(detail -> detail.getMaHoaDon() != null
+                        && isCompleted(detail.getMaHoaDon().getTrangThai()))
+                .mapToInt(detail -> detail.getSoLuong() == null ? 0 : detail.getSoLuong())
+                .sum();
+
+        model.addAttribute("totalRevenue", totalRevenue);
+        model.addAttribute("todayRevenue", todayRevenue);
+        model.addAttribute("soldCount", soldCount);
+        model.addAttribute("invoiceCount", invoices.size());
+        model.addAttribute("customerCount", khachHangRepo.count());
+        model.addAttribute("currentYear", today.getYear());
+        model.addAttribute(
+                "recentInvoices",
+                invoices.stream()
+                        .sorted(Comparator.comparing(
+                                com.example.qlchgiay.model.HoaDon::getNgayLap,
+                                Comparator.nullsLast(Comparator.reverseOrder())
+                        ))
+                        .limit(5)
+                        .toList()
+        );
+        model.addAttribute(
+                "lowStockProducts",
+                sanPhamRepo.findTop5ByTonKhoLessThanEqualOrderByTonKhoAsc(5)
+        );
+
+        List<String> monthLabels = new ArrayList<>();
+        List<BigDecimal> monthRevenues = new ArrayList<>();
+        List<Map<String, Object>> monthlyReports = new ArrayList<>();
+
+        for (int offset = 5; offset >= 0; offset--) {
+            YearMonth month = currentMonth.minusMonths(offset);
+            List<com.example.qlchgiay.model.HoaDon> monthlyInvoices =
+                    invoicesForMonth(completedInvoices, month);
+            BigDecimal revenue = sumRevenue(monthlyInvoices);
+            String label = "T" + month.getMonthValue() + "/" + month.getYear();
+
+            monthLabels.add(label);
+            monthRevenues.add(revenue);
+
+            Set<Integer> invoiceIds = monthlyInvoices.stream()
+                    .map(com.example.qlchgiay.model.HoaDon::getId)
+                    .filter(Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+            int quantity = details.stream()
+                    .filter(detail -> detail.getMaHoaDon() != null
+                            && invoiceIds.contains(detail.getMaHoaDon().getId()))
+                    .mapToInt(detail -> detail.getSoLuong() == null ? 0 : detail.getSoLuong())
+                    .sum();
+
+            Map<String, Object> report = new LinkedHashMap<>();
+            report.put("period", label);
+            report.put("orders", monthlyInvoices.size());
+            report.put("quantity", quantity);
+            report.put("revenue", revenue);
+            monthlyReports.add(0, report);
+        }
+
+        List<String> yearLabels = new ArrayList<>();
+        List<BigDecimal> yearRevenues = new ArrayList<>();
+        for (int monthNumber = 1; monthNumber <= 12; monthNumber++) {
+            YearMonth month = YearMonth.of(today.getYear(), monthNumber);
+            yearLabels.add("T" + monthNumber);
+            yearRevenues.add(sumRevenue(invoicesForMonth(completedInvoices, month)));
+        }
+
+        model.addAttribute("monthLabels", monthLabels);
+        model.addAttribute("monthRevenues", monthRevenues);
+        model.addAttribute("yearLabels", yearLabels);
+        model.addAttribute("yearRevenues", yearRevenues);
+        model.addAttribute("monthlyReports", monthlyReports);
+
+        BigDecimal maxRevenue = monthRevenues.stream()
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+        List<Map<String, Object>> chartRows = new ArrayList<>();
+        for (int index = 0; index < monthLabels.size(); index++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("label", monthLabels.get(index));
+            row.put("revenue", monthRevenues.get(index));
+            row.put(
+                    "height",
+                    maxRevenue.signum() == 0
+                            ? 0
+                            : monthRevenues.get(index)
+                                    .multiply(BigDecimal.valueOf(100))
+                                    .divide(maxRevenue, 0, java.math.RoundingMode.HALF_UP)
+            );
+            chartRows.add(row);
+        }
+        model.addAttribute("chartRows", chartRows);
+
+        Map<String, Integer> productSales = new HashMap<>();
+        for (var detail : details) {
+            if (detail.getMaHoaDon() == null
+                    || !isCompleted(detail.getMaHoaDon().getTrangThai())) {
+                continue;
+            }
+            String productName = detail.getMaChiTietSP() != null
+                    && detail.getMaChiTietSP().getMaSP() != null
+                    ? detail.getMaChiTietSP().getMaSP().getTenSP()
+                    : "Khác";
+            productSales.merge(
+                    productName,
+                    detail.getSoLuong() == null ? 0 : detail.getSoLuong(),
+                    Integer::sum
+            );
+        }
+        model.addAttribute(
+                "topProducts",
+                productSales.entrySet().stream()
+                        .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                        .limit(5)
+                        .toList()
+        );
+
+        Map<String, Long> categories = new LinkedHashMap<>();
+        for (var product : sanPhamRepo.findAll()) {
+            String categoryName = product.getMaLoai() == null
+                    ? "Chưa phân loại"
+                    : product.getMaLoai().getTenLoai();
+            categories.merge(categoryName, 1L, Long::sum);
+        }
+        model.addAttribute("categoryLabels", categories.keySet());
+        model.addAttribute("categoryValues", categories.values());
+    }
+
+    private List<com.example.qlchgiay.model.HoaDon> invoicesForMonth(
+            List<com.example.qlchgiay.model.HoaDon> invoices,
+            YearMonth month
+    ) {
+        return invoices.stream()
+                .filter(invoice -> invoice.getNgayLap() != null
+                        && YearMonth.from(invoice.getNgayLap()).equals(month))
+                .toList();
+    }
+
+    private BigDecimal sumRevenue(List<com.example.qlchgiay.model.HoaDon> invoices) {
+        return invoices.stream()
+                .map(invoice -> safeMoney(invoice.getTongTien()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal safeMoney(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

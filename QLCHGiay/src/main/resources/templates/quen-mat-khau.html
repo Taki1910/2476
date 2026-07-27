@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Đặt lại mật khẩu hệ thống quản lý cửa hàng giày">
+    <title>Quên mật khẩu - KICKS ZONE</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --page-bg: #f3f6fa;
+            --panel-bg: rgba(255, 255, 255, 0.94);
+            --field-bg: #f8fafc;
+            --border: #cbd5e1;
+            --text: #0f172a;
+            --muted: #64748b;
+            --label: #9a3412;
+            --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+        }
+
+        :root:not(.light-mode) {
+            --page-bg: #0c0b0a;
+            --panel-bg: rgba(20, 18, 16, 0.92);
+            --field-bg: rgba(40, 35, 30, 0.55);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #fcfcfc;
+            --muted: #a19e9a;
+            --label: #ffe0b2;
+            --shadow: 0 25px 50px rgba(0, 0, 0, 0.55);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 10% 10%, rgba(255, 87, 34, 0.14), transparent 32%),
+                radial-gradient(circle at 90% 90%, rgba(255, 152, 0, 0.12), transparent 34%),
+                var(--page-bg);
+        }
+
+        .reset-card {
+            width: min(100%, 520px);
+            padding: 42px;
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            background: var(--panel-bg);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .icon {
+            width: 56px;
+            height: 56px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 18px;
+            border-radius: 14px;
+            color: white;
+            font-size: 24px;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            box-shadow: 0 8px 20px rgba(255, 87, 34, 0.28);
+        }
+
+        h1 {
+            margin-bottom: 8px;
+            font-size: 26px;
+        }
+
+        .intro {
+            margin-bottom: 26px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 12px 14px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            color: #dc2626;
+            background: rgba(239, 68, 68, 0.1);
+            font-size: 13px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--label);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            color: var(--muted);
+            transform: translateY(-50%);
+        }
+
+        input {
+            width: 100%;
+            height: 50px;
+            padding: 0 15px 0 44px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            color: var(--text);
+            background: var(--field-bg);
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        input:focus {
+            border-color: #f97316;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.14);
+        }
+
+        .hint {
+            display: block;
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            height: 50px;
+            margin-top: 6px;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 5px 16px rgba(255, 87, 34, 0.28);
+        }
+
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #ea580c;
+            text-align: center;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 560px) {
+            .reset-card {
+                padding: 30px 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="reset-card">
+    <div class="icon"><i class="fa-solid fa-key"></i></div>
+    <h1>Đặt lại mật khẩu</h1>
+    <p class="intro">
+        Xác minh tài khoản bằng số điện thoại của nhân viên, sau đó tạo mật khẩu mới.
+    </p>
+
+    <div th:if="${error}" class="alert" role="alert">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span th:text="${error}">Thông tin không chính xác</span>
+    </div>
+
+    <form th:action="@{/quen-mat-khau}" method="post">
+        <div class="form-group">
+            <label for="username">Tên đăng nhập</label>
+            <div class="input-wrapper">
+                <i class="fa-regular fa-user"></i>
+                <input id="username" name="username" type="text" required
+                       autocomplete="username" placeholder="Nhập tên tài khoản"
+                       th:value="${username}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Số điện thoại xác minh</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-phone"></i>
+                <input id="phone" name="phone" type="tel" required
+                       autocomplete="tel" placeholder="Ví dụ: 0911 111 111"
+                       th:value="${phone}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="newPassword">Mật khẩu mới</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-lock"></i>
+                <input id="newPassword" name="newPassword" type="password" required
+                       minlength="6" maxlength="255" autocomplete="new-password"
+                       placeholder="Tối thiểu 6 ký tự">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="confirmPassword">Xác nhận mật khẩu</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-shield-halved"></i>
+                <input id="confirmPassword" name="confirmPassword" type="password" required
+                       minlength="6" maxlength="255" autocomplete="new-password"
+                       placeholder="Nhập lại mật khẩu mới">
+            </div>
+            <small class="hint">Số điện thoại mẫu của tài khoản admin: 0911111111</small>
+        </div>
+
+        <button class="submit-btn" type="submit">
+            Cập nhật mật khẩu <i class="fa-solid fa-arrow-right" style="margin-left: 6px"></i>
+        </button>
+    </form>
+
+    <a class="back-link" th:href="@{/login}" href="/login">
+        <i class="fa-solid fa-arrow-left"></i> Quay lại đăng nhập
+    </a>
+</main>
+</body>
+</html>

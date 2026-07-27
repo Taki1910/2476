@@ -1,1 +1,82 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><title th:text="${pageTitle}">Nhà cung cấp</title><style>body{background:#0d0c0b;color:#eee;font:16px Arial}.box{max-width:720px;margin:45px auto;padding:28px;background:#171513;border-radius:16px}h1{color:#ff6a1a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.full{grid-column:1/-1}label{display:block;margin-bottom:7px;color:#aaa}input,select{box-sizing:border-box;width:100%;padding:12px;background:#211e1b;color:#fff;border:1px solid #3a3531;border-radius:8px}.btn{display:inline-block;margin-top:24px;padding:12px 18px;border:0;border-radius:8px;background:#39332e;color:#fff;text-decoration:none}.primary{background:#ff6422}</style></head><body><main class="box"><h1 th:text="${pageTitle}"></h1><form method="post" th:action="${item.id == null} ? @{/nhacungcap/them} : @{/nhacungcap/sua/{id}(id=${item.id})}"><div class="grid"><div class="full"><label>Tên nhà cung cấp *</label><input name="tenNCC" required maxlength="100" th:value="${item.tenNCC}"></div><div><label>Điện thoại</label><input name="soDienThoai" maxlength="15" th:value="${item.soDienThoai}"></div><div><label>Email</label><input type="email" name="email" maxlength="100" th:value="${item.email}"></div><div class="full"><label>Địa chỉ</label><input name="diaChi" maxlength="200" th:value="${item.diaChi}"></div><div><label>Trạng thái</label><select name="trangThai"><option th:selected="${item.trangThai == null || item.trangThai == 'Hoạt động'}">Hoạt động</option><option th:selected="${item.trangThai == 'Ngừng hợp tác'}">Ngừng hợp tác</option></select></div></div><button class="btn primary">Lưu</button> <a class="btn" th:href="@{/nhacungcap}">Hủy</a></form></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle}">Nhà cung cấp</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #0d0c0b; color: #eee; font: 16px Arial; }
+        .box {
+            max-width: 720px;
+            margin: 45px auto;
+            padding: 28px;
+            background: #171513;
+            border-radius: 16px;
+        }
+        h1 { color: #ff6a1a; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .full { grid-column: 1/-1; }
+        label { display: block; margin-bottom: 7px; color: #aaa; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #211e1b;
+            color: #fff;
+            border: 1px solid #3a3531;
+            border-radius: 8px;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 24px;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 8px;
+            background: #39332e;
+            color: #fff;
+            text-decoration: none;
+        }
+        .primary { background: #ff6422; }
+    </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+</head>
+<body>
+<main class="box">
+    <h1 th:text="${pageTitle}"></h1>
+    <form method="post"
+          th:action="${item.id == null} ? @{/nhacungcap/them} : @{/nhacungcap/sua/{id}(id=${item.id})}">
+        <div class="grid">
+            <div class="full">
+                <label>Tên nhà cung cấp *</label>
+                <input name="tenNCC" required maxlength="100" th:value="${item.tenNCC}">
+            </div>
+            <div>
+                <label>Điện thoại</label>
+                <input name="soDienThoai" maxlength="15" th:value="${item.soDienThoai}">
+            </div>
+            <div>
+                <label>Email</label>
+                <input type="email" name="email" maxlength="100" th:value="${item.email}">
+            </div>
+            <div class="full">
+                <label>Địa chỉ</label>
+                <input name="diaChi" maxlength="200" th:value="${item.diaChi}">
+            </div>
+            <div>
+                <label>Trạng thái</label>
+                <select name="trangThai">
+                    <option th:selected="${item.trangThai == null || item.trangThai == 'Hoạt động'}">
+                        Hoạt động
+                    </option>
+                    <option th:selected="${item.trangThai == 'Ngừng hợp tác'}">Ngừng hợp tác</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn primary">Lưu</button>
+        <a class="btn" th:href="@{/nhacungcap}">Hủy</a>
+    </form>
+</main>
+</body>
+</html>

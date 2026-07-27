@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/table-pagination.js}" src="/js/table-pagination.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/table-pagination.js(v='20260727-sort')}" src="/js/table-pagination.js?v=20260727-sort"></script>
 
     <title>Quản lý sản phẩm - KICKS ZONE</title>
 
@@ -336,6 +337,34 @@
             color: #ff6a1a;
         }
 
+        .price-sort {
+            display: flex;
+            gap: 7px;
+        }
+
+        .sort-btn {
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0 11px;
+            border: 1px solid #37322e;
+            border-radius: 9px;
+            background: #1b1816;
+            color: #aaa4a0;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .sort-btn:hover,
+        .sort-btn.active {
+            border-color: #ff6a1a;
+            background: rgba(255, 106, 26, .12);
+            color: #ff7a2f;
+        }
+
         .filter-count {
             position: absolute;
             top: -7px;
@@ -659,6 +688,15 @@
                 width: 100%;
             }
 
+            .price-sort {
+                width: 100%;
+            }
+
+            .sort-btn {
+                flex: 1;
+                justify-content: center;
+            }
+
             .advanced-filter { grid-template-columns: 1fr; }
             .advanced-filter.open { max-height: 300px; }
         }
@@ -733,11 +771,6 @@
             <h1>Quản lý sản phẩm</h1>
 
             <div class="top-actions">
-
-                <div class="top-search">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Tìm kiếm nhanh...">
-                </div>
 
                 <div class="user-box">
                     <div class="avatar">N</div>
@@ -853,7 +886,7 @@
 
                             <input type="text"
                                    id="productSearch"
-                                   placeholder="Tìm tên, loại, màu..."
+                                   placeholder="Tìm mã, tên, loại, màu hoặc size..."
                                    oninput="filterProducts()">
                         </div>
 
@@ -864,6 +897,19 @@
                             <i class="fa-solid fa-filter"></i>
                             <span class="filter-count" id="filterCount">0</span>
                         </button>
+
+                        <div class="price-sort" role="group" aria-label="Sắp xếp theo giá">
+                            <button class="sort-btn" id="sortPriceAsc" type="button"
+                                    aria-pressed="false" onclick="togglePriceSort('asc')">
+                                <i class="fa-solid fa-arrow-up-short-wide"></i>
+                                <span>Giá thấp → cao</span>
+                            </button>
+                            <button class="sort-btn" id="sortPriceDesc" type="button"
+                                    aria-pressed="false" onclick="togglePriceSort('desc')">
+                                <i class="fa-solid fa-arrow-down-wide-short"></i>
+                                <span>Giá cao → thấp</span>
+                            </button>
+                        </div>
 
                         <a th:href="@{/sanpham/them}" class="create-btn">
                             <i class="fa-solid fa-plus"></i>
@@ -918,7 +964,9 @@
                         <tbody>
 
                         <tr th:each="x : ${items}"
-                            th:attr="data-category=${x.maLoai != null ? x.maLoai.tenLoai : ''},
+                            th:attr="data-search=${'#SP-' + x.id + ' ' + (x.tenSP ?: '') + ' ' + (x.maLoai != null ? x.maLoai.tenLoai : '') + ' ' + (x.maMau != null ? x.maMau.tenMau : '') + ' ' + (x.maSize != null ? x.maSize.tenSize : '')},
+                                     data-price=${x.gia != null ? x.gia : 0},
+                                     data-category=${x.maLoai != null ? x.maLoai.tenLoai : ''},
                                      data-color=${x.maMau != null ? x.maMau.tenMau : ''},
                                      data-size=${x.maSize != null ? x.maSize.tenSize : ''},
                                      data-stock=${x.tonKho == null || x.tonKho == 0 ? 'out' : (x.tonKho <= 5 ? 'low' : 'available')}">
@@ -1066,6 +1114,7 @@
 
 <script>
     let productPagination;
+    let currentPriceSort = null;
 
     function normalizeText(value) {
         return (value || "")
@@ -1092,11 +1141,11 @@
         const selectedStock = document.getElementById("stockFilter").value;
 
         return (row) => {
-            const rowText = normalizeText(row.textContent);
+            const searchableText = normalizeText(row.dataset.search);
             const category = normalizeText(row.dataset.category);
             const color = normalizeText(row.dataset.color);
             const size = normalizeText(row.dataset.size);
-            const matchesKeyword = keyword === "" || rowText.includes(keyword);
+            const matchesKeyword = keyword === "" || searchableText.includes(keyword);
             const matchesCategory = selectedCategory === "" || category === selectedCategory;
             const matchesColor = selectedColor === "" || color === selectedColor;
             const matchesSize = selectedSize === "" || size === selectedSize;
@@ -1115,7 +1164,8 @@
             document.getElementById("categoryFilter").value,
             document.getElementById("colorFilter").value,
             document.getElementById("sizeFilter").value,
-            document.getElementById("stockFilter").value
+            document.getElementById("stockFilter").value,
+            currentPriceSort
         ]
             .filter(Boolean).length;
         const badge = document.getElementById("filterCount");
@@ -1127,6 +1177,30 @@
     function resetFilters() {
         ["categoryFilter", "colorFilter", "sizeFilter", "stockFilter"]
             .forEach(id => document.getElementById(id).value = "");
+        setPriceSort(null);
+        filterProducts();
+    }
+
+    function setPriceSort(direction) {
+        currentPriceSort = direction;
+        const ascButton = document.getElementById("sortPriceAsc");
+        const descButton = document.getElementById("sortPriceDesc");
+        ascButton.classList.toggle("active", direction === "asc");
+        descButton.classList.toggle("active", direction === "desc");
+        ascButton.setAttribute("aria-pressed", String(direction === "asc"));
+        descButton.setAttribute("aria-pressed", String(direction === "desc"));
+
+        const comparator = direction
+            ? (left, right) => {
+                const difference = Number(left.dataset.price) - Number(right.dataset.price);
+                return direction === "asc" ? difference : -difference;
+            }
+            : null;
+        productPagination?.setSort(comparator);
+    }
+
+    function togglePriceSort(direction) {
+        setPriceSort(currentPriceSort === direction ? null : direction);
         filterProducts();
     }
 

@@ -1,1 +1,48 @@
-<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><title>Chi tiết nhà cung cấp</title><style>body{background:#0d0c0b;color:#eee;font:16px Arial}.box{max-width:650px;margin:50px auto;padding:30px;background:#171513;border-radius:16px}h1{color:#ff6a1a}.row{padding:14px 0;border-bottom:1px solid #302c29}.row b{display:inline-block;width:170px;color:#aaa}.btn{display:inline-block;margin-top:24px;padding:12px 18px;border-radius:8px;background:#ff6422;color:#fff;text-decoration:none}</style></head><body><main class="box"><h1>Chi tiết nhà cung cấp</h1><div class="row"><b>Mã</b><span th:text="${'#NCC-' + item.id}"></span></div><div class="row"><b>Tên</b><span th:text="${item.tenNCC}"></span></div><div class="row"><b>Điện thoại</b><span th:text="${item.soDienThoai ?: '-'}"></span></div><div class="row"><b>Email</b><span th:text="${item.email ?: '-'}"></span></div><div class="row"><b>Địa chỉ</b><span th:text="${item.diaChi ?: '-'}"></span></div><div class="row"><b>Trạng thái</b><span th:text="${item.trangThai ?: '-'}"></span></div><a class="btn" th:href="@{/nhacungcap/sua/{id}(id=${item.id})}">Chỉnh sửa</a> <a class="btn" th:href="@{/nhacungcap}">Quay lại</a></main></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chi tiết nhà cung cấp</title>
+    <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <style>
+        body { background: #0d0c0b; color: #eee; font: 16px Arial; }
+        .box {
+            max-width: 650px;
+            margin: 50px auto;
+            padding: 30px;
+            background: #171513;
+            border-radius: 16px;
+        }
+        h1 { color: #ff6a1a; }
+        .row { padding: 14px 0; border-bottom: 1px solid #302c29; }
+        .row b { display: inline-block; width: 170px; color: #aaa; }
+        .btn {
+            display: inline-block;
+            margin-top: 24px;
+            padding: 12px 18px;
+            border-radius: 8px;
+            background: #ff6422;
+            color: #fff;
+            text-decoration: none;
+        }
+    </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+</head>
+<body>
+<main class="box">
+    <h1>Chi tiết nhà cung cấp</h1>
+    <div class="row"><b>Mã</b><span th:text="${'#NCC-' + item.id}"></span></div>
+    <div class="row"><b>Tên</b><span th:text="${item.tenNCC}"></span></div>
+    <div class="row">
+        <b>Điện thoại</b><span th:text="${item.soDienThoai ?: '-'}"></span>
+    </div>
+    <div class="row"><b>Email</b><span th:text="${item.email ?: '-'}"></span></div>
+    <div class="row"><b>Địa chỉ</b><span th:text="${item.diaChi ?: '-'}"></span></div>
+    <div class="row"><b>Trạng thái</b><span th:text="${item.trangThai ?: '-'}"></span></div>
+    <a class="btn" th:href="@{/nhacungcap/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
+    <a class="btn" th:href="@{/nhacungcap}">Quay lại</a>
+</main>
+</body>
+</html>

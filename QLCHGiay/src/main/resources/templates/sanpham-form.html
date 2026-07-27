@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
     <title th:text="${pageTitle} + ' - KICKS ZONE'">Sản phẩm - KICKS ZONE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
@@ -13,6 +14,7 @@
         .header{padding:22px 26px;border-bottom:1px solid #2b2825}.header h1{margin:0 0 7px;font-size:23px}.header p{margin:0;color:#8d8782;font-size:13px}
         form{padding:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.full{grid-column:1/-1}
         label{display:block;margin-bottom:8px;color:#c9c4bf;font-size:13px;font-weight:700}input,select{width:100%;height:44px;padding:0 13px;border:1px solid #37322e;border-radius:9px;background:#1b1816;color:#fff;outline:none}input:focus,select:focus{border-color:#ff6a1a;box-shadow:0 0 0 3px rgba(255,106,26,.12)}
+        .custom-value-editor{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.custom-value-editor[hidden]{display:none}.custom-value-editor input{height:40px}.add-custom-btn{height:40px;padding:0 15px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}.custom-value-note{grid-column:1/-1;color:#8d8782;font-size:11px}
         .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #2b2825}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border:0;border-radius:9px;text-decoration:none;font-weight:700;cursor:pointer}.cancel{background:#26221f;color:#c6c1bd}.save{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:20px 14px}}
     </style>
@@ -26,10 +28,66 @@
         <form method="post" th:action="${sanPham.id == null} ? @{/sanpham/them} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
             <div class="grid">
                 <div class="full"><label for="tenSP">Tên sản phẩm *</label><input id="tenSP" name="tenSP" maxlength="100" required th:value="${sanPham.tenSP}"></div>
-                <div><label for="maLoai">Loại</label><select id="maLoai" name="maLoai"><option value="">-- Chọn loại --</option><option th:each="x : ${loaiList}" th:value="${x.id}" th:text="${x.tenLoai}" th:selected="${sanPham.maLoai != null && sanPham.maLoai.id == x.id}"></option></select></div>
-                <div><label for="maMau">Màu</label><select id="maMau" name="maMau"><option value="">-- Chọn màu --</option><option th:each="x : ${mauList}" th:value="${x.id}" th:text="${x.tenMau}" th:selected="${sanPham.maMau != null && sanPham.maMau.id == x.id}"></option></select></div>
-                <div><label for="maChatLieu">Chất liệu</label><select id="maChatLieu" name="maChatLieu"><option value="">-- Chọn chất liệu --</option><option th:each="x : ${chatLieuList}" th:value="${x.id}" th:text="${x.tenChatLieu}" th:selected="${sanPham.maChatLieu != null && sanPham.maChatLieu.id == x.id}"></option></select></div>
-                <div><label for="maSize">Size</label><select id="maSize" name="maSize"><option value="">-- Chọn size --</option><option th:each="x : ${sizeList}" th:value="${x.id}" th:text="${x.tenSize}" th:selected="${sanPham.maSize != null && sanPham.maSize.id == x.id}"></option></select></div>
+                <div data-custom-field>
+                    <label for="maLoai">Loại</label>
+                    <select id="maLoai" name="maLoai" data-custom-select>
+                        <option value="">-- Chọn loại --</option>
+                        <option th:each="x : ${loaiList}" th:value="${x.id}" th:text="${x.tenLoai}"
+                                th:selected="${sanPham.maLoai != null && sanPham.maLoai.id == x.id}"></option>
+                        <option value="" data-create-new>+ Thêm loại mới...</option>
+                    </select>
+                    <div class="custom-value-editor" data-custom-editor hidden>
+                        <input name="tenLoaiMoi" maxlength="50" data-custom-input
+                               placeholder="Nhập tên loại mới">
+                        <button class="add-custom-btn" type="button" data-custom-confirm>Thêm</button>
+                        <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
+                    </div>
+                </div>
+                <div data-custom-field>
+                    <label for="maMau">Màu</label>
+                    <select id="maMau" name="maMau" data-custom-select>
+                        <option value="">-- Chọn màu --</option>
+                        <option th:each="x : ${mauList}" th:value="${x.id}" th:text="${x.tenMau}"
+                                th:selected="${sanPham.maMau != null && sanPham.maMau.id == x.id}"></option>
+                        <option value="" data-create-new>+ Thêm màu mới...</option>
+                    </select>
+                    <div class="custom-value-editor" data-custom-editor hidden>
+                        <input name="tenMauMoi" maxlength="50" data-custom-input
+                               placeholder="Nhập tên màu mới">
+                        <button class="add-custom-btn" type="button" data-custom-confirm>Thêm</button>
+                        <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
+                    </div>
+                </div>
+                <div data-custom-field>
+                    <label for="maChatLieu">Chất liệu</label>
+                    <select id="maChatLieu" name="maChatLieu" data-custom-select>
+                        <option value="">-- Chọn chất liệu --</option>
+                        <option th:each="x : ${chatLieuList}" th:value="${x.id}" th:text="${x.tenChatLieu}"
+                                th:selected="${sanPham.maChatLieu != null && sanPham.maChatLieu.id == x.id}"></option>
+                        <option value="" data-create-new>+ Thêm chất liệu mới...</option>
+                    </select>
+                    <div class="custom-value-editor" data-custom-editor hidden>
+                        <input name="tenChatLieuMoi" maxlength="50" data-custom-input
+                               placeholder="Nhập tên chất liệu mới">
+                        <button class="add-custom-btn" type="button" data-custom-confirm>Thêm</button>
+                        <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
+                    </div>
+                </div>
+                <div data-custom-field>
+                    <label for="maSize">Size</label>
+                    <select id="maSize" name="maSize" data-custom-select>
+                        <option value="">-- Chọn size --</option>
+                        <option th:each="x : ${sizeList}" th:value="${x.id}" th:text="${x.tenSize}"
+                                th:selected="${sanPham.maSize != null && sanPham.maSize.id == x.id}"></option>
+                        <option value="" data-create-new>+ Thêm size mới...</option>
+                    </select>
+                    <div class="custom-value-editor" data-custom-editor hidden>
+                        <input name="tenSizeMoi" maxlength="20" data-custom-input
+                               placeholder="Nhập size mới">
+                        <button class="add-custom-btn" type="button" data-custom-confirm>Thêm</button>
+                        <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
+                    </div>
+                </div>
                 <div><label for="gia">Giá bán (VNĐ) *</label><input id="gia" name="gia" type="number" min="0" step="0.01" required th:value="${sanPham.gia != null ? sanPham.gia : 0}"></div>
                 <div><label for="tonKho">Số lượng tồn *</label><input id="tonKho" name="tonKho" type="number" min="0" required th:value="${sanPham.tonKho != null ? sanPham.tonKho : 0}"></div>
             </div>
@@ -37,5 +95,53 @@
         </form>
     </section>
 </main>
+<script>
+    document.querySelectorAll('[data-custom-field]').forEach((field) => {
+        const select = field.querySelector('[data-custom-select]');
+        const editor = field.querySelector('[data-custom-editor]');
+        const input = field.querySelector('[data-custom-input]');
+        const confirmButton = field.querySelector('[data-custom-confirm]');
+
+        function syncCustomEditor() {
+            const selectedOption = select.selectedOptions[0];
+            const isCreateOption = selectedOption?.hasAttribute('data-create-new');
+            const isCustomValue = selectedOption?.hasAttribute('data-custom-value');
+
+            editor.hidden = !isCreateOption;
+            input.required = isCreateOption;
+            if (isCreateOption) {
+                window.setTimeout(() => input.focus(), 0);
+            } else if (!isCustomValue) {
+                input.value = '';
+                select.querySelector('[data-custom-value]')?.remove();
+            }
+        }
+
+        select.addEventListener('change', syncCustomEditor);
+        confirmButton.addEventListener('click', () => {
+            const value = input.value.trim().replace(/\s+/g, ' ');
+            input.value = value;
+            if (!value) {
+                input.setCustomValidity('Vui lòng nhập giá trị mới.');
+                input.reportValidity();
+                return;
+            }
+            input.setCustomValidity('');
+
+            let customOption = select.querySelector('[data-custom-value]');
+            if (!customOption) {
+                customOption = document.createElement('option');
+                customOption.value = '';
+                customOption.setAttribute('data-custom-value', '');
+                select.insertBefore(customOption, select.querySelector('[data-create-new]'));
+            }
+            customOption.textContent = `✓ ${value}`;
+            customOption.selected = true;
+            input.required = false;
+            editor.hidden = true;
+        });
+        input.addEventListener('input', () => input.setCustomValidity(''));
+    });
+</script>
 </body>
 </html>

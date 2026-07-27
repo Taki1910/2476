@@ -6,6 +6,7 @@
     <meta name="description" content="Hệ thống quản lý cửa hàng giày Kicks Zone - Trang tổng quan">
     <title>Bảng điều khiển - KICKS ZONE</title>
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
+    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
     <!-- Google Fonts Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -873,6 +874,26 @@
             color: var(--text-main);
         }
 
+        .language-toggle {
+            width: 58px;
+            gap: 5px;
+        }
+
+        .language-code {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+        }
+
+        .language-flag {
+            width: 23px;
+            height: 16px;
+            display: block;
+            border-radius: 2px;
+            object-fit: cover;
+            box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+        }
+
         .fa,
         .fa-solid,
         .fa-regular,
@@ -1602,55 +1623,55 @@
         <li class="menu-item active">
             <a th:href="@{/dashboard}" class="menu-link">
                 <i class="fa-solid fa-chart-pie"></i>
-                <span>Bảng điều khiển</span>
+                <span data-i18n="nav.dashboard">Bảng điều khiển</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/sanpham}" class="menu-link">
                 <i class="fa-solid fa-shoe-prints"></i>
-                <span>Giày &amp; Dép</span>
+                <span data-i18n="nav.products">Giày &amp; Dép</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/sanpham}" class="menu-link">
                 <i class="fa-solid fa-spray-can-sparkles"></i>
-                <span>Phụ kiện giày</span>
+                <span data-i18n="nav.accessories">Phụ kiện giày</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/khachhang}" class="menu-link">
                 <i class="fa-solid fa-users-gear"></i>
-                <span>Khách hàng</span>
+                <span data-i18n="nav.customers">Khách hàng</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/hoadon}" class="menu-link">
                 <i class="fa-solid fa-file-invoice-dollar"></i>
-                <span>Hóa đơn</span>
+                <span data-i18n="nav.invoices">Hóa đơn</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/baocao}" class="menu-link">
                 <i class="fa-solid fa-chart-line"></i>
-                <span>Báo cáo</span>
+                <span data-i18n="nav.reports">Báo cáo</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/nhacungcap}" class="menu-link">
                 <i class="fa-solid fa-truck-ramp-box"></i>
-                <span>Nhà cung cấp</span>
+                <span data-i18n="nav.suppliers">Nhà cung cấp</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/chatbot}" class="menu-link">
                 <i class="fa-solid fa-robot"></i>
-                <span>Chatbot hỗ trợ</span>
+                <span data-i18n="nav.chatbot">Chatbot hỗ trợ</span>
             </a>
         </li>
         <li class="menu-item">
             <a th:href="@{/caidat}" class="menu-link">
                 <i class="fa-solid fa-sliders"></i>
-                <span>Cài đặt</span>
+                <span data-i18n="nav.settings">Cài đặt</span>
             </a>
         </li>
     </ul>
@@ -1659,7 +1680,7 @@
         <div class="menu-item">
             <a th:href="@{/logout}" class="menu-link logout-link">
                 <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Đăng xuất</span>
+                <span data-i18n="nav.logout">Đăng xuất</span>
             </a>
         </div>
     </div>
@@ -1673,23 +1694,29 @@
             <button class="menu-toggle" id="menuToggleBtn">
                 <i class="fa-solid fa-bars"></i>
             </button>
-            <h1 class="page-title">Bảng điều khiển</h1>
+            <h1 class="page-title" data-i18n="nav.dashboard">Bảng điều khiển</h1>
         </div>
 
         <div class="header-right">
-            <!-- Search Box -->
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Tìm kiếm nhanh...">
-            </div>
-
             <!-- Theme Toggle Button -->
             <button class="header-action-btn" id="themeToggleBtn" title="Chuyển chế độ Sáng/Tối">
                 <i class="fa-solid fa-sun" id="themeIcon"></i>
             </button>
 
+            <!-- Language Toggle Button -->
+            <button class="header-action-btn language-toggle" id="languageToggleBtn"
+                    type="button" title="Chuyển sang tiếng Anh"
+                    th:attr="data-flag-en=@{/images/flag-en.svg},data-flag-vi=@{/images/flag-vi.svg}"
+                    data-flag-en="/images/flag-en.svg" data-flag-vi="/images/flag-vi.svg">
+                <img class="language-flag" id="languageFlag"
+                     th:src="@{/images/flag-en.svg}" src="/images/flag-en.svg"
+                     alt="" aria-hidden="true">
+                <span class="language-code" id="languageCode">EN</span>
+            </button>
+
             <!-- Notifications -->
-            <button class="header-action-btn" title="Thông báo">
+            <button class="header-action-btn" title="Thông báo"
+                    data-i18n-title="notification.title">
                 <i class="fa-regular fa-bell"></i>
                 <span class="badge"></span>
             </button>
@@ -1712,15 +1739,15 @@
         <div class="quick-actions-bar">
             <a th:href="@{/hoadon}" class="action-card">
                 <i class="fa-solid fa-file-circle-plus"></i>
-                <span>Tạo hóa đơn</span>
+                <span data-i18n="quick.invoice">Tạo hóa đơn</span>
             </a>
             <a th:href="@{/sanpham}" class="action-card">
                 <i class="fa-solid fa-shoe-prints"></i>
-                <span>Thêm giày mới</span>
+                <span data-i18n="quick.product">Thêm giày mới</span>
             </a>
             <a th:href="@{/baocao}" class="action-card">
                 <i class="fa-solid fa-file-export"></i>
-                <span>Xuất báo cáo</span>
+                <span data-i18n="quick.report">Xuất báo cáo</span>
             </a>
         </div>
 
@@ -1729,18 +1756,20 @@
             <!-- KPI 1 -->
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Doanh thu hôm nay</span>
+                    <span class="kpi-title" data-i18n="kpi.todayRevenue">Doanh thu hôm nay</span>
                     <div class="kpi-icon blue">
                         <i class="fa-solid fa-wallet"></i>
                     </div>
                 </div>
                 <div>
-                <div class="kpi-value" th:text="${#numbers.formatDecimal(todayRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
+                <div class="kpi-value" data-metric="currency"
+                     th:attr="data-value=${todayRevenue}"
+                     th:text="${#numbers.formatDecimal(todayRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 15.2%
                             </span>
-                        <span class="trend-text">so với hôm qua</span>
+                        <span class="trend-text" data-i18n="compare.yesterday">so với hôm qua</span>
                     </div>
                 </div>
             </div>
@@ -1748,18 +1777,20 @@
             <!-- KPI 2 -->
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Giày đã bán</span>
+                    <span class="kpi-title" data-i18n="kpi.sold">Giày đã bán</span>
                     <div class="kpi-icon green">
                         <i class="fa-solid fa-shoe-prints"></i>
                     </div>
                 </div>
                 <div>
-                <div class="kpi-value" th:text="${soldCount + ' đôi'}">0 đôi</div>
+                <div class="kpi-value" data-metric="pairs"
+                     th:attr="data-value=${soldCount}"
+                     th:text="${soldCount + ' đôi'}">0 đôi</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 8.2%
                             </span>
-                        <span class="trend-text">so với hôm qua</span>
+                        <span class="trend-text" data-i18n="compare.yesterday">so với hôm qua</span>
                     </div>
                 </div>
             </div>
@@ -1767,18 +1798,20 @@
             <!-- KPI 3 -->
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Hóa đơn mới</span>
+                    <span class="kpi-title" data-i18n="kpi.invoices">Hóa đơn mới</span>
                     <div class="kpi-icon orange">
                         <i class="fa-solid fa-receipt"></i>
                     </div>
                 </div>
                 <div>
-                <div class="kpi-value" th:text="${invoiceCount + ' đơn'}">0 đơn</div>
+                <div class="kpi-value" data-metric="orders"
+                     th:attr="data-value=${invoiceCount}"
+                     th:text="${invoiceCount + ' đơn'}">0 đơn</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 5.0%
                             </span>
-                        <span class="trend-text">so với tuần trước</span>
+                        <span class="trend-text" data-i18n="compare.lastWeek">so với tuần trước</span>
                     </div>
                 </div>
             </div>
@@ -1786,18 +1819,20 @@
             <!-- KPI 4 -->
             <div class="kpi-card">
                 <div class="kpi-header">
-                    <span class="kpi-title">Khách hàng mới</span>
+                    <span class="kpi-title" data-i18n="kpi.customers">Khách hàng mới</span>
                     <div class="kpi-icon purple">
                         <i class="fa-solid fa-user-plus"></i>
                     </div>
                 </div>
                 <div>
-                <div class="kpi-value" th:text="${customerCount + ' khách'}">0 khách</div>
+                <div class="kpi-value" data-metric="customers"
+                     th:attr="data-value=${customerCount}"
+                     th:text="${customerCount + ' khách'}">0 khách</div>
                     <div class="kpi-footer">
                             <span class="trend-badge up">
                                 <i class="fa-solid fa-arrow-trend-up"></i> 12.4%
                             </span>
-                        <span class="trend-text">so với tháng trước</span>
+                        <span class="trend-text" data-i18n="compare.lastMonth">so với tháng trước</span>
                     </div>
                 </div>
             </div>
@@ -1810,12 +1845,12 @@
                 <div class="chart-header">
                     <h2 class="chart-title">
                         <i class="fa-solid fa-chart-line" style="color: var(--primary-color);"></i>
-                        Doanh thu giày & phụ kiện 2026
+                        <span data-i18n="chart.revenue">Doanh thu 6 tháng gần nhất</span>
                     </h2>
                     <div class="chart-actions">
                         <select id="timeRange">
-                            <option value="6months">6 tháng gần nhất</option>
-                            <option value="year">Cả năm</option>
+                            <option value="6months" data-i18n="range.sixMonths">6 tháng gần nhất</option>
+                            <option value="year" data-i18n="range.year">Cả năm</option>
                         </select>
                     </div>
                 </div>
@@ -1829,7 +1864,7 @@
                 <div class="chart-header">
                     <h2 class="chart-title">
                         <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i>
-                        Cơ cấu danh mục sản phẩm
+                        <span data-i18n="chart.category">Cơ cấu danh mục sản phẩm</span>
                     </h2>
                 </div>
                 <div class="chart-container">
@@ -1845,19 +1880,20 @@
                 <div class="table-header">
                     <h2 class="table-title">
                         <i class="fa-solid fa-receipt" style="color: var(--primary-color);"></i>
-                        Giao dịch gần đây
+                        <span data-i18n="table.recent">Giao dịch gần đây</span>
                     </h2>
-                    <a th:href="@{/hoadon}" class="view-all-btn">Xem tất cả</a>
+                    <a th:href="@{/hoadon}" class="view-all-btn"
+                       data-i18n="table.viewAll">Xem tất cả</a>
                 </div>
                 <div class="table-responsive">
                     <table class="custom-table">
                         <thead>
                         <tr>
-                            <th>Mã hóa đơn</th>
-                            <th>Khách hàng</th>
-                            <th>Sản phẩm giao dịch</th>
-                            <th>Tổng tiền</th>
-                            <th>Trạng thái</th>
+                            <th data-i18n="table.invoiceCode">Mã hóa đơn</th>
+                            <th data-i18n="table.customer">Khách hàng</th>
+                            <th data-i18n="table.order">Đơn hàng</th>
+                            <th data-i18n="table.total">Tổng tiền</th>
+                            <th data-i18n="table.status">Trạng thái</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -1869,7 +1905,9 @@
                             <td>
                                         <span class="status-badge"
                                               th:classappend="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? ' completed' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? ' cancelled' : ' pending')}">
-                                            <i th:class="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? 'fa-solid fa-circle-check' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-clock')}"></i> <span th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
+                                            <i th:class="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? 'fa-solid fa-circle-check' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-clock')}"></i>
+                                            <span th:attr="data-status=${x.trangThai ?: 'Chưa cập nhật'}"
+                                                  th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
                                         </span>
                             </td>
                         </tr>
@@ -1927,9 +1965,10 @@
                 <div class="table-header">
                     <h2 class="table-title">
                         <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-danger);"></i>
-                        Cảnh báo tồn kho ít
+                        <span data-i18n="stock.title">Cảnh báo tồn kho ít</span>
                     </h2>
-                    <a th:href="@{/sanpham}" class="view-all-btn">Xem sản phẩm</a>
+                    <a th:href="@{/sanpham}" class="view-all-btn"
+                       data-i18n="stock.viewProducts">Xem sản phẩm</a>
                 </div>
                 <ul class="alert-list">
                     <li class="alert-item" th:each="x:${lowStockProducts}">
@@ -1937,7 +1976,9 @@
                             <span class="alert-product" th:text="${x.tenSP}">Sản phẩm</span>
                             <span class="alert-desc" th:text="${(x.maMau != null ? x.maMau.tenMau : 'Chưa rõ màu') + ' · Size ' + (x.maSize != null ? x.maSize.tenSize : '-')}">Thông tin</span>
                         </div>
-                        <span class="alert-qty danger" th:text="${'Còn ' + (x.tonKho ?: 0) + ' đôi'}">Còn 0 đôi</span>
+                        <span class="alert-qty danger" data-metric="remainingPairs"
+                              th:attr="data-value=${x.tonKho ?: 0}"
+                              th:text="${'Còn ' + (x.tonKho ?: 0) + ' đôi'}">Còn 0 đôi</span>
                     </li>
                     <li class="alert-item" th:remove="all">
                         <div class="alert-info">
@@ -1984,18 +2025,21 @@
     // Theme Toggle Logic
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const themeIcon = document.getElementById('themeIcon');
+    const languageToggleBtn = document.getElementById('languageToggleBtn');
     const htmlElement = document.documentElement;
     let revenueChart;
     let categoryChart;
 
+    function message(key) {
+        return window.dashboardI18n.t(key, window.dashboardI18n.get());
+    }
+
     function syncDashboardTheme(theme = window.appTheme.get()) {
         const isLight = theme === 'light';
         themeIcon.className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-        themeToggleBtn.setAttribute(
-            'aria-label',
-            isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng'
-        );
-        themeToggleBtn.title = isLight ? 'Chuyển sang chế độ tối' : 'Chuyển sang chế độ sáng';
+        const themeTitle = message(isLight ? 'theme.toDark' : 'theme.toLight');
+        themeToggleBtn.setAttribute('aria-label', themeTitle);
+        themeToggleBtn.title = themeTitle;
         updateChartsForTheme(!isLight);
     }
 
@@ -2006,8 +2050,24 @@
         window.appTheme.set(nextTheme);
     });
 
+    languageToggleBtn.addEventListener('click', () => {
+        const nextLanguage = window.dashboardI18n.get() === 'vi' ? 'en' : 'vi';
+        window.dashboardI18n.set(nextLanguage);
+    });
+
     window.addEventListener('app-theme-change', (event) => {
         syncDashboardTheme(event.detail.theme);
+    });
+
+    window.addEventListener('app-language-change', () => {
+        syncDashboardTheme();
+        if (revenueChart) {
+            revenueChart.data.datasets[0].label = message('chart.revenueDataset');
+            revenueChart.update();
+        }
+        if (categoryChart) {
+            categoryChart.update();
+        }
     });
 
     // Chart.js Configuration
@@ -2025,13 +2085,19 @@
         orangeGradient.addColorStop(0, 'rgba(255, 87, 34, 0.35)');
         orangeGradient.addColorStop(1, 'rgba(255, 87, 34, 0.0)');
 
+        const toMillions = (values) => values.map((value) => Number(value) / 1_000_000);
+        const sixMonthLabels = /*[[${monthLabels}]]*/ [];
+        const sixMonthRevenues = toMillions(/*[[${monthRevenues}]]*/ []);
+        const yearLabels = /*[[${yearLabels}]]*/ [];
+        const yearRevenues = toMillions(/*[[${yearRevenues}]]*/ []);
+
         revenueChart = new Chart(revCtx, {
             type: 'line',
             data: {
-                labels: /*[[${monthLabels}]]*/ [],
+                labels: sixMonthLabels,
                 datasets: [{
-                    label: 'Doanh thu (triệu VNĐ)',
-                    data: /*[[${monthRevenues}]]*/ [],
+                    label: message('chart.revenueDataset'),
+                    data: sixMonthRevenues,
                     borderColor: '#ff5722',
                     borderWidth: 3,
                     pointBackgroundColor: '#ff5722',
@@ -2059,7 +2125,13 @@
                         bodyFont: { size: 13, family: "Arial, Helvetica, sans-serif" },
                         callbacks: {
                             label: function(context) {
-                                return ' ' + context.formattedValue + '.000.000 đ';
+                                const locale = window.dashboardI18n.get() === 'en'
+                                    ? 'en-US'
+                                    : 'vi-VN';
+                                const value = Number(context.raw) * 1_000_000;
+                                return ' ' + new Intl.NumberFormat(locale, {
+                                    maximumFractionDigits: 0
+                                }).format(value) + ' ₫';
                             }
                         }
                     }
@@ -2143,7 +2215,8 @@
                         bodyFont: { family: "Arial, Helvetica, sans-serif" },
                         callbacks: {
                             label: function(context) {
-                                return ' ' + context.label + ': ' + context.raw + '%';
+                                return ' ' + context.label + ': ' + context.raw + ' '
+                                    + message('unit.products');
                             }
                         }
                     }
@@ -2152,14 +2225,14 @@
             }
         });
 
-        // Demo handler for dropdown selection changes
+        // Switch between the real six-month and full-year series from the backend.
         document.getElementById('timeRange').addEventListener('change', function(e) {
             if (e.target.value === 'year') {
-                revenueChart.data.labels = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
-                revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290, 310, 280, 340, 380, 320, 425];
+                revenueChart.data.labels = yearLabels;
+                revenueChart.data.datasets[0].data = yearRevenues;
             } else {
-                revenueChart.data.labels = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'];
-                revenueChart.data.datasets[0].data = [120, 185, 142, 230, 195, 290];
+                revenueChart.data.labels = sixMonthLabels;
+                revenueChart.data.datasets[0].data = sixMonthRevenues;
             }
             revenueChart.update();
         });

@@ -5,31 +5,41 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ed07c536-b55a-4711-93dc-90665223d92e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/seed-dashboard-data.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/config/NoCacheFilter.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/images/flag-en.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/images/flag-vi.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/js/app-i18n.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/quen-mat-khau.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/test/java/com/example/qlchgiay/controller/AccountControllerTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/QLCHGiay/src/test/java/com/example/qlchgiay/controller/SanPhamControllerTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/QuanLyBanHang.sql" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/QuanLyBanHang.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/seed-test-products.sql" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/seed-test-products.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/AccountController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/AccountController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/DashboardController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/DashboardController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/HoaDonController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/HoaDonController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/KhachHangController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/KhachHangController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/ChiTietHoaDon.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/ChiTietHoaDon.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/KhachHang.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/KhachHang.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/SanPham.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/model/SanPham.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/ChiTietHoaDonRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/ChiTietHoaDonRepo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/KhachHangRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/KhachHangRepo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SanPhamRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SanPhamRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/SanPhamController.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/controller/SanPhamController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/ChatLieuRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/ChatLieuRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/LoaiRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/LoaiRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/MauRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/MauRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SizeRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/java/com/example/qlchgiay/repo/SizeRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/css/theme.css" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/css/theme.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/js/table-pagination.js" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/js/table-pagination.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/js/theme.js" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/static/js/theme.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/baocao.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/baocao.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/caidat.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/caidat.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/chatbot.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/chatbot.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/dashboard.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon-detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon-detail.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon-form.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon-form.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/hoadon.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang-detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang-detail.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang-form.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang-form.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/khachhang.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/login.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/login.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap-detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap-detail.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap-form.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap-form.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/nhacungcap.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham-detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham-detail.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham-form.html" beforeDir="false" afterPath="$PROJECT_DIR$/QLCHGiay/src/main/resources/templates/sanpham-form.html" afterDir="false" />
@@ -41,7 +51,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="71" />
+    <option name="cachedIndexableFilesCount" value="72" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -71,61 +81,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000938936386212" />
-      <entry key="MS500" value="1.227482084197323" />
-      <entry key="S2" value="2.661708673742133" />
-      <entry key="S5" value="5.521664092300533" />
-      <entry key="S10" value="10.072318782478764" />
-      <entry key="S30" value="22.208597542642966" />
-      <entry key="S60" value="35.66711018871883" />
-      <entry key="M2" value="55.282586625747065" />
-      <entry key="M5" value="80.1382947389651" />
-      <entry key="M10" value="92.55947482365234" />
-      <entry key="M15" value="97.33467345022135" />
-      <entry key="M30" value="102.47151856302304" />
-      <entry key="H1" value="105.18483219515925" />
-      <entry key="H2" value="106.57942876375105" />
-      <entry key="H4" value="107.28643502312144" />
-      <entry key="D1" value="107.88061424931935" />
-      <entry key="W1" value="107.98293363365806" />
+      <entry key="MS100" value="4.089376960641001E-11" />
+      <entry key="MS500" value="0.011628619122115246" />
+      <entry key="S2" value="1.500248376357657" />
+      <entry key="S5" value="6.621420988868059" />
+      <entry key="S10" value="13.590921414080311" />
+      <entry key="S30" value="26.386658549475882" />
+      <entry key="S60" value="32.23303725495652" />
+      <entry key="M2" value="35.83497049929898" />
+      <entry key="M5" value="38.26021175975773" />
+      <entry key="M10" value="39.119647218051604" />
+      <entry key="M15" value="39.472961757585075" />
+      <entry key="M30" value="42.864481200328036" />
+      <entry key="H1" value="65.14730671425703" />
+      <entry key="H2" value="112.58412253725228" />
+      <entry key="H4" value="163.40827468476067" />
+      <entry key="D1" value="232.182391432478" />
+      <entry key="W1" value="247.3565870917522" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="0.0" />
-      <entry key="M5" value="0.0" />
-      <entry key="M10" value="0.0" />
-      <entry key="M15" value="0.0" />
-      <entry key="M30" value="0.0" />
-      <entry key="H1" value="0.0" />
-      <entry key="H2" value="0.0" />
-      <entry key="H4" value="0.0" />
-      <entry key="D1" value="0.0" />
-      <entry key="W1" value="0.0" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.0" />
+      <entry key="M2" value="1.0" />
+      <entry key="M5" value="1.0000000000318658" />
+      <entry key="M10" value="1.0000097770793486" />
+      <entry key="M15" value="1.0006594421593626" />
+      <entry key="M30" value="1.0444782213616535" />
+      <entry key="H1" value="1.3652867677402658" />
+      <entry key="H2" value="2.0468332280517996" />
+      <entry key="H4" value="2.7721454028408186" />
+      <entry key="D1" value="3.7480055210230465" />
+      <entry key="W1" value="3.962633133042253" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.692620273154605" />
-      <entry key="MS500" value="1.1414904205686915" />
-      <entry key="S2" value="2.5955295821469844" />
-      <entry key="S5" value="5.435977128809464" />
-      <entry key="S10" value="9.99547007761723" />
-      <entry key="S30" value="22.165204424777617" />
-      <entry key="S60" value="35.63649070717227" />
-      <entry key="M2" value="55.25890443992936" />
-      <entry key="M5" value="80.1238658993843" />
-      <entry key="M10" value="92.55093326747755" />
-      <entry key="M15" value="97.32863112735784" />
-      <entry key="M30" value="102.46830811613786" />
-      <entry key="H1" value="105.1831765629933" />
-      <entry key="H2" value="106.5785879394048" />
-      <entry key="H4" value="107.28601130680886" />
-      <entry key="D1" value="107.88054316654343" />
-      <entry key="W1" value="107.98292346756857" />
+      <entry key="MS100" value="1.6560111421864412E-4" />
+      <entry key="MS500" value="0.17987538332213396" />
+      <entry key="S2" value="2.0280685358481687" />
+      <entry key="S5" value="7.340815046443335" />
+      <entry key="S10" value="14.416793859968195" />
+      <entry key="S30" value="27.311252462766593" />
+      <entry key="S60" value="33.191364052840115" />
+      <entry key="M2" value="36.81289434538835" />
+      <entry key="M5" value="39.251044372044376" />
+      <entry key="M10" value="40.11501276470422" />
+      <entry key="M15" value="40.470501834987886" />
+      <entry key="M30" value="43.907202161664884" />
+      <entry key="H1" value="66.51108014921995" />
+      <entry key="H2" value="114.62953971071931" />
+      <entry key="H4" value="166.17936285242817" />
+      <entry key="D1" value="235.93014252954492" />
+      <entry key="W1" value="251.31918142125923" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -217,6 +227,8 @@
       <workItem from="1784880870451" duration="2186000" />
       <workItem from="1784885345469" duration="2686000" />
       <workItem from="1784956308232" duration="23000" />
+      <workItem from="1785078925705" duration="857000" />
+      <workItem from="1785130573723" duration="4637000" />
     </task>
     <servers />
   </component>

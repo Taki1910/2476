@@ -40,6 +40,7 @@
         const pageSize = Number(options.pageSize) || DEFAULT_PAGE_SIZE;
         const itemLabel = options.itemLabel || 'mục';
         let filter = options.filter || (() => true);
+        let sorter = typeof options.sort === 'function' ? options.sort : null;
         let currentPage = 1;
         let emptyRow = tbody.querySelector('.empty-row');
 
@@ -85,7 +86,9 @@
         }
 
         function render() {
-            const matchedRows = rows.filter(filter);
+            const orderedRows = sorter ? [...rows].sort(sorter) : rows;
+            orderedRows.forEach((row) => tbody.insertBefore(row, emptyRow));
+            const matchedRows = orderedRows.filter(filter);
             const totalItems = matchedRows.length;
             const totalPages = Math.ceil(totalItems / pageSize);
 
@@ -125,6 +128,11 @@
                 if (typeof nextFilter === 'function') {
                     filter = nextFilter;
                 }
+                currentPage = 1;
+                render();
+            },
+            setSort(nextSorter) {
+                sorter = typeof nextSorter === 'function' ? nextSorter : null;
                 currentPage = 1;
                 render();
             }
