@@ -4,6 +4,7 @@ import com.example.qlchgiay.model.ChiTietSanPham;
 import com.example.qlchgiay.model.DonHang;
 import com.example.qlchgiay.model.HoaDon;
 import com.example.qlchgiay.model.KhachHang;
+import com.example.qlchgiay.model.NhanVien;
 import com.example.qlchgiay.model.SanPham;
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.ChiTietHoaDonRepo;
@@ -13,6 +14,7 @@ import com.example.qlchgiay.repo.HoaDonRepo;
 import com.example.qlchgiay.repo.KhachHangRepo;
 import com.example.qlchgiay.repo.NhanVienRepo;
 import com.example.qlchgiay.repo.SanPhamRepo;
+import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ui.ExtendedModelMap;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.math.BigDecimal;
@@ -28,7 +31,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,8 +48,10 @@ class HoaDonControllerTest {
     @Mock private ChiTietSanPhamRepo chiTietSanPhamRepo;
     @Mock private ChiTietHoaDonRepo chiTietHoaDonRepo;
     @Mock private HttpSession session;
+    @Mock private WorkSessionService workSessionService;
 
     private HoaDonController controller;
+    private TaiKhoan loggedInAccount;
 
     @BeforeEach
     void setUp() {
@@ -54,9 +62,12 @@ class HoaDonControllerTest {
                 khachHangRepo,
                 sanPhamRepo,
                 chiTietSanPhamRepo,
-                chiTietHoaDonRepo
+                chiTietHoaDonRepo,
+                workSessionService
         );
-        when(session.getAttribute("user")).thenReturn(new TaiKhoan());
+        loggedInAccount = new TaiKhoan();
+        loggedInAccount.setVaiTro("Admin");
+        when(session.getAttribute("user")).thenReturn(loggedInAccount);
     }
 
     @Test
@@ -83,7 +94,8 @@ class HoaDonControllerTest {
 
         HoaDonController.InvoiceForm form = new HoaDonController.InvoiceForm();
         form.maKhachHang = 1;
-        form.ngayLap = LocalDate.now();
+        LocalDate today = LocalDate.now();
+        form.ngayLap = today.plusYears(5);
         form.trangThai = "Đã thanh toán";
         form.sanPhamIds = List.of(2);
         form.soLuongs = List.of(1);
@@ -94,7 +106,9 @@ class HoaDonControllerTest {
         verify(hoaDonRepo).save(invoiceCaptor.capture());
         assertEquals("redirect:/hoadon/99", view);
         assertEquals("Chưa thanh toán", invoiceCaptor.getValue().getTrangThai());
-        assertEquals("Đang xử lý", invoiceCaptor.getValue().getMaDonHang().getTrangThai());
+        assertEquals("Chưa thanh toán", invoiceCaptor.getValue().getMaDonHang().getTrangThai());
+        assertEquals(today, invoiceCaptor.getValue().getNgayLap());
+        assertEquals(today, invoiceCaptor.getValue().getMaDonHang().getNgayDatHang());
     }
 
     @Test
@@ -114,8 +128,75 @@ class HoaDonControllerTest {
 
         assertEquals("redirect:/hoadon/7?print=true", view);
         assertEquals("Đã thanh toán", invoice.getTrangThai());
-        assertEquals("Hoàn thành", order.getTrangThai());
+        assertEquals("Đã thanh toán", order.getTrangThai());
         verify(hoaDonRepo).save(invoice);
         verify(donHangRepo).save(order);
+    }
+
+    @Test
+    void employeeCreatesInvoiceUnderTheirOwnIdentity() {
+        NhanVien currentEmployee = new NhanVien();
+        currentEmployee.setId(44);
+        currentEmployee.setTenNhanVien("Nhân viên hiện tại");
+        loggedInAccount.setVaiTro("Nhân viên");
+        loggedInAccount.setMaNhanVien(currentEmployee);
+
+        KhachHang customer = new KhachHang();
+        customer.setId(1);
+        SanPham product = new SanPham();
+        product.setId(2);
+        product.setTenSP("Giày nhân viên bán");
+        product.setGia(BigDecimal.valueOf(900_000));
+        product.setTonKho(4);
+        ChiTietSanPham detailProduct = new ChiTietSanPham();
+        detailProduct.setId(3);
+        detailProduct.setMaSP(product);
+
+        when(khachHangRepo.findById(1)).thenReturn(Optional.of(customer));
+        when(sanPhamRepo.findById(2)).thenReturn(Optional.of(product));
+        when(chiTietSanPhamRepo.findFirstByMaSPId(2)).thenReturn(Optional.of(detailProduct));
+        when(hoaDonRepo.save(any(HoaDon.class))).thenAnswer(invocation -> {
+            HoaDon saved = invocation.getArgument(0);
+            saved.setId(101);
+            return saved;
+        });
+
+        HoaDonController.InvoiceForm form = new HoaDonController.InvoiceForm();
+        form.maKhachHang = 1;
+        form.maNhanVien = 999;
+        form.sanPhamIds = List.of(2);
+        form.soLuongs = List.of(1);
+
+        String view = controller.create(session, form, new RedirectAttributesModelMap());
+
+        ArgumentCaptor<HoaDon> invoiceCaptor = ArgumentCaptor.forClass(HoaDon.class);
+        ArgumentCaptor<DonHang> orderCaptor = ArgumentCaptor.forClass(DonHang.class);
+        verify(hoaDonRepo).save(invoiceCaptor.capture());
+        verify(donHangRepo).save(orderCaptor.capture());
+        verify(nhanVienRepo, never()).findById(anyInt());
+
+        assertEquals("redirect:/hoadon/101", view);
+        assertSame(currentEmployee, invoiceCaptor.getValue().getMaNhanVien());
+        assertSame(currentEmployee, orderCaptor.getValue().getMaNhanVien());
+    }
+
+    @Test
+    void employeeCannotOpenInvoiceEditForm() {
+        loggedInAccount.setVaiTro("Nhân viên");
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String view = controller.updateForm(
+                7,
+                session,
+                new ExtendedModelMap(),
+                redirect
+        );
+
+        assertEquals("redirect:/hoadon", view);
+        assertEquals(
+                "Tài khoản nhân viên không có quyền chỉnh sửa hóa đơn.",
+                redirect.getFlashAttributes().get("error")
+        );
+        verify(hoaDonRepo, never()).findById(anyInt());
     }
 }

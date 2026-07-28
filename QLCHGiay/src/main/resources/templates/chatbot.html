@@ -594,11 +594,12 @@
             <div class="top-actions">
 
                 <div class="user-box">
-                    <div class="avatar">N</div>
+                    <div class="avatar"
+                         th:text="${userName != null && !#strings.isEmpty(userName) ? #strings.substring(userName, 0, 1) : 'N'}">N</div>
 
                     <div class="user-info">
-                        <strong>Nguyễn Văn A</strong>
-                        <small>Admin</small>
+                        <strong th:text="${userName != null ? userName : 'Người dùng'}">Người dùng</strong>
+                        <small th:text="${userRole != null ? userRole : 'Nhân viên'}">Nhân viên</small>
                     </div>
                 </div>
 

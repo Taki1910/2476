@@ -1,0 +1,101 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.example:qlch-giay >------------------------
+[INFO] Building QLCHGiay 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.6:run (default-cli) > test-compile @ qlch-giay >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ qlch-giay ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 29 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ qlch-giay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ qlch-giay ---
+[INFO] skip non existing resourceDirectory C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ qlch-giay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:4.0.6:run (default-cli) < test-compile @ qlch-giay <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.6:run (default-cli) @ qlch-giay ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.6)
+
+2026-07-28T10:25:14.824+07:00  INFO 15948 --- [QLCHGiay] [           main] c.example.qlchgiay.QlchGiayApplication   : Starting QlchGiayApplication using Java 24.0.1 with PID 15948 (C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay\target\classes started by asus in C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay)
+2026-07-28T10:25:14.853+07:00  INFO 15948 --- [QLCHGiay] [           main] c.example.qlchgiay.QlchGiayApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-07-28T10:25:18.903+07:00  INFO 15948 --- [QLCHGiay] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-28T10:25:19.624+07:00  INFO 15948 --- [QLCHGiay] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 660 ms. Found 14 JPA repository interfaces.
+2026-07-28T10:25:21.749+07:00  INFO 15948 --- [QLCHGiay] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-07-28T10:25:21.814+07:00  INFO 15948 --- [QLCHGiay] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-28T10:25:21.816+07:00  INFO 15948 --- [QLCHGiay] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-07-28T10:25:22.047+07:00  INFO 15948 --- [QLCHGiay] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 6869 ms
+2026-07-28T10:25:22.626+07:00  INFO 15948 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-28T10:25:24.074+07:00  INFO 15948 --- [QLCHGiay] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection ConnectionID:1 ClientConnectionId: 908bd775-f936-4afa-ac1d-74053b839dcc
+2026-07-28T10:25:24.085+07:00  INFO 15948 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-28T10:25:24.512+07:00  INFO 15948 --- [QLCHGiay] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-07-28T10:25:24.776+07:00  INFO 15948 --- [QLCHGiay] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.12.Final
+2026-07-28T10:25:26.479+07:00  INFO 15948 --- [QLCHGiay] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-28T10:25:26.721+07:00  WARN 15948 --- [QLCHGiay] [           main] org.hibernate.orm.deprecation            : HHH90000025: SQLServerDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-28T10:25:26.786+07:00  INFO 15948 --- [QLCHGiay] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:sqlserver://localhost:1433;concatNullYieldsNull=ON;quotedIdentifier=ON;connectRetryInterval=10;connectRetryCount=1;maxResultBuffer=-1;sendTemporalDataTypesAsStringForBulkCopy=true;delayLoadingLobs=true;useFmtOnly=false;vectorTypeSupport=v1;cacheBulkCopyMetadata=false;bulkCopyForBatchInsertAllowEncryptedValueModifications=false;bulkCopyForBatchInsertTableLock=false;bulkCopyForBatchInsertKeepNulls=false;bulkCopyForBatchInsertKeepIdentity=false;bulkCopyForBatchInsertFireTriggers=false;bulkCopyForBatchInsertCheckConstraints=false;bulkCopyForBatchInsertBatchSize=0;useBulkCopyForBatchInsert=false;cancelQueryTimeout=-1;sslProtocol=TLS;calcBigDecimalPrecision=false;useDefaultJaasConfig=false;jaasConfigurationName=SQLJDBCDriver;statementPoolingCacheSize=0;serverPreparedStatementDiscardThreshold=10;enablePrepareOnFirstPreparedStatementCall=false;fips=false;socketTimeout=0;authentication=NotSpecified;authenticationScheme=nativeAuthentication;xopenStates=false;datetimeParameterType=datetime2;sendTimeAsDatetime=true;replication=false;trustStoreType=JKS;trustServerCertificate=true;TransparentNetworkIPResolution=true;iPAddressPreference=IPv4First;serverNameAsACE=false;sendStringParametersAsUnicode=true;selectMethod=direct;responseBuffering=adaptive;queryTimeout=-1;packetSize=8000;multiSubnetFailover=false;loginTimeout=30;lockTimeout=-1;lastUpdateCount=true;useDefaultGSSCredential=false;prepareMethod=prepexec;encrypt=true;disableStatementPooling=true;databaseName=QuanLyBanHang;columnEncryptionSetting=Disabled;applicationName=Microsoft JDBC Driver for SQL Server;applicationIntent=readwrite;]
+	Database driver: Microsoft JDBC Driver 13.2 for SQL Server
+	Database dialect: SQLServerDialect
+	Database version: 16.0
+	Default catalog/schema: QuanLyBanHang/dbo
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 128
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-07-28T10:25:30.352+07:00  INFO 15948 --- [QLCHGiay] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-28T10:25:30.397+07:00  INFO 15948 --- [QLCHGiay] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-28T10:25:30.625+07:00  INFO 15948 --- [QLCHGiay] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-28T10:25:34.827+07:00  WARN 15948 --- [QLCHGiay] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-07-28T10:25:34.831+07:00  INFO 15948 --- [QLCHGiay] [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-28T10:25:34.836+07:00  INFO 15948 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-28T10:25:34.845+07:00  INFO 15948 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-07-28T10:25:34.895+07:00  INFO 15948 --- [QLCHGiay] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-28T10:25:34.948+07:00 ERROR 15948 --- [QLCHGiay] [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8081 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8081 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  37.140 s
+[INFO] Finished at: 2026-07-28T10:25:35+07:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:4.0.6:run (default-cli) on project qlch-giay: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

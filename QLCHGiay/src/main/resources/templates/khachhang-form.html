@@ -29,7 +29,24 @@
             border: 1px solid #3a3531;
             border-radius: 8px;
         }
+        input.invalid, select.invalid {
+            border-color: #ff5d62;
+            box-shadow: 0 0 0 3px rgba(255, 93, 98, .14);
+        }
         .hint { display: block; color: #8f8984; font-size: 12px; margin-top: 6px; }
+        .field-error { display: block; margin-top: 6px; color: #ff8a8e; font-size: 12px; }
+        .field-invalid label { color: #ff8a8e; }
+        .form-error {
+            margin: 0 0 20px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 93, 98, .4);
+            border-radius: 8px;
+            background: rgba(255, 93, 98, .1);
+            color: #ffb0b3;
+        }
+        .form-error strong { display: block; }
+        .form-error ul { margin: 8px 0 0; padding-left: 20px; }
+        .form-error li + li { margin-top: 4px; }
         .actions { display: flex; gap: 12px; margin-top: 24px; }
         .btn {
             padding: 12px 18px;
@@ -50,37 +67,66 @@
 <body>
 <main class="box">
     <h1 th:text="${pageTitle}">Khách hàng</h1>
-    <form method="post"
+    <form method="post" th:object="${item}" novalidate
           th:action="${item.id == null} ? @{/khachhang/them} : @{/khachhang/sua/{id}(id=${item.id})}">
+        <section class="form-error" role="alert" aria-live="assertive"
+                 th:if="${#fields.hasAnyErrors()}">
+            <strong>Không thể lưu khách hàng. Vui lòng sửa các trường sau:</strong>
+            <ul>
+                <li th:each="error : ${#fields.allErrors()}" th:text="${error}">
+                    Thông tin chưa hợp lệ.
+                </li>
+            </ul>
+        </section>
         <div class="grid">
-            <div class="full">
-                <label>Họ tên *</label>
-                <input name="tenKH" required maxlength="100" th:value="${item.tenKH}">
+            <div class="full field-group"
+                 th:classappend="${#fields.hasErrors('tenKH')} ? 'field-invalid' : ''">
+                <label for="tenKH">Họ tên *</label>
+                <input id="tenKH" th:field="*{tenKH}" th:errorclass="invalid"
+                       required minlength="2" maxlength="100" autocomplete="name"
+                       aria-describedby="tenKH-error"
+                       th:aria-invalid="${#fields.hasErrors('tenKH')}">
+                <small id="tenKH-error" class="field-error" th:errors="*{tenKH}"></small>
             </div>
-            <div>
-                <label>Giới tính</label>
-                <select name="gioiTinh">
-                    <option value="true" th:selected="${item.gioiTinh == true}">Nam</option>
-                    <option value="false" th:selected="${item.gioiTinh == false}">Nữ</option>
+            <div class="field-group">
+                <label for="gioiTinh">Giới tính</label>
+                <select id="gioiTinh" th:field="*{gioiTinh}">
+                    <option value="true">Nam</option>
+                    <option value="false">Nữ</option>
                 </select>
             </div>
-            <div>
-                <label>Năm sinh</label>
-                <input type="number" name="namSinh" min="1900"
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('namSinh')} ? 'field-invalid' : ''">
+                <label for="namSinh">Năm sinh</label>
+                <input id="namSinh" type="number" th:field="*{namSinh}" th:errorclass="invalid"
+                       min="1900" inputmode="numeric"
                        th:max="${T(java.time.Year).now().value}"
-                       th:value="${item.namSinh}">
+                       aria-describedby="namSinh-error"
+                       th:aria-invalid="${#fields.hasErrors('namSinh')}">
+                <small id="namSinh-error" class="field-error" th:errors="*{namSinh}"></small>
             </div>
-            <div>
-                <label>Số điện thoại</label>
-                <input name="soDienThoai" maxlength="10" inputmode="numeric"
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('soDienThoai')} ? 'field-invalid' : ''">
+                <label for="soDienThoai">Số điện thoại</label>
+                <input id="soDienThoai" type="tel" th:field="*{soDienThoai}" th:errorclass="invalid"
+                       maxlength="10" inputmode="numeric" autocomplete="tel"
                        pattern="0[0-9]{9}"
                        title="Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0"
-                       placeholder="0xxxxxxxxx" th:value="${item.soDienThoai}">
-                <small class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small>
+                       placeholder="0xxxxxxxxx"
+                       aria-describedby="soDienThoai-hint soDienThoai-error"
+                       th:aria-invalid="${#fields.hasErrors('soDienThoai')}">
+                <small id="soDienThoai-hint" class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small>
+                <small id="soDienThoai-error" class="field-error"
+                       th:errors="*{soDienThoai}"></small>
             </div>
-            <div>
-                <label>Địa chỉ</label>
-                <input name="diaChi" maxlength="200" th:value="${item.diaChi}">
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('diaChi')} ? 'field-invalid' : ''">
+                <label for="diaChi">Địa chỉ</label>
+                <input id="diaChi" th:field="*{diaChi}" th:errorclass="invalid"
+                       maxlength="200" autocomplete="street-address"
+                       aria-describedby="diaChi-error"
+                       th:aria-invalid="${#fields.hasErrors('diaChi')}">
+                <small id="diaChi-error" class="field-error" th:errors="*{diaChi}"></small>
             </div>
         </div>
         <div class="actions">

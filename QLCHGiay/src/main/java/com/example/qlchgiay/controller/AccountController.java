@@ -10,14 +10,17 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.example.qlchgiay.model.NhanVien;
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.TaiKhoanRepo;
+import com.example.qlchgiay.service.WorkSessionService;
 
 @Controller
 public class AccountController {
 
     private final TaiKhoanRepo taiKhoanRepo;
+    private final WorkSessionService workSessionService;
 
-    public AccountController(TaiKhoanRepo taiKhoanRepo) {
+    public AccountController(TaiKhoanRepo taiKhoanRepo, WorkSessionService workSessionService) {
         this.taiKhoanRepo = taiKhoanRepo;
+        this.workSessionService = workSessionService;
     }
 
     @GetMapping("/")
@@ -67,11 +70,18 @@ public class AccountController {
         session.setAttribute("user", taiKhoan);
         session.setAttribute("userName", userName);
         session.setAttribute("userRole", userRole);
+        var workNotifications = workSessionService.handleSuccessfulLogin(taiKhoan, session);
+        if (workNotifications.isEmpty()) {
+            session.removeAttribute(WorkSessionService.NOTIFICATIONS_ATTRIBUTE);
+        } else {
+            session.setAttribute(WorkSessionService.NOTIFICATIONS_ATTRIBUTE, workNotifications);
+        }
         return "redirect:/dashboard";
     }
 
     @GetMapping("/logout")
     public String logout(HttpSession session) {
+        workSessionService.finishSession(session);
         session.invalidate();
         return "redirect:/login";
     }
@@ -160,6 +170,7 @@ public class AccountController {
 
     private void clearAuthenticatedSession(HttpSession session) {
         if (session.getAttribute("user") != null) {
+            workSessionService.finishSession(session);
             session.invalidate();
         }
     }

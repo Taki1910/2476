@@ -2,6 +2,7 @@ package com.example.qlchgiay.controller;
 
 import com.example.qlchgiay.model.*;
 import com.example.qlchgiay.repo.*;
+import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,6 +22,7 @@ import java.util.*;
 public class HoaDonController {
     private static final String UNPAID_STATUS = "Chưa thanh toán";
     private static final String PAID_STATUS = "Đã thanh toán";
+    private static final String CANCELLED_STATUS = "Đã hủy";
 
     private final HoaDonRepo hoaDonRepo;
     private final DonHangRepo donHangRepo;
@@ -29,10 +31,12 @@ public class HoaDonController {
     private final SanPhamRepo sanPhamRepo;
     private final ChiTietSanPhamRepo chiTietSanPhamRepo;
     private final ChiTietHoaDonRepo chiTietHoaDonRepo;
+    private final WorkSessionService workSessionService;
 
     public HoaDonController(HoaDonRepo hoaDonRepo, DonHangRepo donHangRepo, NhanVienRepo nhanVienRepo,
                             KhachHangRepo khachHangRepo, SanPhamRepo sanPhamRepo,
-                            ChiTietSanPhamRepo chiTietSanPhamRepo, ChiTietHoaDonRepo chiTietHoaDonRepo) {
+                            ChiTietSanPhamRepo chiTietSanPhamRepo, ChiTietHoaDonRepo chiTietHoaDonRepo,
+                            WorkSessionService workSessionService) {
         this.hoaDonRepo = hoaDonRepo;
         this.donHangRepo = donHangRepo;
         this.nhanVienRepo = nhanVienRepo;
@@ -40,6 +44,7 @@ public class HoaDonController {
         this.sanPhamRepo = sanPhamRepo;
         this.chiTietSanPhamRepo = chiTietSanPhamRepo;
         this.chiTietHoaDonRepo = chiTietHoaDonRepo;
+        this.workSessionService = workSessionService;
     }
 
     @GetMapping("/them")
@@ -48,9 +53,12 @@ public class HoaDonController {
         HoaDon item = new HoaDon();
         item.setNgayLap(LocalDate.now());
         item.setTrangThai(UNPAID_STATUS);
+        if (SessionUserControllerAdvice.isEmployee(session)) {
+            item.setMaNhanVien(SessionUserControllerAdvice.currentEmployee(session));
+        }
         model.addAttribute("item", item);
         model.addAttribute("details", List.of());
-        loadForm(model, "Tạo hóa đơn bán hàng");
+        loadForm(model, "Tạo hóa đơn bán hàng", session);
         return "hoadon-form";
     }
 
@@ -60,7 +68,10 @@ public class HoaDonController {
         if (!loggedIn(session)) return "redirect:/login";
         HoaDon invoice = new HoaDon();
         form.trangThai = UNPAID_STATUS;
-        saveInvoice(invoice, form);
+        saveInvoice(invoice, form, session);
+        if (form.taoKhachMoi && SessionUserControllerAdvice.isEmployee(session)) {
+            workSessionService.recordCustomerCreated(session);
+        }
         redirect.addFlashAttribute("success", "Đã tạo hóa đơn với trạng thái Chưa thanh toán.");
         return "redirect:/hoadon/" + invoice.getId();
     }
@@ -84,12 +95,19 @@ public class HoaDonController {
         if (!loggedIn(session)) return "redirect:/login";
         HoaDon item = hoaDonRepo.findById(id).orElse(null);
         if (item == null) return missing(redirect);
+        boolean newlyPaid = !PAID_STATUS.equals(item.getTrangThaiHienThi());
 
         item.setTrangThai(PAID_STATUS);
         hoaDonRepo.save(item);
         if (item.getMaDonHang() != null) {
-            item.getMaDonHang().setTrangThai("Hoàn thành");
+            item.getMaDonHang().setTrangThai(PAID_STATUS);
             donHangRepo.save(item.getMaDonHang());
+        }
+        if (newlyPaid && SessionUserControllerAdvice.isEmployee(session)) {
+            int productQuantity = chiTietHoaDonRepo.findByMaHoaDonId(id).stream()
+                    .mapToInt(detail -> detail.getSoLuong() == null ? 0 : detail.getSoLuong())
+                    .sum();
+            workSessionService.recordPaidSale(session, productQuantity, item.getTongTien());
         }
 
         return "redirect:/hoadon/" + id + "?print=true";
@@ -98,11 +116,12 @@ public class HoaDonController {
     @GetMapping("/sua/{id}")
     public String updateForm(@PathVariable Integer id, HttpSession session, Model model, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
         HoaDon item = hoaDonRepo.findById(id).orElse(null);
         if (item == null) return missing(redirect);
         model.addAttribute("item", item);
         model.addAttribute("details", chiTietHoaDonRepo.findByMaHoaDonId(id));
-        loadForm(model, "Cập nhật hóa đơn");
+        loadForm(model, "Cập nhật hóa đơn", session);
         return "hoadon-form";
     }
 
@@ -110,9 +129,10 @@ public class HoaDonController {
     @Transactional
     public String update(@PathVariable Integer id, HttpSession session, InvoiceForm form, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
         HoaDon invoice = hoaDonRepo.findById(id).orElse(null);
         if (invoice == null) return missing(redirect);
-        saveInvoice(invoice, form);
+        saveInvoice(invoice, form, session);
         redirect.addFlashAttribute("success", "Đã cập nhật hóa đơn.");
         return "redirect:/hoadon/" + id;
     }
@@ -132,11 +152,14 @@ public class HoaDonController {
         return "redirect:/hoadon";
     }
 
-    private void saveInvoice(HoaDon invoice, InvoiceForm form) {
+    private void saveInvoice(HoaDon invoice, InvoiceForm form, HttpSession session) {
         validateForm(form);
+        String normalizedStatus = normalizeInvoiceStatus(form.trangThai);
+        LocalDate invoiceDate = invoice.getId() == null
+                ? LocalDate.now()
+                : Optional.ofNullable(invoice.getNgayLap()).orElse(LocalDate.now());
         KhachHang customer = resolveCustomer(form, invoice);
-        NhanVien employee = form.maNhanVien == null ? null : nhanVienRepo.findById(form.maNhanVien)
-                .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+        NhanVien employee = resolveEmployee(session, form.maNhanVien);
 
         Map<Integer, Integer> quantities = new LinkedHashMap<>();
         for (int i = 0; i < form.sanPhamIds.size(); i++) {
@@ -162,16 +185,16 @@ public class HoaDonController {
         if (order == null) order = new DonHang();
         order.setMaKH(customer);
         order.setMaNhanVien(employee);
-        order.setNgayDatHang(form.ngayLap);
+        order.setNgayDatHang(invoiceDate);
         order.setTongTien(total);
-        order.setTrangThai(orderStatus(form.trangThai));
+        order.setTrangThai(normalizedStatus);
         donHangRepo.save(order);
 
         invoice.setMaDonHang(order);
         invoice.setMaNhanVien(employee);
-        invoice.setNgayLap(form.ngayLap);
+        invoice.setNgayLap(invoiceDate);
         invoice.setTongTien(total);
-        invoice.setTrangThai(form.trangThai.trim());
+        invoice.setTrangThai(normalizedStatus);
         hoaDonRepo.save(invoice);
 
         if (invoice.getId() != null) chiTietHoaDonRepo.deleteByMaHoaDonId(invoice.getId());
@@ -214,30 +237,50 @@ public class HoaDonController {
     }
 
     private void validateForm(InvoiceForm form) {
-        if (form.ngayLap == null) throw new IllegalArgumentException("Vui lòng chọn ngày lập hóa đơn.");
-        if (form.ngayLap.isAfter(LocalDate.now())) throw new IllegalArgumentException("Ngày lập không được ở tương lai.");
-        if (form.trangThai == null || form.trangThai.isBlank()) throw new IllegalArgumentException("Vui lòng chọn trạng thái.");
         if (form.sanPhamIds == null) form.sanPhamIds = new ArrayList<>();
         if (form.soLuongs == null) form.soLuongs = new ArrayList<>();
     }
 
-    private String orderStatus(String invoiceStatus) {
-        String value = invoiceStatus.toLowerCase(Locale.ROOT);
-        if (value.contains("hủy")) return "Đã hủy";
-        if (value.contains("hoàn thành") || value.contains("đã thanh toán")) return "Hoàn thành";
-        return "Đang xử lý";
+    private String normalizeInvoiceStatus(String status) {
+        if (status == null || status.isBlank()) return UNPAID_STATUS;
+        String value = status.trim().toLowerCase(Locale.ROOT);
+        if (value.contains("hủy")) return CANCELLED_STATUS;
+        if (value.contains("đã thanh toán") || value.contains("hoàn thành")) return PAID_STATUS;
+        return UNPAID_STATUS;
     }
 
-    private void loadForm(Model model, String title) {
+    private NhanVien resolveEmployee(HttpSession session, Integer requestedEmployeeId) {
+        if (SessionUserControllerAdvice.isEmployee(session)) {
+            NhanVien currentEmployee = SessionUserControllerAdvice.currentEmployee(session);
+            if (currentEmployee == null || currentEmployee.getId() == null) {
+                throw new IllegalArgumentException(
+                        "Tài khoản nhân viên chưa được liên kết với hồ sơ nhân viên."
+                );
+            }
+            return currentEmployee;
+        }
+        return requestedEmployeeId == null
+                ? null
+                : nhanVienRepo.findById(requestedEmployeeId)
+                        .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
+    }
+
+    private void loadForm(Model model, String title, HttpSession session) {
         model.addAttribute("pageTitle", title);
         model.addAttribute("khachHangList", khachHangRepo.findAll());
         model.addAttribute("nhanVienList", nhanVienRepo.findAll());
         model.addAttribute("sanPhamList", sanPhamRepo.findAllByOrderByTenSPAsc());
         model.addAttribute("today", LocalDate.now());
+        model.addAttribute("isEmployee", SessionUserControllerAdvice.isEmployee(session));
+        model.addAttribute("currentEmployee", SessionUserControllerAdvice.currentEmployee(session));
     }
 
     private String clean(String value) { return value == null ? "" : value.trim(); }
     private String missing(RedirectAttributes redirect) { redirect.addFlashAttribute("error", "Không tìm thấy hóa đơn."); return "redirect:/hoadon"; }
+    private String editDenied(RedirectAttributes redirect) {
+        redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền chỉnh sửa hóa đơn.");
+        return "redirect:/hoadon";
+    }
     private boolean loggedIn(HttpSession session) { return session.getAttribute("user") instanceof TaiKhoan; }
 
     @Getter

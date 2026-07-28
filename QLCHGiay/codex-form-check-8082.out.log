@@ -1,0 +1,693 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.example:qlch-giay >------------------------
+[INFO] Building QLCHGiay 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.6:run (default-cli) > test-compile @ qlch-giay >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ qlch-giay ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 29 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ qlch-giay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ qlch-giay ---
+[INFO] skip non existing resourceDirectory C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ qlch-giay ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:4.0.6:run (default-cli) < test-compile @ qlch-giay <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.6:run (default-cli) @ qlch-giay ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.6)
+
+2026-07-28T10:26:46.286+07:00  INFO 11544 --- [QLCHGiay] [           main] c.example.qlchgiay.QlchGiayApplication   : Starting QlchGiayApplication using Java 24.0.1 with PID 11544 (C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay\target\classes started by asus in C:\Users\asus\Downloads\SU26-SD21132-SOFF3022-main\DA1\QLCHGiay)
+2026-07-28T10:26:46.293+07:00  INFO 11544 --- [QLCHGiay] [           main] c.example.qlchgiay.QlchGiayApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-07-28T10:26:48.125+07:00  INFO 11544 --- [QLCHGiay] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-28T10:26:48.406+07:00  INFO 11544 --- [QLCHGiay] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 243 ms. Found 14 JPA repository interfaces.
+2026-07-28T10:26:49.741+07:00  INFO 11544 --- [QLCHGiay] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8082 (http)
+2026-07-28T10:26:49.775+07:00  INFO 11544 --- [QLCHGiay] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-28T10:26:49.777+07:00  INFO 11544 --- [QLCHGiay] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-07-28T10:26:49.914+07:00  INFO 11544 --- [QLCHGiay] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3478 ms
+2026-07-28T10:26:50.374+07:00  INFO 11544 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-28T10:26:51.143+07:00  INFO 11544 --- [QLCHGiay] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection ConnectionID:1 ClientConnectionId: 2f94b3a6-56af-48ec-94d4-3587e476bac3
+2026-07-28T10:26:51.148+07:00  INFO 11544 --- [QLCHGiay] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-28T10:26:51.374+07:00  INFO 11544 --- [QLCHGiay] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-07-28T10:26:51.517+07:00  INFO 11544 --- [QLCHGiay] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.12.Final
+2026-07-28T10:26:52.469+07:00  INFO 11544 --- [QLCHGiay] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-28T10:26:52.633+07:00  WARN 11544 --- [QLCHGiay] [           main] org.hibernate.orm.deprecation            : HHH90000025: SQLServerDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-28T10:26:52.689+07:00  INFO 11544 --- [QLCHGiay] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:sqlserver://localhost:1433;concatNullYieldsNull=ON;quotedIdentifier=ON;connectRetryInterval=10;connectRetryCount=1;maxResultBuffer=-1;sendTemporalDataTypesAsStringForBulkCopy=true;delayLoadingLobs=true;useFmtOnly=false;vectorTypeSupport=v1;cacheBulkCopyMetadata=false;bulkCopyForBatchInsertAllowEncryptedValueModifications=false;bulkCopyForBatchInsertTableLock=false;bulkCopyForBatchInsertKeepNulls=false;bulkCopyForBatchInsertKeepIdentity=false;bulkCopyForBatchInsertFireTriggers=false;bulkCopyForBatchInsertCheckConstraints=false;bulkCopyForBatchInsertBatchSize=0;useBulkCopyForBatchInsert=false;cancelQueryTimeout=-1;sslProtocol=TLS;calcBigDecimalPrecision=false;useDefaultJaasConfig=false;jaasConfigurationName=SQLJDBCDriver;statementPoolingCacheSize=0;serverPreparedStatementDiscardThreshold=10;enablePrepareOnFirstPreparedStatementCall=false;fips=false;socketTimeout=0;authentication=NotSpecified;authenticationScheme=nativeAuthentication;xopenStates=false;datetimeParameterType=datetime2;sendTimeAsDatetime=true;replication=false;trustStoreType=JKS;trustServerCertificate=true;TransparentNetworkIPResolution=true;iPAddressPreference=IPv4First;serverNameAsACE=false;sendStringParametersAsUnicode=true;selectMethod=direct;responseBuffering=adaptive;queryTimeout=-1;packetSize=8000;multiSubnetFailover=false;loginTimeout=30;lockTimeout=-1;lastUpdateCount=true;useDefaultGSSCredential=false;prepareMethod=prepexec;encrypt=true;disableStatementPooling=true;databaseName=QuanLyBanHang;columnEncryptionSetting=Disabled;applicationName=Microsoft JDBC Driver for SQL Server;applicationIntent=readwrite;]
+	Database driver: Microsoft JDBC Driver 13.2 for SQL Server
+	Database dialect: SQLServerDialect
+	Database version: 16.0
+	Default catalog/schema: QuanLyBanHang/dbo
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 128
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-07-28T10:26:56.559+07:00  INFO 11544 --- [QLCHGiay] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-28T10:26:56.605+07:00  INFO 11544 --- [QLCHGiay] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-28T10:26:56.868+07:00  INFO 11544 --- [QLCHGiay] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-28T10:27:01.432+07:00  INFO 11544 --- [QLCHGiay] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8082 (http) with context path '/'
+2026-07-28T10:27:01.448+07:00  INFO 11544 --- [QLCHGiay] [           main] c.example.qlchgiay.QlchGiayApplication   : Started QlchGiayApplication in 16.069 seconds (process running for 16.91)
+2026-07-28T10:27:51.841+07:00  INFO 11544 --- [QLCHGiay] [nio-8082-exec-2] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-28T10:27:51.843+07:00  INFO 11544 --- [QLCHGiay] [nio-8082-exec-2] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-28T10:27:51.849+07:00  INFO 11544 --- [QLCHGiay] [nio-8082-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+Hibernate: 
+    select
+        tk1_0.maTaiKhoan,
+        mnv1_0.maNhanVien,
+        mnv1_0.gioiTinh,
+        mcv1_0.maChucVu,
+        mcv1_0.tenChucVu,
+        mnv1_0.namSinh,
+        mnv1_0.queQuan,
+        mnv1_0.soDienThoai,
+        mnv1_0.tenNhanVien,
+        mnv1_0.trangThai,
+        tk1_0.matKhau,
+        tk1_0.tenDangNhap,
+        tk1_0.trangThai,
+        tk1_0.vaiTro 
+    from
+        TaiKhoan tk1_0 
+    left join
+        NhanVien mnv1_0 
+            on mnv1_0.maNhanVien=tk1_0.maNhanVien 
+    left join
+        ChucVu mcv1_0 
+            on mcv1_0.maChucVu=mnv1_0.maChucVu 
+    where
+        tk1_0.tenDangNhap=? 
+        and tk1_0.matKhau=?
+Hibernate: 
+    select
+        plv1_0.maPhien,
+        plv1_0.adminDaXem,
+        plv1_0.batDau,
+        plv1_0.doanhThu,
+        plv1_0.ketThuc,
+        plv1_0.maNhanVien,
+        plv1_0.nhanVienDaXem,
+        plv1_0.soKhachHangMoi,
+        plv1_0.soSanPhamBan 
+    from
+        PhienLamViec plv1_0 
+    where
+        plv1_0.maNhanVien=? 
+        and plv1_0.ketThuc is null
+Hibernate: 
+    update
+        PhienLamViec 
+    set
+        adminDaXem=?,
+        batDau=?,
+        doanhThu=?,
+        ketThuc=?,
+        maNhanVien=?,
+        nhanVienDaXem=?,
+        soKhachHangMoi=?,
+        soSanPhamBan=? 
+    where
+        maPhien=?
+Hibernate: 
+    select
+        plv1_0.maPhien,
+        plv1_0.adminDaXem,
+        plv1_0.batDau,
+        plv1_0.doanhThu,
+        plv1_0.ketThuc,
+        plv1_0.maNhanVien,
+        plv1_0.nhanVienDaXem,
+        plv1_0.soKhachHangMoi,
+        plv1_0.soSanPhamBan 
+    from
+        PhienLamViec plv1_0 
+    where
+        plv1_0.maNhanVien=? 
+        and plv1_0.ketThuc is not null 
+        and plv1_0.nhanVienDaXem=0 
+    order by
+        plv1_0.ketThuc desc
+Hibernate: 
+    insert 
+    into
+        PhienLamViec
+        (adminDaXem, batDau, doanhThu, ketThuc, maNhanVien, nhanVienDaXem, soKhachHangMoi, soSanPhamBan) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    update
+        PhienLamViec 
+    set
+        adminDaXem=?,
+        batDau=?,
+        doanhThu=?,
+        ketThuc=?,
+        maNhanVien=?,
+        nhanVienDaXem=?,
+        soKhachHangMoi=?,
+        soSanPhamBan=? 
+    where
+        maPhien=?
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        SanPham sp1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        KhachHang kh1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        HoaDon hd1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        NhaCungCap ncc1_0
+Hibernate: 
+    select
+        hd1_0.maHoaDon,
+        hd1_0.maDonHang,
+        hd1_0.maNhanVien,
+        hd1_0.ngayLap,
+        hd1_0.tongTien,
+        hd1_0.trangThai 
+    from
+        HoaDon hd1_0
+Hibernate: 
+    select
+        cthd1_0.maCTHD,
+        cthd1_0.donGia,
+        cthd1_0.maChiTietSP,
+        cthd1_0.maHoaDon,
+        cthd1_0.soLuong,
+        cthd1_0.thanhTien 
+    from
+        ChiTietHoaDon cthd1_0
+Hibernate: 
+    select
+        count_big(*) 
+    from
+        KhachHang kh1_0
+Hibernate: 
+    select
+        top (?) sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.tonKho<=? 
+    order by
+        sp1_0.tonKho
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        ctsp1_0.maChiTietSP,
+        ctsp1_0.hinhAnh,
+        ctsp1_0.maNCC,
+        ctsp1_0.maSP,
+        ctsp1_0.moTa,
+        ctsp1_0.thuongHieu,
+        ctsp1_0.trangThai,
+        ctsp1_0.xuatXu 
+    from
+        ChiTietSanPham ctsp1_0 
+    where
+        ctsp1_0.maChiTietSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0 
+    where
+        sp1_0.maSP=?
+Hibernate: 
+    select
+        sp1_0.maSP,
+        sp1_0.gia,
+        sp1_0.maChatLieu,
+        sp1_0.maLoai,
+        sp1_0.maMau,
+        sp1_0.maSize,
+        sp1_0.tenSP,
+        sp1_0.tonKho 
+    from
+        SanPham sp1_0
+Hibernate: 
+    select
+        l1_0.maLoai,
+        l1_0.tenLoai,
+        l1_0.tonKho 
+    from
+        Loai l1_0 
+    where
+        l1_0.maLoai=?
+Hibernate: 
+    select
+        l1_0.maLoai,
+        l1_0.tenLoai,
+        l1_0.tonKho 
+    from
+        Loai l1_0 
+    where
+        l1_0.maLoai=?
+Hibernate: 
+    select
+        l1_0.maLoai,
+        l1_0.tenLoai,
+        l1_0.tonKho 
+    from
+        Loai l1_0 
+    where
+        l1_0.maLoai=?
+Hibernate: 
+    select
+        l1_0.maLoai,
+        l1_0.tenLoai,
+        l1_0.tonKho 
+    from
+        Loai l1_0 
+    where
+        l1_0.maLoai=?
+Hibernate: 
+    select
+        l1_0.maLoai,
+        l1_0.tenLoai,
+        l1_0.tonKho 
+    from
+        Loai l1_0 
+    where
+        l1_0.maLoai=?
+Hibernate: 
+    select
+        dh1_0.maDonHang,
+        dh1_0.maKH,
+        dh1_0.maNhanVien,
+        dh1_0.ngayDatHang,
+        dh1_0.tongTien,
+        dh1_0.trangThai 
+    from
+        DonHang dh1_0 
+    where
+        dh1_0.maDonHang=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.maKH=?
+Hibernate: 
+    select
+        dh1_0.maDonHang,
+        dh1_0.maKH,
+        dh1_0.maNhanVien,
+        dh1_0.ngayDatHang,
+        dh1_0.tongTien,
+        dh1_0.trangThai 
+    from
+        DonHang dh1_0 
+    where
+        dh1_0.maDonHang=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.maKH=?
+Hibernate: 
+    select
+        dh1_0.maDonHang,
+        dh1_0.maKH,
+        dh1_0.maNhanVien,
+        dh1_0.ngayDatHang,
+        dh1_0.tongTien,
+        dh1_0.trangThai 
+    from
+        DonHang dh1_0 
+    where
+        dh1_0.maDonHang=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.maKH=?
+Hibernate: 
+    select
+        dh1_0.maDonHang,
+        dh1_0.maKH,
+        dh1_0.maNhanVien,
+        dh1_0.ngayDatHang,
+        dh1_0.tongTien,
+        dh1_0.trangThai 
+    from
+        DonHang dh1_0 
+    where
+        dh1_0.maDonHang=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.maKH=?
+Hibernate: 
+    select
+        dh1_0.maDonHang,
+        dh1_0.maKH,
+        dh1_0.maNhanVien,
+        dh1_0.ngayDatHang,
+        dh1_0.tongTien,
+        dh1_0.trangThai 
+    from
+        DonHang dh1_0 
+    where
+        dh1_0.maDonHang=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.maKH=?
+Hibernate: 
+    select
+        m1_0.maMau,
+        m1_0.tenMau,
+        m1_0.tonKho 
+    from
+        Mau m1_0 
+    where
+        m1_0.maMau=?
+Hibernate: 
+    select
+        s1_0.maSize,
+        s1_0.tenSize,
+        s1_0.tonKho 
+    from
+        Size s1_0 
+    where
+        s1_0.maSize=?
+Hibernate: 
+    select
+        m1_0.maMau,
+        m1_0.tenMau,
+        m1_0.tonKho 
+    from
+        Mau m1_0 
+    where
+        m1_0.maMau=?
+Hibernate: 
+    select
+        s1_0.maSize,
+        s1_0.tenSize,
+        s1_0.tonKho 
+    from
+        Size s1_0 
+    where
+        s1_0.maSize=?
+Hibernate: 
+    select
+        m1_0.maMau,
+        m1_0.tenMau,
+        m1_0.tonKho 
+    from
+        Mau m1_0 
+    where
+        m1_0.maMau=?
+Hibernate: 
+    select
+        kh1_0.maKH,
+        kh1_0.diaChi,
+        kh1_0.gioiTinh,
+        kh1_0.namSinh,
+        kh1_0.soDienThoai,
+        kh1_0.tenKH 
+    from
+        KhachHang kh1_0
+Hibernate: 
+    select
+        top (?) kh1_0.maKH 
+    from
+        KhachHang kh1_0 
+    where
+        kh1_0.soDienThoai=?

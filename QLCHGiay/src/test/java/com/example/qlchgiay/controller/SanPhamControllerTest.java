@@ -1,7 +1,10 @@
 package com.example.qlchgiay.controller;
 
+import com.example.qlchgiay.model.ChatLieu;
+import com.example.qlchgiay.model.Loai;
 import com.example.qlchgiay.model.Mau;
 import com.example.qlchgiay.model.SanPham;
+import com.example.qlchgiay.model.Size;
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.ChatLieuRepo;
 import com.example.qlchgiay.repo.LoaiRepo;
@@ -18,9 +21,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,16 +55,26 @@ class SanPhamControllerTest {
 
     @Test
     void createProductCanCreateCustomColor() {
+        Loai category = new Loai();
+        category.setId(10);
+        ChatLieu material = new ChatLieu();
+        material.setId(20);
+        Size size = new Size();
+        size.setId(30);
+        when(loaiRepo.findById(10)).thenReturn(Optional.of(category));
+        when(chatLieuRepo.findById(20)).thenReturn(Optional.of(material));
+        when(sizeRepo.findById(30)).thenReturn(Optional.of(size));
         when(mauRepo.findFirstByTenMauIgnoreCase("Xanh rêu")).thenReturn(Optional.empty());
         when(mauRepo.save(any(Mau.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sanPhamRepo.findByTenSPIgnoreCase("Giày thử nghiệm")).thenReturn(List.of());
 
         String view = controller.create(
                 session,
                 "Giày thử nghiệm",
+                10,
                 null,
-                null,
-                null,
-                null,
+                20,
+                30,
                 null,
                 "  Xanh   rêu ",
                 null,
@@ -77,5 +92,76 @@ class SanPhamControllerTest {
         assertEquals("redirect:/sanpham", view);
         assertEquals("Xanh rêu", colorCaptor.getValue().getTenMau());
         assertEquals("Xanh rêu", productCaptor.getValue().getMaMau().getTenMau());
+    }
+
+    @Test
+    void createMatchingVariantAddsToExistingStock() {
+        Loai category = new Loai();
+        category.setId(1);
+        Mau color = new Mau();
+        color.setId(2);
+        ChatLieu material = new ChatLieu();
+        material.setId(3);
+        Size size = new Size();
+        size.setId(4);
+
+        SanPham existing = new SanPham();
+        existing.setId(99);
+        existing.setTenSP("Nike Air Test");
+        existing.setMaLoai(category);
+        existing.setMaMau(color);
+        existing.setMaChatLieu(material);
+        existing.setMaSize(size);
+        existing.setGia(BigDecimal.valueOf(1_900_000));
+        existing.setTonKho(7);
+
+        when(loaiRepo.findById(1)).thenReturn(Optional.of(category));
+        when(mauRepo.findById(2)).thenReturn(Optional.of(color));
+        when(chatLieuRepo.findById(3)).thenReturn(Optional.of(material));
+        when(sizeRepo.findById(4)).thenReturn(Optional.of(size));
+        when(sanPhamRepo.findByTenSPIgnoreCase("Nike Air Test")).thenReturn(List.of(existing));
+
+        String view = controller.create(
+                session,
+                "  Nike Air Test ",
+                1,
+                2,
+                3,
+                4,
+                null,
+                null,
+                null,
+                null,
+                BigDecimal.valueOf(2_100_000),
+                5,
+                new RedirectAttributesModelMap()
+        );
+
+        assertEquals("redirect:/sanpham", view);
+        assertEquals(12, existing.getTonKho());
+        assertEquals(BigDecimal.valueOf(2_100_000), existing.getGia());
+        verify(sanPhamRepo).save(existing);
+    }
+
+    @Test
+    void createRequiresAllVariantComponents() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.create(
+                        session,
+                        "Giày thiếu thuộc tính",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        BigDecimal.valueOf(1_000_000),
+                        1,
+                        new RedirectAttributesModelMap()
+                )
+        );
     }
 }

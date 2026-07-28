@@ -202,7 +202,7 @@ BEGIN TRY
             INSERT INTO DonHang
                 (maKH, maNhanVien, ngayDatHang, tongTien, trangThai)
             VALUES
-                (@CustomerId, @NhanVienId, @SaleDate, @Total, N'Hoàn thành');
+                (@CustomerId, @NhanVienId, @SaleDate, @Total, N'Đã thanh toán');
 
             SET @OrderId = CONVERT(INT, SCOPE_IDENTITY());
         END;
@@ -211,7 +211,7 @@ BEGIN TRY
         SET
             maNhanVien = @NhanVienId,
             tongTien = @Total,
-            trangThai = N'Hoàn thành'
+            trangThai = N'Đã thanh toán'
         WHERE maDonHang = @OrderId;
 
         SELECT TOP 1 @InvoiceId = maHoaDon

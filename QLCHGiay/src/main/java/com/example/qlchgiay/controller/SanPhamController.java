@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Controller
 public class SanPhamController {
@@ -65,8 +66,21 @@ public class SanPhamController {
                 tenLoaiMoi, tenMauMoi, tenChatLieuMoi, tenSizeMoi,
                 gia, tonKho
         );
-        sanPhamRepo.save(sanPham);
-        redirectAttributes.addFlashAttribute("success", "Đã thêm sản phẩm thành công.");
+        SanPham existingVariant = findMatchingVariant(sanPham);
+        if (existingVariant != null) {
+            int addedStock = sanPham.getTonKho();
+            existingVariant.setTonKho(safeStock(existingVariant) + addedStock);
+            existingVariant.setGia(sanPham.getGia());
+            sanPhamRepo.save(existingVariant);
+            redirectAttributes.addFlashAttribute(
+                    "success",
+                    "Biến thể #SP-" + existingVariant.getId()
+                            + " đã tồn tại. Đã cộng " + addedStock + " sản phẩm vào tồn kho."
+            );
+        } else {
+            sanPhamRepo.save(sanPham);
+            redirectAttributes.addFlashAttribute("success", "Đã thêm sản phẩm thành công.");
+        }
         return "redirect:/sanpham";
     }
 
@@ -168,6 +182,38 @@ public class SanPhamController {
         sanPham.setMaSize(resolveSize(maSize, tenSizeMoi));
     }
 
+    private SanPham findMatchingVariant(SanPham candidate) {
+        return sanPhamRepo.findByTenSPIgnoreCase(candidate.getTenSP()).stream()
+                .filter(existing -> sameReference(existing.getMaLoai(), candidate.getMaLoai()))
+                .filter(existing -> sameReference(existing.getMaMau(), candidate.getMaMau()))
+                .filter(existing -> sameReference(existing.getMaChatLieu(), candidate.getMaChatLieu()))
+                .filter(existing -> sameReference(existing.getMaSize(), candidate.getMaSize()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean sameReference(Object left, Object right) {
+        if (left == right) return true;
+        if (left == null || right == null) return false;
+        if (left instanceof Loai leftItem && right instanceof Loai rightItem) {
+            return Objects.equals(leftItem.getId(), rightItem.getId());
+        }
+        if (left instanceof Mau leftItem && right instanceof Mau rightItem) {
+            return Objects.equals(leftItem.getId(), rightItem.getId());
+        }
+        if (left instanceof ChatLieu leftItem && right instanceof ChatLieu rightItem) {
+            return Objects.equals(leftItem.getId(), rightItem.getId());
+        }
+        if (left instanceof Size leftItem && right instanceof Size rightItem) {
+            return Objects.equals(leftItem.getId(), rightItem.getId());
+        }
+        return false;
+    }
+
+    private int safeStock(SanPham product) {
+        return product.getTonKho() == null ? 0 : product.getTonKho();
+    }
+
     private Loai resolveLoai(Integer id, String customName) {
         String name = normalizeOption(customName, 50, "Tên loại");
         if (name != null) {
@@ -178,7 +224,10 @@ public class SanPhamController {
                 return loaiRepo.save(item);
             });
         }
-        return id == null ? null : loaiRepo.findById(id)
+        if (id == null) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm loại sản phẩm.");
+        }
+        return loaiRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Loại sản phẩm không tồn tại."));
     }
 
@@ -192,7 +241,10 @@ public class SanPhamController {
                 return mauRepo.save(item);
             });
         }
-        return id == null ? null : mauRepo.findById(id)
+        if (id == null) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm màu.");
+        }
+        return mauRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Màu không tồn tại."));
     }
 
@@ -206,7 +258,10 @@ public class SanPhamController {
                 return chatLieuRepo.save(item);
             });
         }
-        return id == null ? null : chatLieuRepo.findById(id)
+        if (id == null) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm chất liệu.");
+        }
+        return chatLieuRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Chất liệu không tồn tại."));
     }
 
@@ -220,7 +275,10 @@ public class SanPhamController {
                 return sizeRepo.save(item);
             });
         }
-        return id == null ? null : sizeRepo.findById(id)
+        if (id == null) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm size.");
+        }
+        return sizeRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Size không tồn tại."));
     }
 
@@ -240,6 +298,7 @@ public class SanPhamController {
         model.addAttribute("mauList", mauRepo.findAll());
         model.addAttribute("chatLieuList", chatLieuRepo.findAll());
         model.addAttribute("sizeList", sizeRepo.findAll());
+        model.addAttribute("sanPhamGoiYList", sanPhamRepo.findAllByOrderByTenSPAsc());
     }
 
     private boolean loggedIn(HttpSession session) {

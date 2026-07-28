@@ -3,6 +3,7 @@ package com.example.qlchgiay.controller;
 import com.example.qlchgiay.model.NhanVien;
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.TaiKhoanRepo;
+import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,12 +24,14 @@ class AccountControllerTest {
     private TaiKhoanRepo taiKhoanRepo;
     @Mock
     private HttpSession session;
+    @Mock
+    private WorkSessionService workSessionService;
 
     private AccountController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new AccountController(taiKhoanRepo);
+        controller = new AccountController(taiKhoanRepo, workSessionService);
     }
 
     @Test

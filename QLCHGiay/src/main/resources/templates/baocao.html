@@ -369,48 +369,116 @@
             white-space: nowrap;
         }
 
-        /* ================= SẢN PHẨM BÁN CHẠY ================= */
+        /* ================= SO SÁNH SẢN LƯỢNG ================= */
 
-        .rank-list {
+        .comparison-context {
+            margin: -10px 0 19px;
+            color: #8b8681;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .comparison-context strong {
+            color: #d9d4cf;
+        }
+
+        .comparison-list {
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
 
-        .rank-item {
+        .comparison-item {
             padding-bottom: 15px;
             border-bottom: 1px solid #292623;
         }
 
-        .rank-item:last-child {
+        .comparison-item:last-child {
             border-bottom: none;
         }
 
-        .rank-top {
+        .comparison-top {
             display: flex;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 12px;
             margin-bottom: 9px;
             font-size: 13px;
         }
 
-        .rank-top span:last-child {
-            color: #ff7626;
+        .comparison-product {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
             font-weight: 700;
+        }
+
+        .comparison-rank {
+            width: 24px;
+            height: 24px;
+            flex: 0 0 24px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            background: rgba(255, 106, 26, .14);
+            color: #ff7626;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .comparison-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
             white-space: nowrap;
         }
 
-        .progress {
-            height: 7px;
+        .comparison-metrics {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .comparison-quantity {
+            display: block;
+            color: #ff7626;
+            font-weight: 700;
+        }
+
+        .comparison-share {
+            display: block;
+            margin-top: 3px;
+            color: #8b8681;
+            font-size: 10px;
+        }
+
+        .comparison-track {
+            height: 8px;
             overflow: hidden;
             background: #292522;
             border-radius: 10px;
         }
 
-        .progress div {
+        .comparison-fill {
             height: 100%;
             border-radius: 10px;
             background: linear-gradient(90deg, #ff4f22, #ff9700);
+        }
+
+        .comparison-axis {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            color: #716c67;
+            font-size: 9px;
+        }
+
+        .comparison-empty {
+            padding: 24px 18px;
+            border: 1px dashed #3a3531;
+            border-radius: 10px;
+            color: #8b8681;
+            text-align: center;
+            line-height: 1.5;
         }
 
         /* ================= BẢNG ================= */
@@ -535,7 +603,8 @@
             }
         }
     </style>
-    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+    <link rel="stylesheet" th:href="@{/css/theme.css(v='20260728-ui-access')}"
+          href="/css/theme.css?v=20260728-ui-access">
 </head>
 
 <body>
@@ -609,11 +678,12 @@
             <div class="top-actions">
 
                 <div class="user-box">
-                    <div class="avatar">N</div>
+                    <div class="avatar"
+                         th:text="${userName != null && !#strings.isEmpty(userName) ? #strings.substring(userName, 0, 1) : 'N'}">N</div>
 
                     <div class="user-info">
-                        <strong>Nguyễn Văn A</strong>
-                        <small>Admin</small>
+                        <strong th:text="${userName != null ? userName : 'Người dùng'}">Người dùng</strong>
+                        <small th:text="${userRole != null ? userRole : 'Nhân viên'}">Nhân viên</small>
                     </div>
                 </div>
 
@@ -754,62 +824,55 @@
 
                 </article>
 
-                <!-- SẢN PHẨM BÁN CHẠY -->
+                <!-- SO SÁNH SẢN LƯỢNG THEO SẢN PHẨM -->
                 <article class="panel">
 
                     <div class="panel-header">
                         <h2 class="panel-title">
-                            <i class="fa-solid fa-ranking-star"></i>
-                            Sản phẩm bán chạy
+                            <i class="fa-solid fa-chart-simple"></i>
+                            So sánh sản lượng theo sản phẩm
                         </h2>
                     </div>
 
-                    <div class="rank-list">
+                    <p class="comparison-context">
+                        Toàn bộ hóa đơn đã thanh toán ·
+                        <strong th:text="${productSalesTotal + ' đôi đã bán'}">0 đôi đã bán</strong>.
+                        Thanh thể hiện tỷ lệ so với sản phẩm dẫn đầu.
+                    </p>
 
-                        <div class="rank-item" th:each="x:${topProducts}">
-                            <div class="rank-top">
-                                <span th:text="${x.key}">Sản phẩm</span>
-                                <span th:text="${x.value + ' đôi'}">0 đôi</span>
+                    <div class="comparison-list" th:if="${productComparison != null && !#lists.isEmpty(productComparison)}">
+
+                        <div class="comparison-item" th:each="x:${productComparison}">
+                            <div class="comparison-top">
+                                <div class="comparison-product">
+                                    <span class="comparison-rank" th:text="${x.rank}">1</span>
+                                    <span class="comparison-name" th:text="${x.name}" th:title="${x.name}">Sản phẩm</span>
+                                </div>
+                                <div class="comparison-metrics">
+                                    <span class="comparison-quantity" th:text="${x.quantity + ' đôi'}">0 đôi</span>
+                                    <span class="comparison-share" th:text="${x.share + '% tổng sản lượng'}">0% tổng sản lượng</span>
+                                </div>
                             </div>
 
-                            <div class="progress">
-                                <div th:style="${'width:' + (x.value > 100 ? 100 : x.value) + '%'}"></div>
+                            <div class="comparison-track"
+                                 role="progressbar"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100"
+                                 th:attr="aria-valuenow=${x.relative},
+                                          aria-label=${x.name + ': ' + x.relative + '% so với sản phẩm dẫn đầu'}">
+                                <div class="comparison-fill" th:style="${'width:' + x.relative + '%'}"></div>
                             </div>
-                        </div>
-
-                        <div class="rank-item" th:remove="all">
-                            <div class="rank-top">
-                                <span>Adidas Superstar</span>
-                                <span>76 đôi</span>
-                            </div>
-
-                            <div class="progress">
-                                <div style="width:76%"></div>
-                            </div>
-                        </div>
-
-                        <div class="rank-item" th:remove="all">
-                            <div class="rank-top">
-                                <span>Converse Chuck Taylor</span>
-                                <span>64 đôi</span>
-                            </div>
-
-                            <div class="progress">
-                                <div style="width:64%"></div>
-                            </div>
-                        </div>
-
-                        <div class="rank-item" th:remove="all">
-                            <div class="rank-top">
-                                <span>Vans Old Skool</span>
-                                <span>51 đôi</span>
-                            </div>
-
-                            <div class="progress">
-                                <div style="width:51%"></div>
+                            <div class="comparison-axis" aria-hidden="true">
+                                <span>0</span>
+                                <span>50%</span>
+                                <span>100% dẫn đầu</span>
                             </div>
                         </div>
+                    </div>
 
+                    <div class="comparison-empty"
+                         th:if="${productComparison == null || #lists.isEmpty(productComparison)}">
+                        Chưa có sản lượng từ hóa đơn đã thanh toán để so sánh.
                     </div>
 
                 </article>

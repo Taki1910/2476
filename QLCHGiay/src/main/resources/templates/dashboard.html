@@ -6,7 +6,7 @@
     <meta name="description" content="Hệ thống quản lý cửa hàng giày Kicks Zone - Trang tổng quan">
     <title>Bảng điều khiển - KICKS ZONE</title>
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
     <!-- Google Fonts Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -386,6 +386,104 @@
             flex-direction: column;
             gap: 30px;
             transition: var(--transition);
+        }
+
+        .work-notifications {
+            padding: 20px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .work-notification-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 15px;
+        }
+
+        .work-notification-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-main);
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .work-notification-title i {
+            color: var(--primary-color);
+        }
+
+        .work-notification-note {
+            margin: 5px 0 0;
+            color: var(--text-sub);
+            font-size: 12px;
+        }
+
+        .work-notification-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .work-notification-item {
+            display: grid;
+            grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr));
+            gap: 12px;
+            align-items: center;
+            padding: 13px 14px;
+            background: var(--surface-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 11px;
+        }
+
+        .work-notification-employee strong,
+        .work-notification-metric strong {
+            display: block;
+            color: var(--text-main);
+            font-size: 13px;
+        }
+
+        .work-notification-employee small,
+        .work-notification-metric span {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-sub);
+            font-size: 11px;
+        }
+
+        .work-notification-metric {
+            padding-left: 12px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 980px) {
+            .work-notification-item {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .work-notification-employee {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .work-notification-item {
+                grid-template-columns: 1fr;
+            }
+
+            .work-notification-employee {
+                grid-column: auto;
+            }
+
+            .work-notification-metric {
+                padding: 10px 0 0;
+                border-top: 1px solid var(--border-color);
+                border-left: 0;
+            }
         }
 
         /* KPI Cards Grid */
@@ -875,19 +973,12 @@
         }
 
         .language-toggle {
-            width: 58px;
-            gap: 5px;
-        }
-
-        .language-code {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.3px;
+            padding: 0;
         }
 
         .language-flag {
-            width: 23px;
-            height: 16px;
+            width: 25px;
+            height: 17px;
             display: block;
             border-radius: 2px;
             object-fit: cover;
@@ -1711,14 +1802,14 @@
                 <img class="language-flag" id="languageFlag"
                      th:src="@{/images/flag-en.svg}" src="/images/flag-en.svg"
                      alt="" aria-hidden="true">
-                <span class="language-code" id="languageCode">EN</span>
             </button>
 
             <!-- Notifications -->
             <button class="header-action-btn" title="Thông báo"
                     data-i18n-title="notification.title">
                 <i class="fa-regular fa-bell"></i>
-                <span class="badge"></span>
+                <span class="badge"
+                      th:if="${workNotifications != null && !#lists.isEmpty(workNotifications)}"></span>
             </button>
 
             <!-- User Profile Info -->
@@ -1735,6 +1826,46 @@
 
     <!-- Content Body -->
     <main class="content-body">
+        <section class="work-notifications" id="workSessionNotifications"
+                 th:if="${workNotifications != null && !#lists.isEmpty(workNotifications)}">
+            <div class="work-notification-header">
+                <div>
+                    <div class="work-notification-title">
+                        <i class="fa-solid fa-bell"></i>
+                        Tóm tắt phiên làm việc trước
+                    </div>
+                    <p class="work-notification-note">
+                        Chỉ tính hóa đơn đã chuyển sang “Đã thanh toán”; mỗi tóm tắt chỉ hiển thị một lần sau đăng nhập.
+                    </p>
+                </div>
+            </div>
+            <div class="work-notification-list">
+                <article class="work-notification-item" th:each="notification : ${workNotifications}">
+                    <div class="work-notification-employee">
+                        <strong th:text="${notification.employeeName}">Nhân viên</strong>
+                        <small th:text="${#temporals.format(notification.startedAt, 'dd/MM/yyyy HH:mm')
+                            + ' – ' + #temporals.format(notification.endedAt, 'HH:mm')}">
+                            28/07/2026 08:00 – 12:00
+                        </small>
+                    </div>
+                    <div class="work-notification-metric">
+                        <strong th:text="${notification.productCount + ' sản phẩm'}">0 sản phẩm</strong>
+                        <span>Đã bán</span>
+                    </div>
+                    <div class="work-notification-metric">
+                        <strong th:text="${notification.customerCount + ' khách hàng'}">0 khách hàng</strong>
+                        <span>Khách mới</span>
+                    </div>
+                    <div class="work-notification-metric">
+                        <strong th:text="${#numbers.formatDecimal(notification.revenue, 0, 'COMMA', 0, 'POINT') + ' đ'}">
+                            0 đ
+                        </strong>
+                        <span>Doanh thu</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
         <!-- Quick Action Buttons -->
         <div class="quick-actions-bar">
             <a th:href="@{/hoadon}" class="action-card">
@@ -1904,10 +2035,10 @@
                             <td th:text="${#numbers.formatDecimal(x.tongTien ?: 0,0,'COMMA',0,'POINT') + ' đ'}">0 đ</td>
                             <td>
                                         <span class="status-badge"
-                                              th:classappend="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? ' completed' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? ' cancelled' : ' pending')}">
-                                            <i th:class="${x.trangThai != null && (#strings.containsIgnoreCase(x.trangThai, 'đã thanh toán') || #strings.containsIgnoreCase(x.trangThai, 'hoàn thành')) ? 'fa-solid fa-circle-check' : (x.trangThai != null && #strings.containsIgnoreCase(x.trangThai, 'hủy') ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-clock')}"></i>
-                                            <span th:attr="data-status=${x.trangThai ?: 'Chưa cập nhật'}"
-                                                  th:text="${x.trangThai ?: 'Chưa cập nhật'}">Trạng thái</span>
+                                              th:classappend="${x.trangThaiHienThi == 'Đã thanh toán' ? ' completed' : (x.trangThaiHienThi == 'Đã hủy' ? ' cancelled' : ' pending')}">
+                                            <i th:class="${x.trangThaiHienThi == 'Đã thanh toán' ? 'fa-solid fa-circle-check' : (x.trangThaiHienThi == 'Đã hủy' ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-clock')}"></i>
+                                            <span th:attr="data-status=${x.trangThaiHienThi}"
+                                                  th:text="${x.trangThaiHienThi}">Trạng thái</span>
                                         </span>
                             </td>
                         </tr>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
     <title th:text="${pageTitle} + ' - KICKS ZONE'">Sản phẩm - KICKS ZONE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
@@ -15,22 +15,57 @@
         form{padding:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.full{grid-column:1/-1}
         label{display:block;margin-bottom:8px;color:#c9c4bf;font-size:13px;font-weight:700}input,select{width:100%;height:44px;padding:0 13px;border:1px solid #37322e;border-radius:9px;background:#1b1816;color:#fff;outline:none}input:focus,select:focus{border-color:#ff6a1a;box-shadow:0 0 0 3px rgba(255,106,26,.12)}
         .custom-value-editor{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.custom-value-editor[hidden]{display:none}.custom-value-editor input{height:40px}.add-custom-btn{height:40px;padding:0 15px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}.custom-value-note{grid-column:1/-1;color:#8d8782;font-size:11px}
+        .name-field{position:relative}.product-suggestions{position:absolute;z-index:20;top:calc(100% + 7px);left:0;right:0;max-height:280px;overflow:auto;padding:7px;background:#201c19;border:1px solid #494039;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.35)}.product-suggestions[hidden]{display:none}.product-suggestion{width:100%;display:block;padding:11px 12px;text-align:left;color:#f5f5f5;background:transparent;border:0;border-radius:8px;cursor:pointer}.product-suggestion:hover,.product-suggestion:focus-visible{background:#322822;outline:0}.product-suggestion strong{display:block}.product-suggestion small{display:block;margin-top:5px;color:#aaa29b;line-height:1.35}.variant-match{margin:9px 0 0;padding:10px 12px;color:#d8f7e8;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:9px;font-size:12px;line-height:1.45}.variant-match[hidden]{display:none}
         .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #2b2825}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border:0;border-radius:9px;text-decoration:none;font-weight:700;cursor:pointer}.cancel{background:#26221f;color:#c6c1bd}.save{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:20px 14px}}
     </style>
-    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+    <link rel="stylesheet" th:href="@{/css/theme.css(v='20260728-ui-access')}"
+          href="/css/theme.css?v=20260728-ui-access">
 </head>
 <body>
 <main class="page">
     <a class="back" th:href="@{/sanpham}"><i class="fa-solid fa-arrow-left"></i> Quay lại danh sách</a>
     <section class="card">
         <div class="header"><h1 th:text="${pageTitle}">Thêm sản phẩm</h1><p>Nhập đầy đủ thông tin giày hoặc dép.</p></div>
-        <form method="post" th:action="${sanPham.id == null} ? @{/sanpham/them} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
+        <form id="productForm" method="post"
+              th:attr="data-product-id=${sanPham.id != null ? sanPham.id : ''}"
+              th:action="${sanPham.id == null} ? @{/sanpham/them} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
             <div class="grid">
-                <div class="full"><label for="tenSP">Tên sản phẩm *</label><input id="tenSP" name="tenSP" maxlength="100" required th:value="${sanPham.tenSP}"></div>
+                <div class="full name-field">
+                    <label for="tenSP">Tên sản phẩm *</label>
+                    <input id="tenSP" name="tenSP" maxlength="100" required autocomplete="off"
+                           aria-controls="productSuggestions" aria-autocomplete="list"
+                           placeholder="Nhập tên để tìm sản phẩm hoặc biến thể đã có"
+                           th:value="${sanPham.tenSP}">
+                    <div class="product-suggestions" id="productSuggestions" role="listbox"
+                         aria-label="Sản phẩm và biến thể đã có" hidden>
+                        <button class="product-suggestion" type="button" role="option"
+                                th:each="x : ${sanPhamGoiYList}"
+                                th:attr="data-name=${x.tenSP ?: ''},
+                                         data-loai=${x.maLoai != null ? x.maLoai.id : ''},
+                                         data-mau=${x.maMau != null ? x.maMau.id : ''},
+                                         data-chat-lieu=${x.maChatLieu != null ? x.maChatLieu.id : ''},
+                                         data-size=${x.maSize != null ? x.maSize.id : ''},
+                                         data-price=${x.gia != null ? x.gia : 0},
+                                         data-stock=${x.tonKho != null ? x.tonKho : 0},
+                                         data-product-id=${x.id},
+                                         aria-label=${'Chọn biến thể ' + (x.tenSP ?: '') + ', mã SP-' + x.id}">
+                            <strong th:text="${x.tenSP}">Tên sản phẩm</strong>
+                            <small th:text="${'#SP-' + x.id
+                                + ' · ' + (x.maLoai != null ? x.maLoai.tenLoai : 'Chưa có loại')
+                                + ' · ' + (x.maMau != null ? x.maMau.tenMau : 'Chưa có màu')
+                                + ' · ' + (x.maChatLieu != null ? x.maChatLieu.tenChatLieu : 'Chưa có chất liệu')
+                                + ' · Size ' + (x.maSize != null ? x.maSize.tenSize : '-')
+                                + ' · Tồn ' + (x.tonKho != null ? x.tonKho : 0)}">
+                                #SP-1 · Loại · Màu · Chất liệu · Size · Tồn kho
+                            </small>
+                        </button>
+                    </div>
+                    <p class="variant-match" id="variantMatchHint" aria-live="polite" hidden></p>
+                </div>
                 <div data-custom-field>
-                    <label for="maLoai">Loại</label>
-                    <select id="maLoai" name="maLoai" data-custom-select>
+                    <label for="maLoai">Loại *</label>
+                    <select id="maLoai" name="maLoai" data-custom-select required>
                         <option value="">-- Chọn loại --</option>
                         <option th:each="x : ${loaiList}" th:value="${x.id}" th:text="${x.tenLoai}"
                                 th:selected="${sanPham.maLoai != null && sanPham.maLoai.id == x.id}"></option>
@@ -44,8 +79,8 @@
                     </div>
                 </div>
                 <div data-custom-field>
-                    <label for="maMau">Màu</label>
-                    <select id="maMau" name="maMau" data-custom-select>
+                    <label for="maMau">Màu *</label>
+                    <select id="maMau" name="maMau" data-custom-select required>
                         <option value="">-- Chọn màu --</option>
                         <option th:each="x : ${mauList}" th:value="${x.id}" th:text="${x.tenMau}"
                                 th:selected="${sanPham.maMau != null && sanPham.maMau.id == x.id}"></option>
@@ -59,8 +94,8 @@
                     </div>
                 </div>
                 <div data-custom-field>
-                    <label for="maChatLieu">Chất liệu</label>
-                    <select id="maChatLieu" name="maChatLieu" data-custom-select>
+                    <label for="maChatLieu">Chất liệu *</label>
+                    <select id="maChatLieu" name="maChatLieu" data-custom-select required>
                         <option value="">-- Chọn chất liệu --</option>
                         <option th:each="x : ${chatLieuList}" th:value="${x.id}" th:text="${x.tenChatLieu}"
                                 th:selected="${sanPham.maChatLieu != null && sanPham.maChatLieu.id == x.id}"></option>
@@ -74,8 +109,8 @@
                     </div>
                 </div>
                 <div data-custom-field>
-                    <label for="maSize">Size</label>
-                    <select id="maSize" name="maSize" data-custom-select>
+                    <label for="maSize">Size *</label>
+                    <select id="maSize" name="maSize" data-custom-select required>
                         <option value="">-- Chọn size --</option>
                         <option th:each="x : ${sizeList}" th:value="${x.id}" th:text="${x.tenSize}"
                                 th:selected="${sanPham.maSize != null && sanPham.maSize.id == x.id}"></option>
@@ -108,7 +143,8 @@
             const isCustomValue = selectedOption?.hasAttribute('data-custom-value');
 
             editor.hidden = !isCreateOption;
-            input.required = isCreateOption;
+            select.required = !isCreateOption && !isCustomValue;
+            input.required = isCreateOption || isCustomValue;
             if (isCreateOption) {
                 window.setTimeout(() => input.focus(), 0);
             } else if (!isCustomValue) {
@@ -137,11 +173,106 @@
             }
             customOption.textContent = `✓ ${value}`;
             customOption.selected = true;
-            input.required = false;
+            select.required = false;
+            input.required = true;
             editor.hidden = true;
+            updateVariantMatch();
         });
         input.addEventListener('input', () => input.setCustomValidity(''));
+        syncCustomEditor();
     });
+
+    const productNameInput = document.getElementById('tenSP');
+    const productForm = document.getElementById('productForm');
+    const productSuggestions = document.getElementById('productSuggestions');
+    const productSuggestionItems = [...productSuggestions.querySelectorAll('.product-suggestion')];
+    const variantMatchHint = document.getElementById('variantMatchHint');
+
+    function normalizeProductText(value) {
+        return (value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, ' ');
+    }
+
+    function showProductSuggestions() {
+        const keyword = normalizeProductText(productNameInput.value);
+        let visibleCount = 0;
+
+        productSuggestionItems.forEach((item) => {
+            const matches = keyword.length >= 2
+                && normalizeProductText(item.dataset.name).includes(keyword)
+                && visibleCount < 8;
+            item.hidden = !matches;
+            if (matches) visibleCount += 1;
+        });
+
+        productSuggestions.hidden = visibleCount === 0;
+        updateVariantMatch();
+    }
+
+    function setExistingOption(selectId, value) {
+        if (!value) return;
+        const select = document.getElementById(selectId);
+        if ([...select.options].some((option) => option.value === value)) {
+            select.value = value;
+            select.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function selectSuggestedVariant(item) {
+        productNameInput.value = item.dataset.name;
+        setExistingOption('maLoai', item.dataset.loai);
+        setExistingOption('maMau', item.dataset.mau);
+        setExistingOption('maChatLieu', item.dataset.chatLieu);
+        setExistingOption('maSize', item.dataset.size);
+        document.getElementById('gia').value = item.dataset.price;
+        productSuggestions.hidden = true;
+        updateVariantMatch();
+        document.getElementById('tonKho').focus();
+    }
+
+    function updateVariantMatch() {
+        const normalizedName = normalizeProductText(productNameInput.value);
+        const selectedVariant = productSuggestionItems.find((item) =>
+            normalizeProductText(item.dataset.name) === normalizedName
+            && item.dataset.loai === document.getElementById('maLoai').value
+            && item.dataset.mau === document.getElementById('maMau').value
+            && item.dataset.chatLieu === document.getElementById('maChatLieu').value
+            && item.dataset.size === document.getElementById('maSize').value
+        );
+
+        variantMatchHint.hidden = !selectedVariant;
+        if (selectedVariant) {
+            const isEnglish = document.documentElement.lang === 'en';
+            const isEditingCurrent = productForm.dataset.productId === selectedVariant.dataset.productId;
+            if (isEditingCurrent) {
+                variantMatchHint.textContent = isEnglish
+                    ? `You are editing variant #SP-${selectedVariant.dataset.productId} (stock ${selectedVariant.dataset.stock}).`
+                    : `Bạn đang chỉnh sửa biến thể #SP-${selectedVariant.dataset.productId} (tồn ${selectedVariant.dataset.stock}).`;
+            } else {
+                variantMatchHint.textContent = isEnglish
+                    ? `Variant #SP-${selectedVariant.dataset.productId} already exists (stock ${selectedVariant.dataset.stock}). When saved, the entered quantity will be added to this variant.`
+                    : `Biến thể #SP-${selectedVariant.dataset.productId} đã tồn tại (tồn ${selectedVariant.dataset.stock}). Khi lưu, số lượng nhập sẽ được cộng vào biến thể này.`;
+            }
+        }
+    }
+
+    productNameInput.addEventListener('input', showProductSuggestions);
+    productNameInput.addEventListener('focus', showProductSuggestions);
+    productSuggestionItems.forEach((item) =>
+        item.addEventListener('click', () => selectSuggestedVariant(item))
+    );
+    document.querySelectorAll('[data-custom-select]').forEach((select) =>
+        select.addEventListener('change', updateVariantMatch)
+    );
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.name-field')) productSuggestions.hidden = true;
+    });
+    window.addEventListener('app-language-change', updateVariantMatch);
+    updateVariantMatch();
 </script>
 </body>
 </html>

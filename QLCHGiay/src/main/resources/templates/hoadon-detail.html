@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Chi tiết hóa đơn</title>
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #0d0c0b; color: #eee; font: 15px Arial; }
@@ -105,7 +105,7 @@
         <div class="meta">
             <strong th:text="${'#HD-' + item.id}">#HD</strong>
             <p th:text="${#temporals.format(item.ngayLap,'dd/MM/yyyy')}"></p>
-            <span class="status" th:text="${item.trangThai}"></span>
+            <span class="status" th:text="${item.trangThaiHienThi}"></span>
         </div>
     </header>
 
@@ -157,7 +157,8 @@
     <form method="post" th:action="@{/hoadon/in/{id}(id=${item.id})}">
         <button class="btn" type="submit">In hóa đơn</button>
     </form>
-    <a class="btn primary" th:href="@{/hoadon/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
+    <a class="btn primary" th:if="${!isEmployee}"
+       th:href="@{/hoadon/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
 </nav>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
     <title th:text="${pageTitle}">Hóa đơn</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
@@ -32,9 +32,23 @@
             <div class="grid new-customer" id="newCustomer"><div><label>Họ tên *</label><input name="tenKhachMoi" maxlength="100" placeholder="Nguyễn Văn An"></div><div><label>Số điện thoại *</label><input name="soDienThoaiMoi" maxlength="10" inputmode="numeric" pattern="0[0-9]{9}" placeholder="0xxxxxxxxx"><small class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small></div><div class="full"><label>Địa chỉ</label><input name="diaChiMoi" maxlength="200" placeholder="Địa chỉ giao hàng (không bắt buộc)"></div></div>
         </section>
         <section class="card"><h2 class="section-title"><i class="fa-solid fa-receipt"></i> Thông tin hóa đơn</h2><div class="grid">
-            <div><label>Ngày lập *</label><input type="date" name="ngayLap" required th:value="${item.ngayLap}" th:max="${today}" onkeydown="return false" onpaste="return false" onclick="this.showPicker && this.showPicker()"><small class="hint">Chọn ngày từ lịch, không nhập thủ công</small></div>
-            <div><label>Nhân viên phụ trách</label><select name="maNhanVien"><option value="">Chưa phân công</option><option th:each="x:${nhanVienList}" th:value="${x.id}" th:text="${x.tenNhanVien}" th:selected="${item.maNhanVien != null && item.maNhanVien.id == x.id}"></option></select></div>
-            <div><label>Trạng thái</label><input th:if="${item.id == null}" type="hidden" name="trangThai" value="Chưa thanh toán"><select name="trangThai" required th:disabled="${item.id == null}"><option value="Chưa thanh toán" th:selected="${item.trangThai == null || item.trangThai == 'Chưa thanh toán' || item.trangThai == 'Chờ thanh toán'}">Chưa thanh toán</option><option value="Đang xử lý" th:selected="${item.trangThai == 'Đang xử lý'}">Đang xử lý</option><option value="Đã thanh toán" th:selected="${item.trangThai == 'Đã thanh toán'}">Đã thanh toán</option><option value="Hoàn thành" th:selected="${item.trangThai == 'Hoàn thành'}">Hoàn thành</option><option value="Đã hủy" th:selected="${item.trangThai == 'Đã hủy'}">Đã hủy</option></select><small class="hint" th:if="${item.id == null}">Hóa đơn mới luôn ở trạng thái Chưa thanh toán.</small></div>
+            <div><label>Ngày lập</label><input type="text" readonly th:value="${item.ngayLap != null ? #temporals.format(item.ngayLap, 'dd/MM/yyyy') : #temporals.format(today, 'dd/MM/yyyy')}"><small class="hint">Ngày lập được hệ thống tự động ghi nhận và không thể chỉnh sửa.</small></div>
+            <div>
+                <label>Nhân viên phụ trách</label>
+                <div th:if="${isEmployee}">
+                    <input type="text" readonly
+                           th:value="${currentEmployee != null ? currentEmployee.tenNhanVien : 'Tài khoản chưa liên kết nhân viên'}">
+                    <input type="hidden" name="maNhanVien"
+                           th:value="${currentEmployee != null ? currentEmployee.id : ''}">
+                    <small class="hint">Hóa đơn được tự động ghi nhận cho nhân viên đang đăng nhập.</small>
+                </div>
+                <select name="maNhanVien" th:unless="${isEmployee}">
+                    <option value="">Chưa phân công</option>
+                    <option th:each="x:${nhanVienList}" th:value="${x.id}" th:text="${x.tenNhanVien}"
+                            th:selected="${item.maNhanVien != null && item.maNhanVien.id == x.id}"></option>
+                </select>
+            </div>
+            <div><label>Trạng thái</label><input th:if="${item.id == null}" type="hidden" name="trangThai" value="Chưa thanh toán"><select name="trangThai" required th:disabled="${item.id == null}"><option value="Chưa thanh toán" th:selected="${item.trangThaiHienThi == 'Chưa thanh toán'}">Chưa thanh toán</option><option value="Đã thanh toán" th:selected="${item.trangThaiHienThi == 'Đã thanh toán'}">Đã thanh toán</option><option value="Đã hủy" th:selected="${item.trangThaiHienThi == 'Đã hủy'}">Đã hủy</option></select><small class="hint" th:if="${item.id == null}">Hóa đơn mới luôn ở trạng thái Chưa thanh toán.</small></div>
         </div></section>
         <section class="card">
             <div class="product-intro">

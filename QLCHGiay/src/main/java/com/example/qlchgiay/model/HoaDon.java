@@ -9,6 +9,7 @@ import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Locale;
 
 @Getter
 @Setter
@@ -40,5 +41,13 @@ public class HoaDon {
     @Column(name = "trangThai", length = 50)
     private String trangThai;
 
+    @Transient
+    public String getTrangThaiHienThi() {
+        if (trangThai == null || trangThai.isBlank()) return "Chưa thanh toán";
+        String value = trangThai.trim().toLowerCase(Locale.ROOT);
+        if (value.contains("hủy")) return "Đã hủy";
+        if (value.contains("đã thanh toán") || value.contains("hoàn thành")) return "Đã thanh toán";
+        return "Chưa thanh toán";
+    }
 
 }

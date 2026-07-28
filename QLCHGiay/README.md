@@ -1,6 +1,8 @@
 # QLCHGiay
 Project Spring Boot quản lý cửa hàng sneaker, giữ giao diện đăng nhập/dashboard của folder dự án và dùng SQL Server database `QuanLyBanHang`.
 
+Bảng lưu tóm tắt phiên làm việc được tạo idempotent từ `src/main/resources/schema.sql` khi ứng dụng khởi động. File `migrate-work-session.sql` dành cho trường hợp cần chạy migration thủ công; `QuanLyBanHang.sql` đã bao gồm bảng này cho các lần khởi tạo mới.
+
 ## Chạy
 1. Chạy `QuanLyBanHang.sql` trong SSMS để tạo schema và dữ liệu mẫu cơ bản.
 2. Chạy `seed-dashboard-data.sql` để bổ sung dữ liệu bán hàng của 12 tháng gần

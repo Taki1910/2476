@@ -2,6 +2,7 @@ package com.example.qlchgiay.controller;
 
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.*;
+import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -46,6 +47,11 @@ public class DashboardController {
         model.addAttribute("customerCount", khachHangRepo.count());
         model.addAttribute("invoiceCount", hoaDonRepo.count());
         model.addAttribute("supplierCount", nhaCungCapRepo.count());
+        Object workNotifications = session.getAttribute(WorkSessionService.NOTIFICATIONS_ATTRIBUTE);
+        if (workNotifications != null) {
+            model.addAttribute("workNotifications", workNotifications);
+            session.removeAttribute(WorkSessionService.NOTIFICATIONS_ATTRIBUTE);
+        }
         loadAnalytics(model);
         return "dashboard";
     }
@@ -64,7 +70,28 @@ public class DashboardController {
         return "sanpham";
     }
     @GetMapping("/khachhang") public String khachHang(HttpSession s, Model m) { if (!loggedIn(s)) return "redirect:/login"; var items=khachHangRepo.findAll();m.addAttribute("items",items);m.addAttribute("maleCount",items.stream().filter(x->Boolean.TRUE.equals(x.getGioiTinh())).count());m.addAttribute("femaleCount",items.stream().filter(x->Boolean.FALSE.equals(x.getGioiTinh())).count());return "khachhang"; }
-    @GetMapping("/hoadon") public String hoaDon(HttpSession s, Model m) { if (!loggedIn(s)) return "redirect:/login";var items=hoaDonRepo.findAll();m.addAttribute("items",items);m.addAttribute("completedCount",items.stream().filter(x->isCompleted(x.getTrangThai())).count());m.addAttribute("pendingCount",items.stream().filter(x->!isCompleted(x.getTrangThai())).count());m.addAttribute("invoiceRevenue",items.stream().filter(x->isCompleted(x.getTrangThai())).map(x->x.getTongTien()==null?BigDecimal.ZERO:x.getTongTien()).reduce(BigDecimal.ZERO,BigDecimal::add));return "hoadon"; }
+    @GetMapping("/hoadon")
+    public String hoaDon(HttpSession session, Model model) {
+        if (!loggedIn(session)) return "redirect:/login";
+        var items = hoaDonRepo.findAll();
+        model.addAttribute("items", items);
+        model.addAttribute(
+                "paidCount",
+                items.stream().filter(item -> "Đã thanh toán".equals(item.getTrangThaiHienThi())).count()
+        );
+        model.addAttribute(
+                "unpaidCount",
+                items.stream().filter(item -> "Chưa thanh toán".equals(item.getTrangThaiHienThi())).count()
+        );
+        model.addAttribute(
+                "invoiceRevenue",
+                items.stream()
+                        .filter(item -> "Đã thanh toán".equals(item.getTrangThaiHienThi()))
+                        .map(item -> item.getTongTien() == null ? BigDecimal.ZERO : item.getTongTien())
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        );
+        return "hoadon";
+    }
     @GetMapping("/nhacungcap") public String nhaCungCap(HttpSession s, Model m) { if (!loggedIn(s)) return "redirect:/login";var items=nhaCungCapRepo.findAll();m.addAttribute("items",items);m.addAttribute("activeCount",items.stream().filter(x->x.getTrangThai()==null||x.getTrangThai().toLowerCase().contains("hoạt")).count());m.addAttribute("inactiveCount",items.stream().filter(x->x.getTrangThai()!=null&&!x.getTrangThai().toLowerCase().contains("hoạt")).count());return "nhacungcap"; }
     @GetMapping("/baocao") public String baoCao(HttpSession s,Model m) {if(!loggedIn(s))return "redirect:/login";loadAnalytics(m);return "baocao";}
     @GetMapping("/chatbot") public String chatbot(HttpSession s) { return loggedIn(s) ? "chatbot" : "redirect:/login"; }
@@ -205,13 +232,39 @@ public class DashboardController {
                     Integer::sum
             );
         }
-        model.addAttribute(
-                "topProducts",
-                productSales.entrySet().stream()
-                        .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                        .limit(5)
-                        .toList()
-        );
+        List<Map.Entry<String, Integer>> rankedProducts = productSales.entrySet().stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 0)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(5)
+                .toList();
+        int productSalesTotal = productSales.values().stream()
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .sum();
+        int topProductQuantity = rankedProducts.isEmpty() ? 0 : rankedProducts.get(0).getValue();
+        List<Map<String, Object>> productComparison = new ArrayList<>();
+        for (int index = 0; index < rankedProducts.size(); index++) {
+            Map.Entry<String, Integer> product = rankedProducts.get(index);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("rank", index + 1);
+            row.put("name", product.getKey());
+            row.put("quantity", product.getValue());
+            row.put(
+                    "share",
+                    productSalesTotal == 0
+                            ? 0
+                            : Math.round(product.getValue() * 100.0 / productSalesTotal)
+            );
+            row.put(
+                    "relative",
+                    topProductQuantity == 0
+                            ? 0
+                            : Math.round(product.getValue() * 100.0 / topProductQuantity)
+            );
+            productComparison.add(row);
+        }
+        model.addAttribute("productSalesTotal", productSalesTotal);
+        model.addAttribute("productComparison", productComparison);
 
         Map<String, Long> categories = new LinkedHashMap<>();
         for (var product : sanPhamRepo.findAll()) {

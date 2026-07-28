@@ -171,6 +171,9 @@
         'Sản phẩm': 'Product',
         'Tên sản phẩm': 'Product name',
         'Tên sản phẩm *': 'Product name *',
+        'Nhập tên để tìm sản phẩm hoặc biến thể đã có':
+            'Enter a name to find existing products or variants',
+        'Sản phẩm và biến thể đã có': 'Existing products and variants',
         'Thêm sản phẩm': 'Add product',
         'Lưu sản phẩm': 'Save product',
         'Nhập đầy đủ thông tin giày hoặc dép.': 'Enter complete shoe or sandal information.',
@@ -201,13 +204,17 @@
         'Cập nhật': 'Update',
         'Chi tiết sản phẩm': 'Product details',
         'Loại': 'Category',
+        'Loại *': 'Category *',
         'Màu': 'Color',
+        'Màu *': 'Color *',
         'Màu sắc': 'Color',
         'Chất liệu': 'Material',
+        'Chất liệu *': 'Material *',
         'Giá': 'Price',
         'Giá bán': 'Sale price',
         'Giá bán (VNĐ) *': 'Sale price (VND) *',
         'Size': 'Size',
+        'Size *': 'Size *',
         'Tồn kho': 'Stock',
         'Số lượng tồn': 'Stock quantity',
         'Số lượng tồn *': 'Stock quantity *',
@@ -282,6 +289,8 @@
         'Tất cả trạng thái': 'All statuses',
         'Chưa thanh toán': 'Unpaid',
         'Đã thanh toán': 'Paid',
+        'Đã ghi nhận': 'Recorded',
+        'Chờ thanh toán': 'Awaiting payment',
         'Đang xử lý': 'Processing',
         'Hoàn thành': 'Completed',
         'Đã hủy': 'Cancelled',
@@ -291,7 +300,8 @@
         'In hóa đơn': 'Print invoice',
         'Chọn khách hàng và sản phẩm — đơn hàng sẽ được tạo tự động.':
             'Select a customer and products — the order will be created automatically.',
-        'Chọn ngày từ lịch, không nhập thủ công': 'Choose a date from the calendar; do not type it manually',
+        'Ngày lập được hệ thống tự động ghi nhận và không thể chỉnh sửa.':
+            'The invoice date is recorded automatically by the system and cannot be edited.',
         'Hóa đơn mới luôn ở trạng thái Chưa thanh toán.': 'New invoices always start as Unpaid.',
         'Danh sách này lấy trực tiếp từ kho. Tìm rồi bấm vào đúng mã, màu và size cần bán.':
             'This list comes directly from inventory. Find and select the correct code, color, and size.',
@@ -606,11 +616,9 @@
         });
 
         const languageButton = document.getElementById('languageToggleBtn');
-        const languageCode = document.getElementById('languageCode');
         const languageFlag = document.getElementById('languageFlag');
-        if (languageButton && languageCode && languageFlag) {
+        if (languageButton && languageFlag) {
             const targetIsEnglish = language === 'vi';
-            languageCode.textContent = targetIsEnglish ? 'EN' : 'VI';
             languageFlag.src = targetIsEnglish
                 ? languageButton.dataset.flagEn
                 : languageButton.dataset.flagVi;

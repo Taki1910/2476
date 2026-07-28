@@ -74,13 +74,13 @@ CREATE TABLE NhaCungCap(
 
     tenNCC NVARCHAR(100) NOT NULL,
 
-    soDienThoai VARCHAR(15),
+    soDienThoai VARCHAR(15) NOT NULL,
 
-    email VARCHAR(100),
+    email VARCHAR(100) NOT NULL,
 
-    diaChi NVARCHAR(200),
+    diaChi NVARCHAR(200) NOT NULL,
 
-    trangThai NVARCHAR(30)
+    trangThai NVARCHAR(30) NOT NULL
 
 );
 
@@ -229,6 +229,36 @@ CREATE TABLE TaiKhoan(
     maNhanVien INT,
 
     trangThai NVARCHAR(30),
+
+    FOREIGN KEY(maNhanVien)
+        REFERENCES NhanVien(maNhanVien)
+
+);
+
+
+/* =========================
+   PHIÊN LÀM VIỆC
+========================= */
+
+CREATE TABLE PhienLamViec(
+
+    maPhien INT IDENTITY(1,1) PRIMARY KEY,
+
+    maNhanVien INT NOT NULL,
+
+    batDau DATETIME2 NOT NULL,
+
+    ketThuc DATETIME2,
+
+    soSanPhamBan INT NOT NULL DEFAULT 0,
+
+    soKhachHangMoi INT NOT NULL DEFAULT 0,
+
+    doanhThu DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    nhanVienDaXem BIT NOT NULL DEFAULT 0,
+
+    adminDaXem BIT NOT NULL DEFAULT 0,
 
     FOREIGN KEY(maNhanVien)
         REFERENCES NhanVien(maNhanVien)
@@ -511,7 +541,7 @@ INSERT INTO DonHang
 VALUES
 (1,1,'2026-07-01',2500000,N'Đã xác nhận'),
 (2,2,'2026-07-02',4400000,N'Đang giao'),
-(3,3,'2026-07-03',1800000,N'Hoàn thành');
+(3,3,'2026-07-03',1800000,N'Đã thanh toán');
 
 /* =========================
    HÓA ĐƠN

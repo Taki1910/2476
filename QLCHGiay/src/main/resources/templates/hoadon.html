@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
-    <script th:src="@{/js/app-i18n.js}" src="/js/app-i18n.js"></script>
+    <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
     <script th:src="@{/js/table-pagination.js(v='20260727-sort')}" src="/js/table-pagination.js?v=20260727-sort"></script>
 
     <title>Quản lý hóa đơn - KICKS ZONE</title>
@@ -567,8 +567,29 @@
                 width: 100%;
             }
         }
+        .flash-message {
+            margin-bottom: 16px;
+            padding: 13px 16px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .flash-success {
+            background: rgba(39, 211, 154, .13);
+            border-color: rgba(39, 211, 154, .25);
+            color: #5ee6b3;
+        }
+
+        .flash-error {
+            background: rgba(255, 79, 89, .14);
+            border-color: rgba(255, 79, 89, .28);
+            color: #ff8a92;
+        }
     </style>
-    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
+    <link rel="stylesheet" th:href="@{/css/theme.css(v='20260728-ui-access')}"
+          href="/css/theme.css?v=20260728-ui-access">
 </head>
 
 <body>
@@ -642,11 +663,12 @@
             <div class="top-actions">
 
                 <div class="user-box">
-                    <div class="avatar">N</div>
+                    <div class="avatar"
+                         th:text="${userName != null && !#strings.isEmpty(userName) ? #strings.substring(userName, 0, 1) : 'N'}">N</div>
 
                     <div class="user-info">
-                        <strong>Nguyễn Văn A</strong>
-                        <small>Admin</small>
+                        <strong th:text="${userName != null ? userName : 'Người dùng'}">Người dùng</strong>
+                        <small th:text="${userRole != null ? userRole : 'Nhân viên'}">Nhân viên</small>
                     </div>
                 </div>
 
@@ -655,6 +677,9 @@
         </header>
 
         <section class="content">
+
+            <div class="flash-message flash-success" th:if="${success}" th:text="${success}"></div>
+            <div class="flash-message flash-error" th:if="${error}" th:text="${error}"></div>
 
             <!-- THỐNG KÊ -->
             <div class="stats">
@@ -685,11 +710,11 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Đã thanh toán</div>
-                            <div class="stat-value" th:text="${completedCount}">0</div>
+                            <div class="stat-value" th:text="${paidCount}">0</div>
 
                             <div class="stat-note">
                                 <i class="fa-solid fa-check"></i>
-                                Hoàn thành
+                                Đã ghi nhận
                             </div>
                         </div>
 
@@ -702,12 +727,12 @@
                 <article class="stat-card">
                     <div class="stat-head">
                         <div>
-                            <div class="stat-title">Đang xử lý</div>
-                            <div class="stat-value" th:text="${pendingCount}">0</div>
+                            <div class="stat-title">Chưa thanh toán</div>
+                            <div class="stat-value" th:text="${unpaidCount}">0</div>
 
                             <div class="stat-note" style="color:#ffb43c">
                                 <i class="fa-solid fa-clock"></i>
-                                Chờ hoàn tất
+                                Chờ thanh toán
                             </div>
                         </div>
 
@@ -763,8 +788,6 @@
                                 onchange="filterInvoices()">
                             <option value="">Tất cả trạng thái</option>
                             <option value="đã thanh toán">Đã thanh toán</option>
-                            <option value="hoàn thành">Hoàn thành</option>
-                            <option value="đang xử lý">Đang xử lý</option>
                             <option value="chưa thanh toán">Chưa thanh toán</option>
                             <option value="đã hủy">Đã hủy</option>
                         </select>
@@ -828,9 +851,9 @@
                             </td>
 
                             <td th:text="${x.ngayLap != null
-                                ? #temporals.format(x.ngayLap, 'dd/MM/yyyy HH:mm')
+                                ? #temporals.format(x.ngayLap, 'dd/MM/yyyy')
                                 : '-'}">
-                                16/07/2026 10:30
+                                16/07/2026
                             </td>
 
                             <td class="money"
@@ -843,19 +866,16 @@
                             <td>
                                 <span class="badge"
                                       th:classappend="${
-                                          x.trangThai != null
-                                          && (#strings.containsIgnoreCase(x.trangThai, 'hoàn thành')
-                                          || #strings.containsIgnoreCase(x.trangThai, 'đã thanh toán'))
+                                          x.trangThaiHienThi == 'Đã thanh toán'
                                           ? ' badge-success'
                                           : (
-                                              x.trangThai != null
-                                              && (#strings.containsIgnoreCase(x.trangThai, 'hủy'))
+                                              x.trangThaiHienThi == 'Đã hủy'
                                               ? ' badge-cancel'
                                               : ' badge-pending'
                                           )
                                       }"
-                                      th:text="${x.trangThai != null ? x.trangThai : 'Chưa cập nhật'}">
-                                    Đang xử lý
+                                      th:text="${x.trangThaiHienThi}">
+                                    Chưa thanh toán
                                 </span>
                             </td>
 
@@ -869,6 +889,7 @@
                                     </a>
 
                                     <a class="action-btn"
+                                       th:if="${!isEmployee}"
                                        th:href="@{/hoadon/sua/{id}(id=${x.id})}"
                                        title="Chỉnh sửa">
                                         <i class="fa-solid fa-pen"></i>

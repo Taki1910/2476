@@ -39,42 +39,101 @@
             text-decoration: none;
         }
         .primary { background: #ff6422; }
+        .required-note { margin: -5px 0 22px; color: #aaa; font-size: 13px; }
+        .form-error {
+            margin: 0 0 20px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 93, 98, .4);
+            border-radius: 8px;
+            background: rgba(255, 93, 98, .1);
+            color: #ff8a8e;
+        }
+        .form-error strong { display: block; }
+        .form-error ul { margin: 8px 0 0; padding-left: 20px; }
+        .form-error li + li { margin-top: 4px; }
+        .field-error { display: block; margin-top: 6px; color: #ff8a8e; font-size: 12px; }
+        .field-invalid label { color: #ff8a8e; }
+        input.invalid, select.invalid {
+            border-color: #ff5d62;
+            box-shadow: 0 0 0 3px rgba(255, 93, 98, .14);
+        }
+        @media (max-width: 620px) {
+            .box { margin: 20px 12px; padding: 20px; }
+            .grid { grid-template-columns: 1fr; }
+            .full { grid-column: auto; }
+        }
     </style>
     <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 <body>
 <main class="box">
     <h1 th:text="${pageTitle}"></h1>
-    <form method="post"
-          th:action="${item.id == null} ? @{/nhacungcap/them} : @{/nhacungcap/sua/{id}(id=${item.id})}">
+    <p class="required-note">Tất cả trường bên dưới đều bắt buộc để bảo đảm hồ sơ nhà cung cấp đầy đủ và chính xác.</p>
+    <form method="post" th:object="${item}" novalidate
+           th:action="${item.id == null} ? @{/nhacungcap/them} : @{/nhacungcap/sua/{id}(id=${item.id})}">
+        <section class="form-error" role="alert" aria-live="assertive"
+                 th:if="${#fields.hasAnyErrors()}">
+            <strong>Không thể lưu nhà cung cấp. Vui lòng sửa các trường sau:</strong>
+            <ul>
+                <li th:each="error : ${#fields.allErrors()}" th:text="${error}">
+                    Thông tin chưa hợp lệ.
+                </li>
+            </ul>
+        </section>
         <div class="grid">
-            <div class="full">
-                <label>Tên nhà cung cấp *</label>
-                <input name="tenNCC" required maxlength="100" th:value="${item.tenNCC}">
+            <div class="full field-group"
+                 th:classappend="${#fields.hasErrors('tenNCC')} ? 'field-invalid' : ''">
+                <label for="tenNCC">Tên nhà cung cấp *</label>
+                <input id="tenNCC" th:field="*{tenNCC}" th:errorclass="invalid"
+                       required minlength="2" maxlength="100" autocomplete="organization"
+                       aria-describedby="tenNCC-error"
+                       th:aria-invalid="${#fields.hasErrors('tenNCC')}">
+                <small id="tenNCC-error" class="field-error" th:errors="*{tenNCC}"></small>
             </div>
-            <div>
-                <label>Điện thoại</label>
-                <input name="soDienThoai" maxlength="15" th:value="${item.soDienThoai}">
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('soDienThoai')} ? 'field-invalid' : ''">
+                <label for="soDienThoai">Điện thoại *</label>
+                <input id="soDienThoai" type="tel" th:field="*{soDienThoai}" th:errorclass="invalid"
+                       required maxlength="15" inputmode="tel" autocomplete="tel"
+                       pattern="(?:0[0-9]{9}|\+84[0-9]{9})"
+                       placeholder="0901234567 hoặc +84901234567"
+                       aria-describedby="soDienThoai-error"
+                       th:aria-invalid="${#fields.hasErrors('soDienThoai')}">
+                <small id="soDienThoai-error" class="field-error"
+                       th:errors="*{soDienThoai}"></small>
             </div>
-            <div>
-                <label>Email</label>
-                <input type="email" name="email" maxlength="100" th:value="${item.email}">
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('email')} ? 'field-invalid' : ''">
+                <label for="email">Email *</label>
+                <input id="email" type="email" th:field="*{email}" th:errorclass="invalid"
+                       required maxlength="100" autocomplete="email" placeholder="lienhe@nhacungcap.vn"
+                       aria-describedby="email-error"
+                       th:aria-invalid="${#fields.hasErrors('email')}">
+                <small id="email-error" class="field-error" th:errors="*{email}"></small>
             </div>
-            <div class="full">
-                <label>Địa chỉ</label>
-                <input name="diaChi" maxlength="200" th:value="${item.diaChi}">
+            <div class="full field-group"
+                 th:classappend="${#fields.hasErrors('diaChi')} ? 'field-invalid' : ''">
+                <label for="diaChi">Địa chỉ *</label>
+                <input id="diaChi" th:field="*{diaChi}" th:errorclass="invalid"
+                       required minlength="5" maxlength="200" autocomplete="street-address"
+                       placeholder="Số nhà, đường, phường/xã, tỉnh/thành phố"
+                       aria-describedby="diaChi-error"
+                       th:aria-invalid="${#fields.hasErrors('diaChi')}">
+                <small id="diaChi-error" class="field-error" th:errors="*{diaChi}"></small>
             </div>
-            <div>
-                <label>Trạng thái</label>
-                <select name="trangThai">
-                    <option th:selected="${item.trangThai == null || item.trangThai == 'Hoạt động'}">
-                        Hoạt động
-                    </option>
-                    <option th:selected="${item.trangThai == 'Ngừng hợp tác'}">Ngừng hợp tác</option>
+            <div class="field-group"
+                 th:classappend="${#fields.hasErrors('trangThai')} ? 'field-invalid' : ''">
+                <label for="trangThai">Trạng thái *</label>
+                <select id="trangThai" th:field="*{trangThai}" th:errorclass="invalid" required
+                        aria-describedby="trangThai-error"
+                        th:aria-invalid="${#fields.hasErrors('trangThai')}">
+                    <option value="Hoạt động">Hoạt động</option>
+                    <option value="Ngừng hợp tác">Ngừng hợp tác</option>
                 </select>
+                <small id="trangThai-error" class="field-error" th:errors="*{trangThai}"></small>
             </div>
         </div>
-        <button class="btn primary">Lưu</button>
+        <button class="btn primary" type="submit">Lưu</button>
         <a class="btn" th:href="@{/nhacungcap}">Hủy</a>
     </form>
 </main>
