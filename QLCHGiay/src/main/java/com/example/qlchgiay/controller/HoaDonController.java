@@ -141,6 +141,10 @@ public class HoaDonController {
     @Transactional
     public String delete(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền xóa hóa đơn.");
+            return "redirect:/hoadon";
+        }
         try {
             chiTietHoaDonRepo.deleteByMaHoaDonId(id);
             hoaDonRepo.deleteById(id);

@@ -355,7 +355,6 @@ html.light-mode .flash-error {
 
 html.light-mode .comparison-context,
 html.light-mode .comparison-share,
-html.light-mode .comparison-axis,
 html.light-mode .comparison-empty {
     color: #52657b !important;
 }

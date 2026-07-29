@@ -464,14 +464,6 @@
             background: linear-gradient(90deg, #ff4f22, #ff9700);
         }
 
-        .comparison-axis {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            color: #716c67;
-            font-size: 9px;
-        }
-
         .comparison-empty {
             padding: 24px 18px;
             border: 1px dashed #3a3531;
@@ -861,11 +853,6 @@
                                  th:attr="aria-valuenow=${x.relative},
                                           aria-label=${x.name + ': ' + x.relative + '% so với sản phẩm dẫn đầu'}">
                                 <div class="comparison-fill" th:style="${'width:' + x.relative + '%'}"></div>
-                            </div>
-                            <div class="comparison-axis" aria-hidden="true">
-                                <span>0</span>
-                                <span>50%</span>
-                                <span>100% dẫn đầu</span>
                             </div>
                         </div>
                     </div>

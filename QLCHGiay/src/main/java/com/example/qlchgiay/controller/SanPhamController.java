@@ -146,6 +146,13 @@ public class SanPhamController {
     public String delete(@PathVariable Integer id, HttpSession session,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền xóa sản phẩm."
+            );
+            return "redirect:/sanpham";
+        }
         if (!sanPhamRepo.existsById(id)) {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
             return "redirect:/sanpham";

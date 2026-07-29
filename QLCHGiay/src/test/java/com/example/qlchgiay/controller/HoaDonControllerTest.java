@@ -199,4 +199,20 @@ class HoaDonControllerTest {
         );
         verify(hoaDonRepo, never()).findById(anyInt());
     }
+
+    @Test
+    void employeeCannotDeleteInvoice() {
+        loggedInAccount.setVaiTro("Nhân viên");
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String view = controller.delete(7, session, redirect);
+
+        assertEquals("redirect:/hoadon", view);
+        assertEquals(
+                "Tài khoản nhân viên không có quyền xóa hóa đơn.",
+                redirect.getFlashAttributes().get("error")
+        );
+        verify(chiTietHoaDonRepo, never()).deleteByMaHoaDonId(7);
+        verify(hoaDonRepo, never()).deleteById(7);
+    }
 }

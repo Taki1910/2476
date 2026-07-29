@@ -94,6 +94,23 @@ class KhachHangControllerTest {
         verify(repo).saveAndFlush(customer);
     }
 
+    @Test
+    void employeeCannotDeleteCustomer() {
+        TaiKhoan employee = new TaiKhoan();
+        employee.setVaiTro("Nhân viên");
+        when(session.getAttribute("user")).thenReturn(employee);
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String view = controller.delete(7, session, redirect);
+
+        assertEquals("redirect:/khachhang", view);
+        assertEquals(
+                "Tài khoản nhân viên không có quyền xóa khách hàng.",
+                redirect.getFlashAttributes().get("error")
+        );
+        verify(repo, never()).deleteById(7);
+    }
+
     private KhachHang validCustomer() {
         KhachHang customer = new KhachHang();
         customer.setTenKH("Khách hàng kiểm thử");

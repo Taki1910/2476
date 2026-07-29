@@ -103,6 +103,13 @@ public class NhaCungCapController {
     @PostMapping("/xoa/{id}")
     public String delete(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirect.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền xóa nhà cung cấp."
+            );
+            return "redirect:/nhacungcap";
+        }
         try {
             repo.deleteById(id);
             repo.flush();

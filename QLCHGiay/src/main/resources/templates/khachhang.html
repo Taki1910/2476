@@ -867,7 +867,7 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <form method="post" th:action="@{/khachhang/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa khách hàng này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
+                                    <form th:if="${isAdmin}" method="post" th:action="@{/khachhang/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa khách hàng này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
 
                                 </div>
                             </td>

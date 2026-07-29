@@ -125,6 +125,10 @@ public class KhachHangController {
     @PostMapping("/xoa/{id}")
     public String delete(@PathVariable Integer id, HttpSession s, RedirectAttributes ra) {
         if (!loggedIn(s)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(s)) {
+            ra.addFlashAttribute("error", "Tài khoản nhân viên không có quyền xóa khách hàng.");
+            return "redirect:/khachhang";
+        }
         try { repo.deleteById(id); repo.flush(); ra.addFlashAttribute("success", "Đã xóa khách hàng."); }
         catch (DataIntegrityViolationException ex) { ra.addFlashAttribute("error", "Không thể xóa khách hàng đã phát sinh đơn hàng hoặc giỏ hàng."); }
         return "redirect:/khachhang";

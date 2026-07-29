@@ -901,15 +901,10 @@
                         </button>
 
                         <div class="price-sort" role="group" aria-label="Sắp xếp theo giá">
-                            <button class="sort-btn" id="sortPriceAsc" type="button"
-                                    aria-pressed="false" onclick="togglePriceSort('asc')">
-                                <i class="fa-solid fa-arrow-up-short-wide"></i>
-                                <span>Giá thấp → cao</span>
-                            </button>
-                            <button class="sort-btn" id="sortPriceDesc" type="button"
-                                    aria-pressed="false" onclick="togglePriceSort('desc')">
-                                <i class="fa-solid fa-arrow-down-wide-short"></i>
-                                <span>Giá cao → thấp</span>
+                            <button class="sort-btn" id="sortPrice" type="button"
+                                    aria-pressed="false" onclick="togglePriceSort()">
+                                <i id="sortPriceIcon" class="fa-solid fa-arrow-up-arrow-down"></i>
+                                <span id="sortPriceLabel">Sắp xếp theo giá</span>
                             </button>
                         </div>
 
@@ -1073,7 +1068,8 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <form method="post" th:action="@{/sanpham/xoa/{id}(id=${x.id})}"
+                                    <form th:if="${isAdmin}"
+                                          method="post" th:action="@{/sanpham/xoa/{id}(id=${x.id})}"
                                           onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
                                         <button class="action-btn delete-btn" type="submit" title="Xóa">
                                             <i class="fa-solid fa-trash"></i>
@@ -1185,12 +1181,22 @@
 
     function setPriceSort(direction) {
         currentPriceSort = direction;
-        const ascButton = document.getElementById("sortPriceAsc");
-        const descButton = document.getElementById("sortPriceDesc");
-        ascButton.classList.toggle("active", direction === "asc");
-        descButton.classList.toggle("active", direction === "desc");
-        ascButton.setAttribute("aria-pressed", String(direction === "asc"));
-        descButton.setAttribute("aria-pressed", String(direction === "desc"));
+        const button = document.getElementById("sortPrice");
+        const icon = document.getElementById("sortPriceIcon");
+        const label = document.getElementById("sortPriceLabel");
+        button.classList.toggle("active", direction !== null);
+        button.setAttribute("aria-pressed", String(direction !== null));
+
+        if (direction === "asc") {
+            icon.className = "fa-solid fa-arrow-up-short-wide";
+            label.textContent = "Giá thấp → cao";
+        } else if (direction === "desc") {
+            icon.className = "fa-solid fa-arrow-down-wide-short";
+            label.textContent = "Giá cao → thấp";
+        } else {
+            icon.className = "fa-solid fa-arrow-up-arrow-down";
+            label.textContent = "Sắp xếp theo giá";
+        }
 
         const comparator = direction
             ? (left, right) => {
@@ -1201,8 +1207,8 @@
         productPagination?.setSort(comparator);
     }
 
-    function togglePriceSort(direction) {
-        setPriceSort(currentPriceSort === direction ? null : direction);
+    function togglePriceSort() {
+        setPriceSort(currentPriceSort === "asc" ? "desc" : "asc");
         filterProducts();
     }
 

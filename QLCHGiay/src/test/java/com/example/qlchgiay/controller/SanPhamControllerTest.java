@@ -27,6 +27,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -163,5 +164,23 @@ class SanPhamControllerTest {
                         new RedirectAttributesModelMap()
                 )
         );
+    }
+
+    @Test
+    void employeeCannotDeleteProduct() {
+        TaiKhoan employee = new TaiKhoan();
+        employee.setVaiTro("Nhân viên");
+        when(session.getAttribute("user")).thenReturn(employee);
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        String view = controller.delete(7, session, redirect);
+
+        assertEquals("redirect:/sanpham", view);
+        assertEquals(
+                "Tài khoản nhân viên không có quyền xóa sản phẩm.",
+                redirect.getFlashAttributes().get("error")
+        );
+        verify(sanPhamRepo, never()).existsById(7);
+        verify(sanPhamRepo, never()).deleteById(7);
     }
 }

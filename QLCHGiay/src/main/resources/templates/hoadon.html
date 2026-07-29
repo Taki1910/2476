@@ -896,7 +896,7 @@
                                     </a>
 
                                     <form method="post" th:action="@{/hoadon/in/{id}(id=${x.id})}"><button type="submit" class="action-btn" title="In hóa đơn"><i class="fa-solid fa-print"></i></button></form>
-                                    <form method="post" th:action="@{/hoadon/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
+                                    <form th:if="${isAdmin}" method="post" th:action="@{/hoadon/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
 
                                 </div>
                             </td>

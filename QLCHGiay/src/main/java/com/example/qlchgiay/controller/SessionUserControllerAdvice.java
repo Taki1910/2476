@@ -22,6 +22,7 @@ public class SessionUserControllerAdvice {
         model.addAttribute("userName", resolveUserName(account, session));
         model.addAttribute("userRole", resolveRole(account, session));
         model.addAttribute("isEmployee", isEmployee(account));
+        model.addAttribute("isAdmin", isAdmin(account));
         model.addAttribute("currentEmployee", account.getMaNhanVien());
     }
 
@@ -30,15 +31,21 @@ public class SessionUserControllerAdvice {
     }
 
     public static boolean isEmployee(TaiKhoan account) {
-        String normalizedRole = normalizeRole(resolveRole(account, null));
-        return normalizedRole.contains("nhan vien")
-                && !normalizedRole.contains("quan ly")
-                && !normalizedRole.contains("admin");
+        return account != null && !isAdmin(account);
+    }
+
+    public static boolean isAdmin(HttpSession session) {
+        return session.getAttribute("user") instanceof TaiKhoan account && isAdmin(account);
     }
 
     public static boolean isAdmin(TaiKhoan account) {
+        if (account == null) {
+            return false;
+        }
         String normalizedRole = normalizeRole(resolveRole(account, null));
-        return normalizedRole.contains("admin") || normalizedRole.contains("quan ly");
+        return normalizedRole.contains("admin")
+                || normalizedRole.contains("quan ly")
+                || normalizedRole.contains("quan li");
     }
 
     public static NhanVien currentEmployee(HttpSession session) {
