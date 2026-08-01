@@ -6,7 +6,6 @@ import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -31,11 +30,13 @@ public class HoaDonController {
     private final SanPhamRepo sanPhamRepo;
     private final ChiTietSanPhamRepo chiTietSanPhamRepo;
     private final ChiTietHoaDonRepo chiTietHoaDonRepo;
+    private final ThanhToanRepo thanhToanRepo;
     private final WorkSessionService workSessionService;
 
     public HoaDonController(HoaDonRepo hoaDonRepo, DonHangRepo donHangRepo, NhanVienRepo nhanVienRepo,
                             KhachHangRepo khachHangRepo, SanPhamRepo sanPhamRepo,
                             ChiTietSanPhamRepo chiTietSanPhamRepo, ChiTietHoaDonRepo chiTietHoaDonRepo,
+                            ThanhToanRepo thanhToanRepo,
                             WorkSessionService workSessionService) {
         this.hoaDonRepo = hoaDonRepo;
         this.donHangRepo = donHangRepo;
@@ -44,7 +45,17 @@ public class HoaDonController {
         this.sanPhamRepo = sanPhamRepo;
         this.chiTietSanPhamRepo = chiTietSanPhamRepo;
         this.chiTietHoaDonRepo = chiTietHoaDonRepo;
+        this.thanhToanRepo = thanhToanRepo;
         this.workSessionService = workSessionService;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public String handleInvalidInput(
+            IllegalArgumentException exception,
+            RedirectAttributes redirect
+    ) {
+        redirect.addFlashAttribute("error", exception.getMessage());
+        return "redirect:/hoadon";
     }
 
     @GetMapping("/them")
@@ -89,13 +100,48 @@ public class HoaDonController {
         return "hoadon-detail";
     }
 
-    @PostMapping("/in/{id}")
+    @PostMapping("/thanh-toan/{id}")
     @Transactional
-    public String print(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
+    public String pay(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
-        HoaDon item = hoaDonRepo.findById(id).orElse(null);
+        HoaDon item = hoaDonRepo.findByIdForUpdate(id).orElse(null);
         if (item == null) return missing(redirect);
-        boolean newlyPaid = !PAID_STATUS.equals(item.getTrangThaiHienThi());
+        if (PAID_STATUS.equals(item.getTrangThaiHienThi())) {
+            redirect.addFlashAttribute("success", "Hóa đơn đã được thanh toán trước đó.");
+            return "redirect:/hoadon/" + id;
+        }
+        if (CANCELLED_STATUS.equals(item.getTrangThaiHienThi())) {
+            throw new IllegalArgumentException("Không thể thanh toán hóa đơn đã hủy.");
+        }
+
+        List<ChiTietHoaDon> details = chiTietHoaDonRepo.findByMaHoaDonId(id);
+        if (details.isEmpty()) {
+            throw new IllegalArgumentException("Hóa đơn không có sản phẩm để thanh toán.");
+        }
+        Map<Integer, Integer> quantities = new LinkedHashMap<>();
+        for (ChiTietHoaDon detail : details) {
+            if (detail.getMaChiTietSP() == null || detail.getMaChiTietSP().getMaSP() == null) {
+                throw new IllegalArgumentException("Hóa đơn có sản phẩm không hợp lệ.");
+            }
+            int quantity = detail.getSoLuong() == null ? 0 : detail.getSoLuong();
+            if (quantity <= 0) {
+                throw new IllegalArgumentException("Số lượng sản phẩm trong hóa đơn không hợp lệ.");
+            }
+            quantities.merge(detail.getMaChiTietSP().getMaSP().getId(), quantity, Integer::sum);
+        }
+
+        for (Map.Entry<Integer, Integer> entry : quantities.entrySet()) {
+            SanPham product = sanPhamRepo.findByIdForUpdate(entry.getKey())
+                    .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại."));
+            int stock = product.getTonKho() == null ? 0 : product.getTonKho();
+            if (entry.getValue() > stock) {
+                throw new IllegalArgumentException(
+                        "Sản phẩm " + product.getTenSP() + " không đủ tồn kho."
+                );
+            }
+            product.setTonKho(stock - entry.getValue());
+            sanPhamRepo.save(product);
+        }
 
         item.setTrangThai(PAID_STATUS);
         hoaDonRepo.save(item);
@@ -103,14 +149,23 @@ public class HoaDonController {
             item.getMaDonHang().setTrangThai(PAID_STATUS);
             donHangRepo.save(item.getMaDonHang());
         }
-        if (newlyPaid && SessionUserControllerAdvice.isEmployee(session)) {
-            int productQuantity = chiTietHoaDonRepo.findByMaHoaDonId(id).stream()
-                    .mapToInt(detail -> detail.getSoLuong() == null ? 0 : detail.getSoLuong())
-                    .sum();
-            workSessionService.recordPaidSale(session, productQuantity, item.getTongTien());
+
+        if (!thanhToanRepo.existsByMaHoaDonId(id)) {
+            ThanhToan payment = new ThanhToan();
+            payment.setMaHoaDon(item);
+            payment.setPhuongThuc("Tiền mặt");
+            payment.setNgayThanhToan(LocalDate.now());
+            payment.setSoTien(item.getTongTien());
+            payment.setTrangThai("Thành công");
+            thanhToanRepo.save(payment);
         }
 
-        return "redirect:/hoadon/" + id + "?print=true";
+        if (SessionUserControllerAdvice.isEmployee(session)) {
+            int productQuantity = quantities.values().stream().mapToInt(Integer::intValue).sum();
+            workSessionService.recordPaidSale(session, productQuantity, item.getTongTien());
+        }
+        redirect.addFlashAttribute("success", "Đã thanh toán và cập nhật tồn kho.");
+        return "redirect:/hoadon/" + id;
     }
 
     @GetMapping("/sua/{id}")
@@ -119,6 +174,9 @@ public class HoaDonController {
         if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
         HoaDon item = hoaDonRepo.findById(id).orElse(null);
         if (item == null) return missing(redirect);
+        if (PAID_STATUS.equals(item.getTrangThaiHienThi())) {
+            return paidEditDenied(redirect, id);
+        }
         model.addAttribute("item", item);
         model.addAttribute("details", chiTietHoaDonRepo.findByMaHoaDonId(id));
         loadForm(model, "Cập nhật hóa đơn", session);
@@ -132,6 +190,9 @@ public class HoaDonController {
         if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
         HoaDon invoice = hoaDonRepo.findById(id).orElse(null);
         if (invoice == null) return missing(redirect);
+        if (PAID_STATUS.equals(invoice.getTrangThaiHienThi())) {
+            return paidEditDenied(redirect, id);
+        }
         saveInvoice(invoice, form, session);
         redirect.addFlashAttribute("success", "Đã cập nhật hóa đơn.");
         return "redirect:/hoadon/" + id;
@@ -145,14 +206,19 @@ public class HoaDonController {
             redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền xóa hóa đơn.");
             return "redirect:/hoadon";
         }
-        try {
-            chiTietHoaDonRepo.deleteByMaHoaDonId(id);
-            hoaDonRepo.deleteById(id);
-            hoaDonRepo.flush();
-            redirect.addFlashAttribute("success", "Đã xóa hóa đơn.");
-        } catch (DataIntegrityViolationException ex) {
-            redirect.addFlashAttribute("error", "Không thể xóa hóa đơn đã phát sinh thanh toán.");
+        HoaDon invoice = hoaDonRepo.findByIdForUpdate(id).orElse(null);
+        if (invoice == null) {
+            return missing(redirect);
         }
+        if (PAID_STATUS.equals(invoice.getTrangThaiHienThi())
+                || thanhToanRepo.existsByMaHoaDonId(id)) {
+            redirect.addFlashAttribute("error", "Không thể xóa hóa đơn đã thanh toán.");
+            return "redirect:/hoadon/" + id;
+        }
+        chiTietHoaDonRepo.deleteByMaHoaDonId(id);
+        hoaDonRepo.delete(invoice);
+        hoaDonRepo.flush();
+        redirect.addFlashAttribute("success", "Đã xóa hóa đơn.");
         return "redirect:/hoadon";
     }
 
@@ -249,7 +315,6 @@ public class HoaDonController {
         if (status == null || status.isBlank()) return UNPAID_STATUS;
         String value = status.trim().toLowerCase(Locale.ROOT);
         if (value.contains("hủy")) return CANCELLED_STATUS;
-        if (value.contains("đã thanh toán") || value.contains("hoàn thành")) return PAID_STATUS;
         return UNPAID_STATUS;
     }
 
@@ -284,6 +349,10 @@ public class HoaDonController {
     private String editDenied(RedirectAttributes redirect) {
         redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền chỉnh sửa hóa đơn.");
         return "redirect:/hoadon";
+    }
+    private String paidEditDenied(RedirectAttributes redirect, Integer id) {
+        redirect.addFlashAttribute("error", "Không thể chỉnh sửa hóa đơn đã thanh toán.");
+        return "redirect:/hoadon/" + id;
     }
     private boolean loggedIn(HttpSession session) { return session.getAttribute("user") instanceof TaiKhoan; }
 

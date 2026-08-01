@@ -13,14 +13,25 @@ Bảng lưu tóm tắt phiên làm việc được tạo idempotent từ `src/ma
 3. Nếu cần dữ liệu kiểm thử sản phẩm, chạy thêm `seed-test-products.sql` để tạo
    5 sản phẩm, mỗi sản phẩm có 5 biến thể. Script seed có thể chạy lại mà không
    tạo trùng dữ liệu.
-4. Kiểm tra `src/main/resources/application.properties`.
+4. Khai báo mật khẩu SQL Server ngoài mã nguồn:
+   PowerShell: `$env:DB_PASSWORD='<mật_khẩu>'`.
+   Có thể ghi đè thêm `DB_URL`, `DB_USERNAME` và `SERVER_PORT` nếu cần.
 5. Chạy `./mvnw spring-boot:run` hoặc `mvnw.cmd spring-boot:run`.
 6. Mở http://localhost:8081/login
 
 Các file SQL được lưu bằng UTF-8. Khi mở trong SSMS, chọn encoding UTF-8 và giữ
 tiền tố `N` trước chuỗi Unicode để dữ liệu tiếng Việt được lưu đúng.
 
-Tài khoản dữ liệu mẫu: admin / 123456
+Tài khoản dữ liệu mẫu: admin / 123456. Mật khẩu dữ liệu cũ được tự động nâng cấp
+sang BCrypt sau lần đăng nhập thành công đầu tiên.
 
-Nếu quên mật khẩu, mở liên kết **Quên mật khẩu?** ở trang đăng nhập và xác minh
-bằng số điện thoại nhân viên. Tài khoản `admin` dùng số mẫu `0911111111`.
+Nếu quên mật khẩu, liên hệ trực tiếp quản lý cửa hàng để được xác minh và cấp lại
+qua kênh nội bộ. Sau khi đăng nhập, tài khoản Admin/Quản lý có thể đặt lại mật
+khẩu cho tài khoản cần hỗ trợ tại trang `Cài đặt`. Mật khẩu mới được lưu bằng
+BCrypt; hệ thống không cho phép đặt lại công khai chỉ bằng số điện thoại.
+
+Khi một tài khoản nhân viên nhập sai mật khẩu 3 lần liên tiếp, Dashboard của
+Admin/Quản lý hiển thị yêu cầu hỗ trợ và dẫn thẳng tới tài khoản cần xử lý trong
+`Cài đặt`. Sau quá 5 lần sai liên tiếp (lần thứ 6), tài khoản bị tạm khóa cho tới
+khi Admin/Quản lý đặt lại mật khẩu hoặc bấm `Mở khóa`. Đăng nhập đúng trước khi
+bị khóa, đặt lại mật khẩu hoặc mở khóa thành công sẽ xóa yêu cầu này.

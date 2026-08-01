@@ -154,10 +154,14 @@
 
 <nav class="actions">
     <a class="btn" th:href="@{/hoadon}">Quay lại</a>
-    <form method="post" th:action="@{/hoadon/in/{id}(id=${item.id})}">
-        <button class="btn" type="submit">In hóa đơn</button>
+    <a class="btn" th:href="@{/hoadon/{id}(id=${item.id},print=true)}">In hóa đơn</a>
+    <form method="post"
+          th:if="${item.trangThaiHienThi == 'Chưa thanh toán'}"
+          th:action="@{/hoadon/thanh-toan/{id}(id=${item.id})}"
+          onsubmit="return confirm('Xác nhận đã nhận thanh toán? Tồn kho sẽ được trừ ngay.')">
+        <button class="btn primary" type="submit">Xác nhận thanh toán</button>
     </form>
-    <a class="btn primary" th:if="${!isEmployee}"
+    <a class="btn" th:if="${!isEmployee && item.trangThaiHienThi != 'Đã thanh toán'}"
        th:href="@{/hoadon/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
 </nav>
 </body>

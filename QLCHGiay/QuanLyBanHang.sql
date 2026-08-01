@@ -230,6 +230,15 @@ CREATE TABLE TaiKhoan(
 
     trangThai NVARCHAR(30),
 
+    soLanDangNhapSai INT NOT NULL
+        CONSTRAINT DF_TaiKhoan_SoLanDangNhapSai DEFAULT 0,
+
+    yeuCauDatLaiMatKhau BIT NOT NULL
+        CONSTRAINT DF_TaiKhoan_YeuCauDatLaiMatKhau DEFAULT 0,
+
+    tamKhoaDangNhap BIT NOT NULL
+        CONSTRAINT DF_TaiKhoan_TamKhoaDangNhap DEFAULT 0,
+
     FOREIGN KEY(maNhanVien)
         REFERENCES NhanVien(maNhanVien)
 
@@ -517,9 +526,9 @@ VALUES
 INSERT INTO TaiKhoan
 (tenDangNhap,matKhau,vaiTro,maNhanVien,trangThai)
 VALUES
-('admin','123456',N'Admin',1,N'Hoạt động'),
-('nhanvien1','123456',N'Nhân viên',2,N'Hoạt động'),
-('nhanvien2','123456',N'Nhân viên',3,N'Hoạt động');
+('admin','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Admin',1,N'Hoạt động'),
+('nhanvien1','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Nhân viên',2,N'Hoạt động'),
+('nhanvien2','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Nhân viên',3,N'Hoạt động');
 
 /* =========================
    CHI TIẾT GIỎ HÀNG

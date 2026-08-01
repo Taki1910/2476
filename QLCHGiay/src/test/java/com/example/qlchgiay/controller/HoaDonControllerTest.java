@@ -7,6 +7,7 @@ import com.example.qlchgiay.model.KhachHang;
 import com.example.qlchgiay.model.NhanVien;
 import com.example.qlchgiay.model.SanPham;
 import com.example.qlchgiay.model.TaiKhoan;
+import com.example.qlchgiay.model.ThanhToan;
 import com.example.qlchgiay.repo.ChiTietHoaDonRepo;
 import com.example.qlchgiay.repo.ChiTietSanPhamRepo;
 import com.example.qlchgiay.repo.DonHangRepo;
@@ -14,6 +15,7 @@ import com.example.qlchgiay.repo.HoaDonRepo;
 import com.example.qlchgiay.repo.KhachHangRepo;
 import com.example.qlchgiay.repo.NhanVienRepo;
 import com.example.qlchgiay.repo.SanPhamRepo;
+import com.example.qlchgiay.repo.ThanhToanRepo;
 import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +34,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
@@ -47,6 +50,7 @@ class HoaDonControllerTest {
     @Mock private SanPhamRepo sanPhamRepo;
     @Mock private ChiTietSanPhamRepo chiTietSanPhamRepo;
     @Mock private ChiTietHoaDonRepo chiTietHoaDonRepo;
+    @Mock private ThanhToanRepo thanhToanRepo;
     @Mock private HttpSession session;
     @Mock private WorkSessionService workSessionService;
 
@@ -63,6 +67,7 @@ class HoaDonControllerTest {
                 sanPhamRepo,
                 chiTietSanPhamRepo,
                 chiTietHoaDonRepo,
+                thanhToanRepo,
                 workSessionService
         );
         loggedInAccount = new TaiKhoan();
@@ -112,25 +117,79 @@ class HoaDonControllerTest {
     }
 
     @Test
-    void printMarksInvoiceAndOrderAsPaid() {
+    void paymentMarksInvoicePaidAndDecrementsStock() {
         DonHang order = new DonHang();
         order.setTrangThai("Đang xử lý");
         HoaDon invoice = new HoaDon();
         invoice.setId(7);
         invoice.setMaDonHang(order);
         invoice.setTrangThai("Chưa thanh toán");
-        when(hoaDonRepo.findById(7)).thenReturn(Optional.of(invoice));
-        String view = controller.print(
+        invoice.setTongTien(BigDecimal.valueOf(2_000_000));
+        SanPham product = new SanPham();
+        product.setId(2);
+        product.setTenSP("Giày kiểm thử");
+        product.setTonKho(5);
+        ChiTietSanPham productDetail = new ChiTietSanPham();
+        productDetail.setMaSP(product);
+        com.example.qlchgiay.model.ChiTietHoaDon line =
+                new com.example.qlchgiay.model.ChiTietHoaDon();
+        line.setMaChiTietSP(productDetail);
+        line.setSoLuong(2);
+
+        when(hoaDonRepo.findByIdForUpdate(7)).thenReturn(Optional.of(invoice));
+        when(chiTietHoaDonRepo.findByMaHoaDonId(7)).thenReturn(List.of(line));
+        when(sanPhamRepo.findByIdForUpdate(2)).thenReturn(Optional.of(product));
+        when(thanhToanRepo.existsByMaHoaDonId(7)).thenReturn(false);
+
+        String view = controller.pay(
                 7,
                 session,
                 new RedirectAttributesModelMap()
         );
 
-        assertEquals("redirect:/hoadon/7?print=true", view);
+        assertEquals("redirect:/hoadon/7", view);
         assertEquals("Đã thanh toán", invoice.getTrangThai());
         assertEquals("Đã thanh toán", order.getTrangThai());
+        assertEquals(3, product.getTonKho());
         verify(hoaDonRepo).save(invoice);
         verify(donHangRepo).save(order);
+        ArgumentCaptor<ThanhToan> paymentCaptor = ArgumentCaptor.forClass(ThanhToan.class);
+        verify(thanhToanRepo).save(paymentCaptor.capture());
+        assertSame(invoice, paymentCaptor.getValue().getMaHoaDon());
+        assertEquals(BigDecimal.valueOf(2_000_000), paymentCaptor.getValue().getSoTien());
+        assertEquals("Thành công", paymentCaptor.getValue().getTrangThai());
+    }
+
+    @Test
+    void paymentRejectsCancelledInvoiceWithoutChangingStock() {
+        HoaDon invoice = new HoaDon();
+        invoice.setId(7);
+        invoice.setTrangThai("Đã hủy");
+        when(hoaDonRepo.findByIdForUpdate(7)).thenReturn(Optional.of(invoice));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> controller.pay(7, session, new RedirectAttributesModelMap())
+        );
+
+        assertEquals("Không thể thanh toán hóa đơn đã hủy.", exception.getMessage());
+        verify(sanPhamRepo, never()).findByIdForUpdate(anyInt());
+        verify(thanhToanRepo, never()).save(any());
+    }
+
+    @Test
+    void payingAnAlreadyPaidInvoiceIsIdempotent() {
+        HoaDon invoice = new HoaDon();
+        invoice.setId(7);
+        invoice.setTrangThai("Đã thanh toán");
+        when(hoaDonRepo.findByIdForUpdate(7)).thenReturn(Optional.of(invoice));
+
+        String view = controller.pay(7, session, new RedirectAttributesModelMap());
+
+        assertEquals("redirect:/hoadon/7", view);
+        verify(chiTietHoaDonRepo, never()).findByMaHoaDonId(7);
+        verify(sanPhamRepo, never()).findByIdForUpdate(anyInt());
+        verify(thanhToanRepo, never()).save(any());
     }
 
     @Test

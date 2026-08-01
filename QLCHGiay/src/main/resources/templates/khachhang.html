@@ -621,13 +621,19 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:href="@{/caidat}">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Cài đặt</span>
+            </a>
         </nav>
 
         <div class="logout">
-            <a th:href="@{/logout}">
+            <form class="logout-form" method="post" th:action="@{/logout}">
+                <button class="logout-button" type="submit">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Đăng xuất</span>
-            </a>
+                </button>
+            </form>
         </div>
 
     </aside>

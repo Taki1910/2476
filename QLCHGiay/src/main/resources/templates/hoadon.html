@@ -642,13 +642,19 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:href="@{/caidat}">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Cài đặt</span>
+            </a>
         </nav>
 
         <div class="logout">
-            <a th:href="@{/logout}">
+            <form class="logout-form" method="post" th:action="@{/logout}">
+                <button class="logout-button" type="submit">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Đăng xuất</span>
-            </a>
+                </button>
+            </form>
         </div>
 
     </aside>
@@ -889,14 +895,39 @@
                                     </a>
 
                                     <a class="action-btn"
-                                       th:if="${!isEmployee}"
+                                       th:if="${!isEmployee && x.trangThaiHienThi != 'Đã thanh toán'}"
                                        th:href="@{/hoadon/sua/{id}(id=${x.id})}"
-                                       title="Chỉnh sửa">
+                                       title="Chỉnh sửa"
+                                       aria-label="Chỉnh sửa hóa đơn">
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <form method="post" th:action="@{/hoadon/in/{id}(id=${x.id})}"><button type="submit" class="action-btn" title="In hóa đơn"><i class="fa-solid fa-print"></i></button></form>
-                                    <form th:if="${isAdmin}" method="post" th:action="@{/hoadon/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
+                                    <a class="action-btn"
+                                       th:href="@{/hoadon/{id}(id=${x.id},print=true)}"
+                                       title="In hóa đơn"
+                                       aria-label="In hóa đơn">
+                                        <i class="fa-solid fa-print"></i>
+                                    </a>
+                                    <form th:if="${x.trangThaiHienThi == 'Chưa thanh toán'}"
+                                          method="post"
+                                          th:action="@{/hoadon/thanh-toan/{id}(id=${x.id})}"
+                                          onsubmit="return confirm('Xác nhận đã nhận thanh toán? Tồn kho sẽ được trừ ngay.')">
+                                        <button type="submit" class="action-btn"
+                                                title="Xác nhận thanh toán"
+                                                aria-label="Xác nhận thanh toán">
+                                            <i class="fa-solid fa-money-bill-wave"></i>
+                                        </button>
+                                    </form>
+                                    <form th:if="${isAdmin && x.trangThaiHienThi != 'Đã thanh toán'}"
+                                          method="post"
+                                          th:action="@{/hoadon/xoa/{id}(id=${x.id})}"
+                                          onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')">
+                                        <button type="submit" class="action-btn"
+                                                title="Xóa"
+                                                aria-label="Xóa hóa đơn">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
 
                                 </div>
                             </td>

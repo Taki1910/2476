@@ -373,6 +373,35 @@ html.light-mode .comparison-empty {
     border-color: #cbd5e1 !important;
 }
 
+form.logout-form {
+    width: 100%;
+    margin: 0;
+}
+
+button.logout-button {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #ff6060;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+button.logout-button:hover,
+button.logout-button:focus-visible {
+    background: rgba(248, 113, 113, 0.1);
+    outline: 2px solid transparent;
+}
+
 @media print {
     :root,
     :root.light-mode {
@@ -389,5 +418,16 @@ html.light-mode .comparison-empty {
 
     .page-buttons {
         justify-content: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

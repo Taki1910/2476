@@ -41,5 +41,13 @@ public class TaiKhoan {
     @Column(name = "trangThai", length = 30)
     private String trangThai;
 
+    @Column(name = "soLanDangNhapSai", nullable = false)
+    private Integer soLanDangNhapSai = 0;
+
+    @Column(name = "yeuCauDatLaiMatKhau", nullable = false)
+    private Boolean yeuCauDatLaiMatKhau = false;
+
+    @Column(name = "tamKhoaDangNhap", nullable = false)
+    private Boolean tamKhoaDangNhap = false;
 
 }

@@ -4,6 +4,7 @@ import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.*;
 import com.example.qlchgiay.service.WorkSessionService;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,11 +24,13 @@ public class DashboardController {
     private final MauRepo mauRepo;
     private final SizeRepo sizeRepo;
     private final ChiTietHoaDonRepo chiTietHoaDonRepo;
+    private final TaiKhoanRepo taiKhoanRepo;
 
     public DashboardController(SanPhamRepo sanPhamRepo, KhachHangRepo khachHangRepo,
                                HoaDonRepo hoaDonRepo, NhaCungCapRepo nhaCungCapRepo,
                                LoaiRepo loaiRepo, MauRepo mauRepo, SizeRepo sizeRepo,
-                               ChiTietHoaDonRepo chiTietHoaDonRepo) {
+                               ChiTietHoaDonRepo chiTietHoaDonRepo,
+                               TaiKhoanRepo taiKhoanRepo) {
         this.sanPhamRepo = sanPhamRepo;
         this.khachHangRepo = khachHangRepo;
         this.hoaDonRepo = hoaDonRepo;
@@ -36,6 +39,7 @@ public class DashboardController {
         this.mauRepo = mauRepo;
         this.sizeRepo = sizeRepo;
         this.chiTietHoaDonRepo = chiTietHoaDonRepo;
+        this.taiKhoanRepo = taiKhoanRepo;
     }
 
     @GetMapping("/dashboard")
@@ -52,6 +56,12 @@ public class DashboardController {
             model.addAttribute("workNotifications", workNotifications);
             session.removeAttribute(WorkSessionService.NOTIFICATIONS_ATTRIBUTE);
         }
+        if (SessionUserControllerAdvice.isAdmin(session)) {
+            model.addAttribute(
+                    "passwordResetRequests",
+                    taiKhoanRepo.findByYeuCauDatLaiMatKhauTrueOrderByTenDangNhapAsc()
+            );
+        }
         loadAnalytics(model);
         return "dashboard";
     }
@@ -59,8 +69,18 @@ public class DashboardController {
     @GetMapping("/sanpham")
     public String sanPham(HttpSession s, Model m) {
         if (!loggedIn(s)) return "redirect:/login";
-        var items = sanPhamRepo.findAll();
+        boolean employeeView = SessionUserControllerAdvice.isEmployee(s);
+        Sort productSort = employeeView
+                ? Sort.by(Sort.Order.desc("tonKho"), Sort.Order.desc("id"))
+                : Sort.by(Sort.Order.desc("id"));
+        var items = sanPhamRepo.findAll(productSort);
         m.addAttribute("items", items);
+        m.addAttribute(
+                "productOrderLabel",
+                employeeView
+                        ? "Sắp xếp mặc định: tồn kho cao nhất trước."
+                        : "Sắp xếp mặc định: sản phẩm mới thêm trước."
+        );
         m.addAttribute("availableCount", items.stream().filter(x -> x.getTonKho() != null && x.getTonKho() > 5).count());
         m.addAttribute("lowStockCount", items.stream().filter(x -> x.getTonKho() != null && x.getTonKho() > 0 && x.getTonKho() <= 5).count());
         m.addAttribute("outOfStockCount", items.stream().filter(x -> x.getTonKho() == null || x.getTonKho() == 0).count());

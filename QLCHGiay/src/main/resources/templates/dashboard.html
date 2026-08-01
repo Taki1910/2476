@@ -212,6 +212,16 @@
             color: #f87171;
         }
 
+        button.menu-link {
+            width: 100%;
+            min-height: 44px;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+
         /* Main Content Container */
         .main-container {
             flex: 1;
@@ -311,6 +321,7 @@
             border: 1px solid var(--border-color);
             color: var(--text-sub);
             font-size: 16px;
+            text-decoration: none;
             cursor: pointer;
             position: relative;
             width: 42px;
@@ -409,6 +420,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            margin: 0;
             color: var(--text-main);
             font-size: 16px;
             font-weight: 800;
@@ -483,6 +495,52 @@
                 padding: 10px 0 0;
                 border-top: 1px solid var(--border-color);
                 border-left: 0;
+            }
+        }
+
+        .password-reset-notifications {
+            border-left-color: var(--warning-text);
+        }
+
+        .password-reset-notifications .work-notification-title i {
+            color: var(--warning-text);
+        }
+
+        .password-reset-item {
+            grid-template-columns: minmax(180px, 1fr) auto auto;
+        }
+
+        .password-reset-action {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 15px;
+            border-radius: 9px;
+            color: #ffffff;
+            background: var(--primary-color);
+            font-size: 12px;
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        .password-reset-action:hover {
+            filter: brightness(1.08);
+        }
+
+        .password-reset-action:focus-visible {
+            outline: 3px solid var(--primary-light);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 620px) {
+            .password-reset-item {
+                grid-template-columns: 1fr;
+            }
+
+            .password-reset-action {
+                width: 100%;
             }
         }
 
@@ -1098,9 +1156,8 @@
             color: #ff6060;
         }
 
-        /* Ẩn đúng 2 mục không có ở trang Quản lý sản phẩm */
-        .sidebar-menu .menu-item:nth-child(3),
-        .sidebar-menu .menu-item:last-child {
+        /* Phụ kiện dùng chung trang sản phẩm nên không cần một mục menu riêng. */
+        .sidebar-menu .menu-item:nth-child(3) {
             display: none;
         }
 
@@ -1147,8 +1204,8 @@
         }
 
         .header-action-btn {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border: 1px solid #2d2a27;
             border-radius: 10px;
             background: #171513;
@@ -1694,6 +1751,17 @@
             color: #dc2626 !important;
         }
 
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1769,10 +1837,12 @@
 
     <div class="sidebar-footer">
         <div class="menu-item">
-            <a th:href="@{/logout}" class="menu-link logout-link">
+            <form class="logout-form" method="post" th:action="@{/logout}">
+                <button type="submit" class="menu-link logout-link logout-button">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span data-i18n="nav.logout">Đăng xuất</span>
-            </a>
+                </button>
+            </form>
         </div>
     </div>
 </aside>
@@ -1789,11 +1859,6 @@
         </div>
 
         <div class="header-right">
-            <!-- Theme Toggle Button -->
-            <button class="header-action-btn" id="themeToggleBtn" title="Chuyển chế độ Sáng/Tối">
-                <i class="fa-solid fa-sun" id="themeIcon"></i>
-            </button>
-
             <!-- Language Toggle Button -->
             <button class="header-action-btn language-toggle" id="languageToggleBtn"
                     type="button" title="Chuyển sang tiếng Anh"
@@ -1805,12 +1870,18 @@
             </button>
 
             <!-- Notifications -->
-            <button class="header-action-btn" title="Thông báo"
-                    data-i18n-title="notification.title">
+            <a class="header-action-btn"
+               th:href="${passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests)
+                    ? '#passwordResetRequests' : '#workSessionNotifications'}"
+               href="#workSessionNotifications"
+               title="Thông báo"
+               aria-label="Mở danh sách thông báo"
+               data-i18n-title="notification.title">
                 <i class="fa-regular fa-bell"></i>
                 <span class="badge"
-                      th:if="${workNotifications != null && !#lists.isEmpty(workNotifications)}"></span>
-            </button>
+                      th:if="${(workNotifications != null && !#lists.isEmpty(workNotifications))
+                        || (passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests))}"></span>
+            </a>
 
             <!-- User Profile Info -->
             <div class="user-profile">
@@ -1826,6 +1897,49 @@
 
     <!-- Content Body -->
     <main class="content-body">
+        <section class="work-notifications password-reset-notifications"
+                 id="passwordResetRequests"
+                 aria-labelledby="passwordResetTitle"
+                 th:if="${isAdmin && passwordResetRequests != null
+                    && !#lists.isEmpty(passwordResetRequests)}">
+            <div class="work-notification-header">
+                <div>
+                    <h2 class="work-notification-title" id="passwordResetTitle">
+                        <i class="fa-solid fa-user-lock"></i>
+                        Yêu cầu hỗ trợ đăng nhập
+                    </h2>
+                    <p class="work-notification-note">
+                        Các tài khoản dưới đây đã nhập sai mật khẩu ít nhất 3 lần.
+                        Hãy xác minh nhân viên trước khi cấp mật khẩu mới.
+                    </p>
+                </div>
+            </div>
+            <div class="work-notification-list">
+                <article class="work-notification-item password-reset-item"
+                         th:each="account : ${passwordResetRequests}">
+                    <div class="work-notification-employee">
+                        <strong th:text="${'@' + account.tenDangNhap}">@nhanvien</strong>
+                        <small th:text="${account.vaiTro != null ? account.vaiTro : 'Nhân viên'}">
+                            Nhân viên
+                        </small>
+                    </div>
+                    <div class="work-notification-metric">
+                        <strong th:text="${account.tamKhoaDangNhap == true
+                            ? 'Đã tạm khóa' : account.soLanDangNhapSai + ' lần'}">3 lần</strong>
+                        <span th:text="${account.tamKhoaDangNhap == true
+                            ? 'Chờ quản lý mở khóa' : 'Đăng nhập sai liên tiếp'}">
+                            Đăng nhập sai liên tiếp
+                        </span>
+                    </div>
+                    <a class="password-reset-action"
+                       th:href="@{/caidat(accountId=${account.id})}">
+                        <i class="fa-solid fa-key"></i>
+                        Xác minh và xử lý
+                    </a>
+                </article>
+            </div>
+        </section>
+
         <section class="work-notifications" id="workSessionNotifications"
                  th:if="${workNotifications != null && !#lists.isEmpty(workNotifications)}">
             <div class="work-notification-header">
@@ -1986,7 +2100,8 @@
                     </div>
                 </div>
                 <div class="chart-container">
-                    <canvas id="revenueChart"></canvas>
+                    <canvas id="revenueChart" role="img"
+                            aria-label="Biểu đồ doanh thu theo thời gian"></canvas>
                 </div>
             </div>
 
@@ -1999,7 +2114,8 @@
                     </h2>
                 </div>
                 <div class="chart-container">
-                    <canvas id="categoryChart"></canvas>
+                    <canvas id="categoryChart" role="img"
+                            aria-label="Biểu đồ cơ cấu danh mục sản phẩm"></canvas>
                 </div>
             </div>
         </section>
@@ -2153,9 +2269,6 @@
     menuToggleBtn.addEventListener('click', toggleSidebar);
     sidebarOverlay.addEventListener('click', toggleSidebar);
 
-    // Theme Toggle Logic
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const themeIcon = document.getElementById('themeIcon');
     const languageToggleBtn = document.getElementById('languageToggleBtn');
     const htmlElement = document.documentElement;
     let revenueChart;
@@ -2167,19 +2280,10 @@
 
     function syncDashboardTheme(theme = window.appTheme.get()) {
         const isLight = theme === 'light';
-        themeIcon.className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-        const themeTitle = message(isLight ? 'theme.toDark' : 'theme.toLight');
-        themeToggleBtn.setAttribute('aria-label', themeTitle);
-        themeToggleBtn.title = themeTitle;
         updateChartsForTheme(!isLight);
     }
 
     syncDashboardTheme();
-
-    themeToggleBtn.addEventListener('click', () => {
-        const nextTheme = htmlElement.classList.contains('light-mode') ? 'dark' : 'light';
-        window.appTheme.set(nextTheme);
-    });
 
     languageToggleBtn.addEventListener('click', () => {
         const nextLanguage = window.dashboardI18n.get() === 'vi' ? 'en' : 'vi';

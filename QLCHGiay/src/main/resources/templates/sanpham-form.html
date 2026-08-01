@@ -14,6 +14,7 @@
         .header{padding:22px 26px;border-bottom:1px solid #2b2825}.header h1{margin:0 0 7px;font-size:23px}.header p{margin:0;color:#8d8782;font-size:13px}
         form{padding:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.full{grid-column:1/-1}
         label{display:block;margin-bottom:8px;color:#c9c4bf;font-size:13px;font-weight:700}input,select{width:100%;height:44px;padding:0 13px;border:1px solid #37322e;border-radius:9px;background:#1b1816;color:#fff;outline:none}input:focus,select:focus{border-color:#ff6a1a;box-shadow:0 0 0 3px rgba(255,106,26,.12)}
+        .hint{display:block;margin-top:6px;color:#aaa29b;font-size:12px}
         .custom-value-editor{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.custom-value-editor[hidden]{display:none}.custom-value-editor input{height:40px}.add-custom-btn{height:40px;padding:0 15px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}.custom-value-note{grid-column:1/-1;color:#8d8782;font-size:11px}
         .name-field{position:relative}.product-suggestions{position:absolute;z-index:20;top:calc(100% + 7px);left:0;right:0;max-height:280px;overflow:auto;padding:7px;background:#201c19;border:1px solid #494039;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.35)}.product-suggestions[hidden]{display:none}.product-suggestion{width:100%;display:block;padding:11px 12px;text-align:left;color:#f5f5f5;background:transparent;border:0;border-radius:8px;cursor:pointer}.product-suggestion:hover,.product-suggestion:focus-visible{background:#322822;outline:0}.product-suggestion strong{display:block}.product-suggestion small{display:block;margin-top:5px;color:#aaa29b;line-height:1.35}.variant-match{margin:9px 0 0;padding:10px 12px;color:#d8f7e8;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:9px;font-size:12px;line-height:1.45}.variant-match[hidden]{display:none}
         .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #2b2825}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border:0;border-radius:9px;text-decoration:none;font-weight:700;cursor:pointer}.cancel{background:#26221f;color:#c6c1bd}.save{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}
@@ -123,8 +124,8 @@
                         <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
                     </div>
                 </div>
-                <div><label for="gia">Giá bán (VNĐ) *</label><input id="gia" name="gia" type="number" min="0" step="0.01" required th:value="${sanPham.gia != null ? sanPham.gia : 0}"></div>
-                <div><label for="tonKho">Số lượng tồn *</label><input id="tonKho" name="tonKho" type="number" min="0" required th:value="${sanPham.tonKho != null ? sanPham.tonKho : 0}"></div>
+                <div><label for="gia">Giá bán (VNĐ) *</label><input id="gia" name="gia" type="number" min="1000000" step="1" required aria-describedby="giaHint" th:value="${sanPham.gia != null ? sanPham.gia : 1000000}"><small id="giaHint" class="hint">Tối thiểu 1.000.000 VNĐ.</small></div>
+                <div><label for="tonKho">Số lượng tồn *</label><input id="tonKho" name="tonKho" type="number" min="1" step="1" required aria-describedby="tonKhoHint" th:value="${sanPham.tonKho != null ? sanPham.tonKho : 1}"><small id="tonKhoHint" class="hint">Phải lớn hơn 0.</small></div>
             </div>
             <div class="actions"><a class="btn cancel" th:href="@{/sanpham}">Hủy</a><button class="btn save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Lưu sản phẩm</button></div>
         </form>

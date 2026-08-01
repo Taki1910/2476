@@ -14,3 +14,24 @@ BEGIN
             FOREIGN KEY(maNhanVien) REFERENCES dbo.NhanVien(maNhanVien)
     )
 END;
+
+IF COL_LENGTH(N'dbo.TaiKhoan', N'soLanDangNhapSai') IS NULL
+BEGIN
+    ALTER TABLE dbo.TaiKhoan
+        ADD soLanDangNhapSai INT NOT NULL
+            CONSTRAINT DF_TaiKhoan_SoLanDangNhapSai DEFAULT 0
+END;
+
+IF COL_LENGTH(N'dbo.TaiKhoan', N'yeuCauDatLaiMatKhau') IS NULL
+BEGIN
+    ALTER TABLE dbo.TaiKhoan
+        ADD yeuCauDatLaiMatKhau BIT NOT NULL
+            CONSTRAINT DF_TaiKhoan_YeuCauDatLaiMatKhau DEFAULT 0
+END;
+
+IF COL_LENGTH(N'dbo.TaiKhoan', N'tamKhoaDangNhap') IS NULL
+BEGIN
+    ALTER TABLE dbo.TaiKhoan
+        ADD tamKhoaDangNhap BIT NOT NULL
+            CONSTRAINT DF_TaiKhoan_TamKhoaDangNhap DEFAULT 0
+END;

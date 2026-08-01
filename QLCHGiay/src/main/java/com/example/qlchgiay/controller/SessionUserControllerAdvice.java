@@ -19,8 +19,8 @@ public class SessionUserControllerAdvice {
             return;
         }
 
-        model.addAttribute("userName", resolveUserName(account, session));
-        model.addAttribute("userRole", resolveRole(account, session));
+        model.addAttribute("userName", displayName(account, session));
+        model.addAttribute("userRole", displayRole(account, session));
         model.addAttribute("isEmployee", isEmployee(account));
         model.addAttribute("isAdmin", isAdmin(account));
         model.addAttribute("currentEmployee", account.getMaNhanVien());
@@ -42,10 +42,11 @@ public class SessionUserControllerAdvice {
         if (account == null) {
             return false;
         }
-        String normalizedRole = normalizeRole(resolveRole(account, null));
-        return normalizedRole.contains("admin")
-                || normalizedRole.contains("quan ly")
-                || normalizedRole.contains("quan li");
+        String normalizedRole = normalizeRole(displayRole(account, null));
+        return switch (normalizedRole) {
+            case "admin", "quan ly", "quan li", "quan ly cua hang", "quan li cua hang" -> true;
+            default -> false;
+        };
     }
 
     public static NhanVien currentEmployee(HttpSession session) {
@@ -55,7 +56,7 @@ public class SessionUserControllerAdvice {
         return null;
     }
 
-    private static String resolveUserName(TaiKhoan account, HttpSession session) {
+    public static String displayName(TaiKhoan account, HttpSession session) {
         if (session != null && session.getAttribute("userName") instanceof String userName
                 && !userName.isBlank()) {
             return userName;
@@ -68,7 +69,7 @@ public class SessionUserControllerAdvice {
         return account.getTenDangNhap() == null ? "Người dùng" : account.getTenDangNhap();
     }
 
-    private static String resolveRole(TaiKhoan account, HttpSession session) {
+    public static String displayRole(TaiKhoan account, HttpSession session) {
         if (session != null && session.getAttribute("userRole") instanceof String userRole
                 && !userRole.isBlank()) {
             return userRole;

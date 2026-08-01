@@ -280,6 +280,25 @@
             color: #ff6a1a;
         }
 
+        .panel-heading {
+            display: grid;
+            gap: 6px;
+        }
+
+        .priority-note {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: inherit;
+            opacity: 0.76;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .priority-note i {
+            color: #ff6a1a;
+        }
+
         .toolbar {
             display: flex;
             align-items: center;
@@ -754,13 +773,19 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:href="@{/caidat}">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Cài đặt</span>
+            </a>
         </nav>
 
         <div class="logout">
-            <a th:href="@{/logout}">
+            <form class="logout-form" method="post" th:action="@{/logout}">
+                <button class="logout-button" type="submit">
                 <i class="fa-solid fa-right-from-bracket"></i>
                 <span>Đăng xuất</span>
-            </a>
+                </button>
+            </form>
         </div>
 
     </aside>
@@ -872,14 +897,22 @@
 
             </div>
 
-            <section class="panel">
+            <section class="panel" aria-labelledby="productListTitle">
 
                 <div class="panel-header">
 
-                    <h2 class="panel-title">
-                        <i class="fa-solid fa-list"></i>
-                        Danh sách sản phẩm
-                    </h2>
+                    <div class="panel-heading">
+                        <h2 class="panel-title" id="productListTitle">
+                            <i class="fa-solid fa-list" aria-hidden="true"></i>
+                            Danh sách sản phẩm
+                        </h2>
+                        <p class="priority-note" id="productOrderNote">
+                            <i class="fa-solid fa-ranking-star" aria-hidden="true"></i>
+                            <span th:text="${productOrderLabel}">
+                                Sắp xếp mặc định theo vai trò.
+                            </span>
+                        </p>
+                    </div>
 
                     <div class="toolbar">
 
@@ -943,7 +976,7 @@
 
                 <div class="table-wrapper">
 
-                    <table id="productTable">
+                    <table id="productTable" aria-describedby="productOrderNote">
 
                         <thead>
                         <tr>

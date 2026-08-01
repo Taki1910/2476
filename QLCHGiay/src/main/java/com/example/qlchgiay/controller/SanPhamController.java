@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,8 @@ import java.util.Objects;
 
 @Controller
 public class SanPhamController {
+    private static final BigDecimal MINIMUM_PRICE = BigDecimal.valueOf(1_000_000);
+
     private final SanPhamRepo sanPhamRepo;
     private final LoaiRepo loaiRepo;
     private final MauRepo mauRepo;
@@ -35,6 +38,15 @@ public class SanPhamController {
         this.mauRepo = mauRepo;
         this.chatLieuRepo = chatLieuRepo;
         this.sizeRepo = sizeRepo;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public String handleInvalidInput(
+            IllegalArgumentException exception,
+            RedirectAttributes redirectAttributes
+    ) {
+        redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        return "redirect:/sanpham";
     }
 
     @GetMapping("/sanpham/them")
@@ -177,8 +189,13 @@ public class SanPhamController {
         if (normalizedName.isEmpty() || normalizedName.length() > 100) {
             throw new IllegalArgumentException("Tên sản phẩm phải có từ 1 đến 100 ký tự.");
         }
-        if (gia == null || gia.signum() < 0 || tonKho == null || tonKho < 0) {
-            throw new IllegalArgumentException("Giá và số lượng tồn không được âm.");
+        if (gia == null || gia.compareTo(MINIMUM_PRICE) < 0) {
+            throw new IllegalArgumentException(
+                    "Giá bán phải từ 1.000.000 VNĐ trở lên."
+            );
+        }
+        if (tonKho == null || tonKho <= 0) {
+            throw new IllegalArgumentException("Số lượng tồn phải lớn hơn 0.");
         }
         sanPham.setTenSP(normalizedName);
         sanPham.setGia(gia);

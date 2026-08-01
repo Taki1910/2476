@@ -154,19 +154,14 @@
         'Xác nhận mật khẩu': 'Confirm password',
         'Ghi nhớ đăng nhập': 'Remember me',
         'Quên mật khẩu?': 'Forgot password?',
-        'Đặt lại mật khẩu': 'Reset password',
-        'Cập nhật mật khẩu': 'Update password',
         'Quay lại đăng nhập': 'Back to login',
         'Hệ thống Quản lý Cửa hàng Giày Sneaker': 'Sneaker Store Management System',
-        'Xác minh tài khoản bằng số điện thoại của nhân viên, sau đó tạo mật khẩu mới.':
-            'Verify the account with the employee phone number, then create a new password.',
-        'Số điện thoại xác minh': 'Verification phone number',
-        'Số điện thoại mẫu của tài khoản admin: 0911111111':
-            'Sample phone number for the admin account: 0911111111',
         'Sai tên đăng nhập hoặc mật khẩu': 'Incorrect username or password',
-        'Đặt lại mật khẩu thành công': 'Password reset successfully',
-        'Thông tin không chính xác': 'The information is incorrect',
         'Quản lý sản phẩm': 'Product management',
+        'Sắp xếp mặc định: tồn kho cao nhất trước.':
+            'Default order: highest stock first.',
+        'Sắp xếp mặc định: sản phẩm mới thêm trước.':
+            'Default order: newest products first.',
         'Tổng sản phẩm': 'Total products',
         'Sản phẩm': 'Product',
         'Tên sản phẩm': 'Product name',
