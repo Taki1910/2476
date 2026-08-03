@@ -11,15 +11,19 @@ import java.util.Optional;
 
 public interface HoaDonRepo extends JpaRepository<HoaDon, Integer> {
     @Override
-    @EntityGraph(attributePaths = {"maDonHang", "maDonHang.maKH", "maNhanVien"})
+    @EntityGraph(attributePaths = {
+            "maDonHang", "maDonHang.maKH", "maNhanVien", "maPhien"
+    })
     java.util.List<HoaDon> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"maDonHang", "maDonHang.maKH", "maNhanVien"})
+    @EntityGraph(attributePaths = {
+            "maDonHang", "maDonHang.maKH", "maNhanVien", "maPhien"
+    })
     Optional<HoaDon> findById(Integer id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"maDonHang", "maNhanVien"})
+    @EntityGraph(attributePaths = {"maDonHang", "maNhanVien", "maPhien"})
     @Query("SELECT h FROM HoaDon h WHERE h.id = :id")
     Optional<HoaDon> findByIdForUpdate(@Param("id") Integer id);
 }

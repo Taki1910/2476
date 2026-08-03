@@ -345,6 +345,8 @@ CREATE TABLE HoaDon(
 
     maNhanVien INT,
 
+    maPhien INT,
+
     ngayLap DATE DEFAULT GETDATE(),
 
     tongTien DECIMAL(18,2),
@@ -355,10 +357,66 @@ CREATE TABLE HoaDon(
         REFERENCES DonHang(maDonHang),
 
     FOREIGN KEY(maNhanVien)
-        REFERENCES NhanVien(maNhanVien)
+        REFERENCES NhanVien(maNhanVien),
+
+    FOREIGN KEY(maPhien)
+        REFERENCES PhienLamViec(maPhien)
 
 );
 
+
+/* =========================
+   LỊCH SỬ CHỈNH SỬA HÓA ĐƠN
+========================= */
+
+CREATE TABLE LichSuChinhSuaHoaDon(
+
+    maLichSu INT IDENTITY(1,1) PRIMARY KEY,
+
+    maHoaDon INT NOT NULL,
+
+    maPhien INT,
+
+    nguoiChinhSua NVARCHAR(100) NOT NULL,
+
+    thoiGian DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+
+    duLieuTruoc NVARCHAR(MAX) NOT NULL,
+
+    duLieuSau NVARCHAR(MAX) NOT NULL,
+
+    FOREIGN KEY(maHoaDon)
+        REFERENCES HoaDon(maHoaDon) ON DELETE CASCADE,
+
+    FOREIGN KEY(maPhien)
+        REFERENCES PhienLamViec(maPhien)
+
+);
+
+
+/* =========================
+   KHUYẾN MẠI
+========================= */
+
+CREATE TABLE KhuyenMai(
+    maKhuyenMai INT IDENTITY(1,1) PRIMARY KEY,
+    tenKhuyenMai NVARCHAR(120) NOT NULL,
+    loaiGiam VARCHAR(20) NOT NULL,
+    giaTri DECIMAL(18,2) NOT NULL,
+    batDau DATETIME2 NOT NULL,
+    ketThuc DATETIME2 NOT NULL,
+    trangThai BIT NOT NULL DEFAULT 1,
+    CONSTRAINT CK_KhuyenMai_Loai CHECK (loaiGiam IN ('PHAN_TRAM', 'SO_TIEN')),
+    CONSTRAINT CK_KhuyenMai_ThoiGian CHECK (batDau < ketThuc)
+);
+
+CREATE TABLE KhuyenMaiSanPham(
+    maKhuyenMai INT NOT NULL,
+    maSP INT NOT NULL,
+    PRIMARY KEY(maKhuyenMai, maSP),
+    FOREIGN KEY(maKhuyenMai) REFERENCES KhuyenMai(maKhuyenMai) ON DELETE CASCADE,
+    FOREIGN KEY(maSP) REFERENCES SanPham(maSP)
+);
 
 /* =========================
    CHI TIẾT HÓA ĐƠN
@@ -376,13 +434,20 @@ CREATE TABLE ChiTietHoaDon(
 
     donGia DECIMAL(18,2),
 
+    giaGoc DECIMAL(18,2),
+
+    maKhuyenMai INT,
+
     thanhTien AS (soLuong * donGia),
 
     FOREIGN KEY(maHoaDon)
         REFERENCES HoaDon(maHoaDon),
 
     FOREIGN KEY(maChiTietSP)
-        REFERENCES ChiTietSanPham(maChiTietSP)
+        REFERENCES ChiTietSanPham(maChiTietSP),
+
+    FOREIGN KEY(maKhuyenMai)
+        REFERENCES KhuyenMai(maKhuyenMai)
 
 );
 
@@ -568,11 +633,11 @@ VALUES
 ========================= */
 
 INSERT INTO ChiTietHoaDon
-(maHoaDon,maChiTietSP,soLuong,donGia)
+(maHoaDon,maChiTietSP,soLuong,donGia,giaGoc)
 VALUES
-(1,1,1,2500000),
-(2,2,2,2200000),
-(3,3,1,1800000);
+(1,1,1,2500000,2500000),
+(2,2,2,2200000,2200000),
+(3,3,1,1800000,1800000);
 
 /* =========================
    THANH TOÁN

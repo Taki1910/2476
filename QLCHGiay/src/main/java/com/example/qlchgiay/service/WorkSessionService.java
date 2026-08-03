@@ -110,7 +110,8 @@ public class WorkSessionService {
         });
     }
 
-    private java.util.Optional<PhienLamViec> currentSession(HttpSession httpSession) {
+    @Transactional(readOnly = true)
+    public java.util.Optional<PhienLamViec> currentSession(HttpSession httpSession) {
         Object workSessionId = httpSession.getAttribute(SESSION_ID_ATTRIBUTE);
         if (!(workSessionId instanceof Integer id)) {
             return java.util.Optional.empty();

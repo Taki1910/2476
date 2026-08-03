@@ -8,10 +8,10 @@ import java.util.List;
 
 public interface ChiTietHoaDonRepo extends JpaRepository<ChiTietHoaDon, Integer> {
     @Override
-    @EntityGraph(attributePaths = {"maHoaDon", "maChiTietSP", "maChiTietSP.maSP"})
+    @EntityGraph(attributePaths = {"maHoaDon", "maChiTietSP", "maChiTietSP.maSP", "maKhuyenMai"})
     List<ChiTietHoaDon> findAll();
 
-    @EntityGraph(attributePaths = {"maChiTietSP", "maChiTietSP.maSP"})
+    @EntityGraph(attributePaths = {"maChiTietSP", "maChiTietSP.maSP", "maKhuyenMai"})
     List<ChiTietHoaDon> findByMaHoaDonId(Integer hoaDonId);
     void deleteByMaHoaDonId(Integer hoaDonId);
 }

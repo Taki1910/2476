@@ -621,6 +621,10 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
+                <i class="fa-solid fa-tags"></i>
+                <span>Khuyến mại</span>
+            </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Cài đặt</span>
@@ -797,7 +801,7 @@
 
                         <tbody>
 
-                        <tr th:each="x : ${items}">
+                        <tr th:each="x : ${items}" th:attr="data-id=${x.id}">
 
                             <td class="customer-code"
                                 th:text="${x.id != null ? '#KH-' + x.id : '#KH'}">
@@ -954,6 +958,7 @@
         pageSize: 10,
         itemLabel: "khách hàng",
         emptyMessage: "Không tìm thấy khách hàng phù hợp.",
+        sort: (left, right) => Number(right.dataset.id) - Number(left.dataset.id),
         filter: createCustomerFilter()
     });
     filterCustomers();

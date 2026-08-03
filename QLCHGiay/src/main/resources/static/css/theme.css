@@ -2,6 +2,85 @@
     color-scheme: light;
 }
 
+html,
+body,
+button,
+input,
+select,
+textarea {
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+h1,
+h2,
+h3,
+.brand,
+.sidebar-brand {
+    font-family: Arial, Helvetica, sans-serif !important;
+    letter-spacing: normal;
+}
+
+.brand-logo,
+.brand-icon-wrapper,
+.brand-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ff5420, #ff9500);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(255, 106, 26, 0.25);
+}
+
+.brand-logo i,
+.brand-icon-wrapper i,
+.brand-mark i {
+    width: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
+.brand-text,
+.brand-name {
+    color: var(--text, #f7f4f1);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+html.light-mode .brand-text,
+html.light-mode .brand-name {
+    color: #172033 !important;
+}
+
+.sidebar {
+    width: 250px;
+}
+
+.sidebar + .main,
+.sidebar + .main-container {
+    width: calc(100% - 250px);
+    margin-left: 250px;
+}
+
+.nav a,
+.sidebar nav a,
+.sidebar-menu .menu-link {
+    min-height: 44px;
+}
+
+@media (max-width: 900px) {
+    .sidebar + .main,
+    .sidebar + .main-container {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
 .page-buttons {
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -225,7 +304,7 @@ html.light-mode .bubble.bot {
     color: #0f172a !important;
 }
 
-html.light-mode .btn:not(.primary):not(.save):not(.create-btn),
+html.light-mode .btn:not(.primary):not(.save):not(.create-btn):not(.danger),
 html.light-mode .back,
 html.light-mode .page-btn,
 html.light-mode .action-btn,
@@ -279,7 +358,8 @@ html.light-mode .page-btn:disabled {
 }
 
 html.light-mode .delete-btn,
-html.light-mode .action-btn[title="Xóa"] {
+html.light-mode .action-btn[title="Xóa"],
+html.light-mode .btn.danger {
     background: #fff1f2 !important;
     border-color: #fecdd3 !important;
     color: #be123c !important;

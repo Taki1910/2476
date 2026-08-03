@@ -29,6 +29,10 @@ public class HoaDon {
     @JoinColumn(name = "maNhanVien")
     private NhanVien maNhanVien;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maPhien")
+    private PhienLamViec maPhien;
+
     @ColumnDefault("getdate()")
     @Column(name = "ngayLap")
     private LocalDate ngayLap;

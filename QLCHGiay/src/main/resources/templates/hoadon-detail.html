@@ -6,12 +6,27 @@
     <title>Chi tiết hóa đơn</title>
     <script th:src="@{/js/theme.js}" src="/js/theme.js"></script>
     <script th:src="@{/js/app-i18n.js(v='20260727-product-variant')}" src="/js/app-i18n.js?v=20260727-product-variant"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
+        :root {
+            --history-surface: #171513;
+            --history-soft: #211e1b;
+            --history-line: #35302c;
+            --history-text: #eee;
+            --history-muted: #aaa29b;
+        }
+        :root.light-mode {
+            --history-surface: #fff;
+            --history-soft: #f8fafc;
+            --history-line: #cbd5e1;
+            --history-text: #1e293b;
+            --history-muted: #52657b;
+        }
         * { box-sizing: border-box; }
         body { margin: 0; background: #0d0c0b; color: #eee; font: 15px Arial; }
         .invoice {
             max-width: 820px;
-            margin: 38px auto;
+            margin: 38px auto 16px;
             padding: 35px;
             background: #fff;
             color: #25211f;
@@ -63,13 +78,17 @@
         }
         .actions {
             max-width: 820px;
-            margin: 0 auto 35px;
+            margin: 0 auto 22px;
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             justify-content: flex-end;
         }
         .actions form { margin: 0; }
         .btn {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
             padding: 11px 16px;
             border: 0;
             border-radius: 9px;
@@ -79,21 +98,56 @@
             cursor: pointer;
             font: inherit;
         }
-        .btn.primary { background: #f06425; }
+        .btn.primary { background: #f06425; color: #171513; font-weight: 700; }
+        .btn.danger { background: #7f1d1d; color: #fff; }
+        .btn:focus-visible { outline: 3px solid #ff8a57; outline-offset: 2px; }
+        .invoice-feedback {
+            max-width: 820px;
+            margin: 0 auto 12px;
+        }
+        .invoice-feedback .flash-message { margin: 0; }
+        .history-panel {
+            max-width: 820px;
+            margin: 0 auto 38px;
+            padding: 20px;
+            border: 1px solid var(--history-line);
+            border-radius: 12px;
+            background: var(--history-surface);
+            color: var(--history-text);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+        }
+        .history-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+        .history-heading i { color: #f06425; }
+        .history-panel h2 { margin: 0; font-size: 18px; }
+        .history-note { margin: 0; color: var(--history-muted); line-height: 1.5; }
+        .history-empty { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--history-line); border-radius: 9px; background: var(--history-soft); color: var(--history-muted); line-height: 1.5; }
+        .history-empty i { margin-right: 7px; color: #f06425; }
+        .history-list { display: grid; gap: 10px; margin: 16px 0 0; padding: 0; list-style: none; }
+        .history-entry { padding: 14px; border: 1px solid var(--history-line); border-radius: 10px; background: var(--history-soft); }
+        .history-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .history-meta strong { color: #ff8a57; }
+        .history-meta time, .history-meta span { color: var(--history-muted); font-size: 13px; }
+        .history-snapshots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .history-snapshot { min-width: 0; padding: 12px; border: 1px solid var(--history-line); border-radius: 9px; background: var(--history-surface); }
+        .history-snapshot small { display: block; margin-bottom: 7px; color: var(--history-muted); font-weight: 700; }
+        .history-snapshot p { margin: 0; overflow-wrap: anywhere; color: var(--history-text); line-height: 1.55; }
         @media (max-width: 650px) {
             .invoice { margin: 0; border-radius: 0; padding: 22px; }
             .head, .info { display: block; }
             .meta { text-align: left; margin-top: 18px; }
             .info .box { margin-bottom: 10px; }
             .items th:nth-child(3), .items td:nth-child(3) { display: none; }
-            .actions { padding: 0 12px; }
+            .actions, .invoice-feedback { padding: 0 12px; }
+            .history-panel { margin: 16px 12px; padding: 18px; }
+            .history-snapshots { grid-template-columns: 1fr; }
         }
         @media print {
             body { background: #fff; }
             .invoice { margin: 0 auto; padding: 15px; }
-            .actions { display: none; }
+            .actions, .history-panel { display: none; }
         }
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 <body th:attr="onload=${printMode == true ? 'window.print()' : null}">
 <main class="invoice">
@@ -137,7 +191,7 @@
             <td>
                 <strong th:text="${d.maChiTietSP != null && d.maChiTietSP.maSP != null ? d.maChiTietSP.maSP.tenSP : 'Sản phẩm'}"></strong>
             </td>
-            <td th:text="${#numbers.formatDecimal(d.donGia,0,'COMMA',0,'POINT') + ' đ'}"></td>
+            <td><del th:if="${d.maKhuyenMai != null && d.giaGoc != null}" th:text="${#numbers.formatDecimal(d.giaGoc,0,'COMMA',0,'POINT') + ' đ'}"></del><br th:if="${d.maKhuyenMai != null}"><strong th:text="${#numbers.formatDecimal(d.donGia,0,'COMMA',0,'POINT') + ' đ'}"></strong><small th:if="${d.maKhuyenMai != null}" th:text="${' · ' + d.maKhuyenMai.tenKhuyenMai}"></small></td>
             <td th:text="${d.soLuong}"></td>
             <td th:text="${#numbers.formatDecimal(d.donGia * d.soLuong,0,'COMMA',0,'POINT') + ' đ'}"></td>
         </tr>
@@ -152,7 +206,18 @@
     </div>
 </main>
 
-<nav class="actions">
+<section class="invoice-feedback" th:if="${printMode != true && (success != null || error != null)}" aria-live="polite">
+    <div class="flash-message flash-success" role="status" th:if="${success}">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+        <span th:text="${success}">Thao tác thành công.</span>
+    </div>
+    <div class="flash-message flash-error" role="alert" th:if="${error}">
+        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+        <span th:text="${error}">Không thể thực hiện thao tác.</span>
+    </div>
+</section>
+
+<nav class="actions" th:if="${printMode != true}" aria-label="Thao tác hóa đơn">
     <a class="btn" th:href="@{/hoadon}">Quay lại</a>
     <a class="btn" th:href="@{/hoadon/{id}(id=${item.id},print=true)}">In hóa đơn</a>
     <form method="post"
@@ -161,8 +226,51 @@
           onsubmit="return confirm('Xác nhận đã nhận thanh toán? Tồn kho sẽ được trừ ngay.')">
         <button class="btn primary" type="submit">Xác nhận thanh toán</button>
     </form>
-    <a class="btn" th:if="${!isEmployee && item.trangThaiHienThi != 'Đã thanh toán'}"
+    <a class="btn" th:if="${canEdit}"
        th:href="@{/hoadon/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
+    <form method="post"
+          th:if="${canEdit}"
+          th:action="@{/hoadon/xoa/{id}(id=${item.id})}"
+          onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')">
+        <button class="btn danger" type="submit">Xóa hóa đơn</button>
+    </form>
 </nav>
+
+<section class="history-panel" th:if="${printMode != true}" aria-labelledby="historyTitle">
+    <div class="history-heading">
+        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+        <h2 id="historyTitle">Lịch sử chỉnh sửa</h2>
+    </div>
+    <p class="history-note">Mỗi lần lưu lại hóa đơn đều ghi người sửa, thời gian và nội dung trước/sau.</p>
+    <p class="history-empty" role="status" th:if="${#lists.isEmpty(history)}">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>Hóa đơn này chưa có lần chỉnh sửa nào.
+    </p>
+    <ol class="history-list" th:unless="${#lists.isEmpty(history)}">
+        <li class="history-entry" th:each="entry : ${history}">
+            <div class="history-meta">
+                <strong th:text="${entry.nguoiChinhSua}">Người chỉnh sửa</strong>
+                <span>
+                    <time th:datetime="${entry.thoiGian}"
+                          th:text="${#temporals.format(entry.thoiGian, 'dd/MM/yyyy HH:mm')}">
+                        01/01/2026 08:00
+                    </time>
+                    <span th:if="${entry.maPhien != null}"
+                          th:text="${' · Phiên #' + entry.maPhien}"> · Phiên #1</span>
+                </span>
+            </div>
+            <div class="history-snapshots">
+                <div class="history-snapshot">
+                    <small>Trước chỉnh sửa</small>
+                    <p th:text="${entry.duLieuTruoc}">Thông tin trước chỉnh sửa</p>
+                </div>
+                <div class="history-snapshot">
+                    <small>Sau chỉnh sửa</small>
+                    <p th:text="${entry.duLieuSau}">Thông tin sau chỉnh sửa</p>
+                </div>
+            </div>
+        </li>
+    </ol>
+</section>
+
 </body>
 </html>

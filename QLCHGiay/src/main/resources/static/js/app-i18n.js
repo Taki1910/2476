@@ -13,6 +13,7 @@
             'nav.reports': 'Báo cáo',
             'nav.suppliers': 'Nhà cung cấp',
             'nav.chatbot': 'Chatbot hỗ trợ',
+            'nav.promotions': 'Khuyến mại',
             'nav.settings': 'Cài đặt',
             'nav.logout': 'Đăng xuất',
             'search.placeholder': 'Tìm kiếm nhanh...',
@@ -66,6 +67,7 @@
             'nav.reports': 'Reports',
             'nav.suppliers': 'Suppliers',
             'nav.chatbot': 'Support Chatbot',
+            'nav.promotions': 'Promotions',
             'nav.settings': 'Settings',
             'nav.logout': 'Log out',
             'search.placeholder': 'Quick search...',
@@ -118,6 +120,7 @@
         'Quản lý nhà cung cấp - KICKS ZONE': 'Supplier Management - KICKS ZONE',
         'Báo cáo thống kê - KICKS ZONE': 'Analytics Report - KICKS ZONE',
         'Trợ lý cửa hàng - KICKS ZONE': 'Store Assistant - KICKS ZONE',
+        'Quản lý khuyến mại - KICKS ZONE': 'Promotion Management - KICKS ZONE',
         'Cài đặt - KICKS ZONE': 'Settings - KICKS ZONE',
         'Đăng nhập - KICKS ZONE': 'Login - KICKS ZONE',
         'Quên mật khẩu - KICKS ZONE': 'Forgot Password - KICKS ZONE',
@@ -145,6 +148,7 @@
         'Nhà cung cấp': 'Suppliers',
         'Chatbot hỗ trợ': 'Support Chatbot',
         'Chatbot hỗ trợ cửa hàng': 'Store Support Chatbot',
+        'Khuyến mại': 'Promotions',
         'Cài đặt': 'Settings',
         'Đăng xuất': 'Log out',
         'Đăng nhập': 'Log in',
@@ -306,6 +310,52 @@
         'Không tìm thấy sản phẩm phù hợp.': 'No matching products found.',
         'Bỏ sản phẩm': 'Remove product',
         'Tìm sản phẩm trong kho': 'Search inventory',
+        'Quản lý khuyến mại': 'Promotion management',
+        'Lập lịch giảm giá theo sản phẩm; hóa đơn tự áp dụng chương trình đang hiệu lực.':
+            'Schedule product discounts; invoices automatically apply active promotions.',
+        'Tạo mới': 'Create new',
+        'Đang áp dụng': 'Active',
+        'Sắp diễn ra': 'Scheduled',
+        'Đã tắt': 'Disabled',
+        'Tổng quan khuyến mại': 'Promotion overview',
+        'Tạo khuyến mại': 'Create promotion',
+        'Sửa khuyến mại': 'Edit promotion',
+        'Tên khuyến mại *': 'Promotion name *',
+        'Ví dụ: Cuối tuần giảm 15%': 'Example: 15% off this weekend',
+        'Loại giảm *': 'Discount type *',
+        'Theo phần trăm': 'Percentage',
+        'Theo số tiền': 'Fixed amount',
+        'Giá trị *': 'Value *',
+        'Từ 0,01 đến 100%.': 'From 0.01 to 100%.',
+        'Số tiền giảm sẽ không làm giá bán thấp hơn 0 đ.':
+            'The discount will not reduce the sale price below 0 ₫.',
+        'Bắt đầu *': 'Start *',
+        'Kết thúc *': 'End *',
+        'Kích hoạt chương trình': 'Enable promotion',
+        'Sản phẩm áp dụng *': 'Applicable products *',
+        'Tìm theo tên hoặc mã sản phẩm...': 'Search by product name or ID...',
+        'Hủy sửa': 'Cancel editing',
+        'Lưu khuyến mại': 'Save promotion',
+        'Các chương trình': 'Promotions',
+        'Đang chạy': 'Active',
+        'Đã kết thúc': 'Ended',
+        'Chưa có chương trình khuyến mại.': 'No promotions yet.',
+        'Tắt khuyến mại': 'Disable promotion',
+        'Bật khuyến mại': 'Enable promotion',
+        'Thời gian kết thúc phải sau thời gian bắt đầu.':
+            'The end time must be after the start time.',
+        'Đã cập nhật trạng thái khuyến mại.': 'Promotion status updated.',
+        'Có sản phẩm khuyến mại không còn tồn tại.':
+            'One or more promotion products no longer exist.',
+        'Một hoặc nhiều sản phẩm đã có khuyến mại trùng thời gian.':
+            'One or more products already have an overlapping promotion.',
+        'Khuyến mại không tồn tại.': 'The promotion no longer exists.',
+        'Vui lòng nhập tên khuyến mại.': 'Enter a promotion name.',
+        'Loại giảm giá không hợp lệ.': 'The discount type is invalid.',
+        'Giá trị giảm phải lớn hơn 0.': 'The discount value must be greater than 0.',
+        'Mức giảm phần trăm không được vượt quá 100%.':
+            'The percentage discount cannot exceed 100%.',
+        'Vui lòng chọn ít nhất một sản phẩm.': 'Select at least one product.',
         'Quản lý nhà cung cấp': 'Supplier management',
         'Tổng nhà cung cấp': 'Total suppliers',
         'Đang hợp tác': 'Active suppliers',
@@ -356,6 +406,8 @@
         'Cảnh báo tồn kho': 'Stock alerts',
         'Xác nhận trước khi xóa': 'Confirm before deleting',
         'Người dùng': 'User',
+        'Quản lý': 'Manager',
+        'Nhân viên': 'Employee',
         'Chọn giao diện phù hợp với môi trường làm việc.':
             'Choose an appearance that suits your work environment.',
         'Tùy chỉnh giao diện và cách hệ thống hoạt động trên thiết bị này.':
@@ -369,6 +421,27 @@
         'Chọn chế độ giao diện': 'Choose appearance mode',
         'Bật hoặc tắt cảnh báo tồn kho': 'Toggle stock alerts',
         'Bật hoặc tắt xác nhận trước khi xóa': 'Toggle delete confirmation',
+        'Đặt lại mật khẩu tài khoản': 'Reset account password',
+        'Chỉ quản lý được dùng chức năng này sau khi xác minh trực tiếp người yêu cầu.':
+            'Only managers may use this feature after directly verifying the requester.',
+        'Không thể đặt lại mật khẩu': 'Unable to reset password',
+        'Đã đặt lại mật khẩu': 'Password reset',
+        'Tài khoản cần đặt lại': 'Account to reset',
+        'Chọn tài khoản': 'Select an account',
+        'Tạm khóa': 'Locked',
+        'Tối thiểu 8 ký tự; gửi mật khẩu qua kênh nội bộ an toàn.':
+            'At least 8 characters; send the password through a secure internal channel.',
+        'Nhập lại mật khẩu mới': 'Re-enter the new password',
+        'Đặt lại mật khẩu': 'Reset password',
+        'Mở khóa': 'Unlock',
+        'Lựa chọn được đồng bộ giữa Cài đặt, Dashboard và các trang quản lý chính; tùy chọn được lưu tự động trên trình duyệt này.':
+            'Preferences are synchronized across Settings, Dashboard, and management pages, and saved automatically in this browser.',
+        'Mật khẩu phải có ít nhất 8 ký tự và không quá 72 byte':
+            'The password must contain at least 8 characters and no more than 72 bytes',
+        'Mật khẩu xác nhận không khớp': 'The password confirmation does not match',
+        'Tài khoản cần đặt lại không còn tồn tại': 'The account to reset no longer exists',
+        'Vui lòng chọn tài khoản cần mở khóa': 'Select an account to unlock',
+        'Tài khoản cần mở khóa không còn tồn tại': 'The account to unlock no longer exists',
         'Tạo hóa đơn': 'Create invoice',
         'Thêm giày mới': 'Add new shoes',
         'Xuất báo cáo': 'Export report',
@@ -383,6 +456,26 @@
         'Thao tác': 'Actions',
         'Xem chi tiết': 'View details',
         'Chỉnh sửa': 'Edit',
+        'Lịch sử chỉnh sửa': 'Edit history',
+        'Mỗi lần lưu lại hóa đơn đều ghi người sửa, thời gian và nội dung trước/sau.':
+            'Every invoice update records the editor, time, and before/after content.',
+        'Hóa đơn này chưa có lần chỉnh sửa nào.': 'This invoice has not been edited yet.',
+        'Người chỉnh sửa': 'Editor',
+        'Trước chỉnh sửa': 'Before',
+        'Sau chỉnh sửa': 'After',
+        'Thông tin trước chỉnh sửa': 'Information before editing',
+        'Thông tin sau chỉnh sửa': 'Information after editing',
+        'Thao tác hóa đơn': 'Invoice actions',
+        'Xác nhận thanh toán': 'Confirm payment',
+        'Thao tác thành công.': 'Action completed successfully.',
+        'Không thể thực hiện thao tác.': 'Unable to complete the action.',
+        'Đã thanh toán và cập nhật tồn kho.': 'Payment recorded and inventory updated.',
+        'Nhân viên chỉ được chỉnh sửa hóa đơn do mình tạo trong phiên làm việc hiện tại.':
+            'Employees may only edit invoices they created in the current work session.',
+        'Không thể chỉnh sửa hóa đơn đã thanh toán.': 'Paid invoices cannot be edited.',
+        'Xóa hóa đơn': 'Delete invoice',
+        'Nhân viên chỉ được xóa hóa đơn do mình tạo trong phiên làm việc hiện tại.':
+            'Employees may only delete invoices they created in the current work session.',
         'Xóa': 'Delete',
         'Lưu': 'Save',
         'Quay lại': 'Back',
@@ -463,6 +556,37 @@
         match = value.match(/^(\d+) khách$/);
         if (match) {
             return `${match[1]} customers`;
+        }
+        match = value.match(/^Đã chọn (\d+) sản phẩm$/);
+        if (match) {
+            return `${match[1]} products selected`;
+        }
+        match = value.match(/^(\d+) sản phẩm$/);
+        if (match) {
+            return `${match[1]} products`;
+        }
+        match = value.match(/^Đã lưu khuyến mại (.+)\.$/);
+        if (match) {
+            return `Promotion ${match[1]} saved.`;
+        }
+        match = value.match(/^Đã đặt lại mật khẩu cho tài khoản (@.+)$/);
+        if (match) {
+            return `Password reset for account ${match[1]}`;
+        }
+        match = value.match(/^Đã mở khóa đăng nhập cho tài khoản (@.+)$/);
+        if (match) {
+            return `Login unlocked for account ${match[1]}`;
+        }
+        match = value.match(/^(@\S+)( — (?:Quản lý|Nhân viên))?( — Tạm khóa)?$/);
+        if (match) {
+            const role = match[2] === ' — Quản lý'
+                ? ' — Manager'
+                : match[2] === ' — Nhân viên' ? ' — Employee' : '';
+            return `${match[1]}${role}${match[3] ? ' — Locked' : ''}`;
+        }
+        match = value.match(/^· Phiên #(\d+)$/);
+        if (match) {
+            return `· Session #${match[1]}`;
         }
         match = value.match(/^Tháng (\d+)(\/\d{4})?$/);
         if (match) {

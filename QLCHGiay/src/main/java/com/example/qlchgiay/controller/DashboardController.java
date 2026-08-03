@@ -95,6 +95,26 @@ public class DashboardController {
         if (!loggedIn(session)) return "redirect:/login";
         var items = hoaDonRepo.findAll();
         model.addAttribute("items", items);
+        Set<Integer> editableInvoiceIds = new HashSet<>();
+        Object workSessionId = session.getAttribute(WorkSessionService.SESSION_ID_ATTRIBUTE);
+        var currentEmployee = SessionUserControllerAdvice.currentEmployee(session);
+        if (SessionUserControllerAdvice.isEmployee(session)
+                && workSessionId instanceof Integer currentSessionId
+                && currentEmployee != null
+                && currentEmployee.getId() != null) {
+            items.stream()
+                    .filter(item -> item.getMaPhien() != null
+                            && Objects.equals(item.getMaPhien().getId(), currentSessionId))
+                    .filter(item -> item.getMaNhanVien() != null
+                            && Objects.equals(
+                                    item.getMaNhanVien().getId(),
+                                    currentEmployee.getId()
+                            ))
+                    .map(com.example.qlchgiay.model.HoaDon::getId)
+                    .filter(Objects::nonNull)
+                    .forEach(editableInvoiceIds::add);
+        }
+        model.addAttribute("editableInvoiceIds", editableInvoiceIds);
         model.addAttribute(
                 "paidCount",
                 items.stream().filter(item -> "Đã thanh toán".equals(item.getTrangThaiHienThi())).count()

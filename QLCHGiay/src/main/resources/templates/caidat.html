@@ -56,12 +56,18 @@
         }
 
         .layout {
-            display: grid;
-            grid-template-columns: 250px 1fr;
+            display: block;
             min-height: 100vh;
         }
 
         .side {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 100;
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
             padding: 28px 20px;
             border-right: 1px solid var(--line);
             background: var(--panel);
@@ -97,6 +103,18 @@
             border-radius: 10px;
         }
 
+        .nav {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .nav .logout-form {
+            margin-top: auto;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+        }
+
         .nav a:hover {
             background: var(--soft);
             color: var(--text);
@@ -114,8 +132,9 @@
         }
 
         .main {
-            width: 100%;
+            width: calc(100% - 250px);
             max-width: 1050px;
+            margin-left: 250px;
             padding: 40px;
         }
 
@@ -427,6 +446,9 @@
             }
 
             .side {
+                position: static;
+                width: 100%;
+                overflow: visible;
                 padding: 16px;
                 border-right: 0;
                 border-bottom: 1px solid var(--line);
@@ -448,9 +470,14 @@
 
             .nav .logout-form {
                 width: 100%;
+                margin-top: 0;
+                padding-top: 0;
+                border-top: 0;
             }
 
             .main {
+                width: 100%;
+                margin-left: 0;
                 padding: 25px 16px;
             }
 
@@ -489,8 +516,8 @@
 <div class="layout">
     <aside class="side">
         <div class="brand">
-            <i class="fa-solid fa-shoe-prints"></i>
-            <span>SNEAKER STORE</span>
+            <span class="brand-mark"><i class="fa-solid fa-shoe-prints"></i></span>
+            <span class="brand-text">SNEAKER STORE</span>
         </div>
         <nav class="nav" aria-label="Điều hướng chính">
             <a th:href="@{/dashboard}">
@@ -506,7 +533,7 @@
                 Khách hàng
             </a>
             <a th:href="@{/hoadon}">
-                <i class="fa-solid fa-file-invoice"></i>
+                <i class="fa-solid fa-file-invoice-dollar"></i>
                 Hóa đơn
             </a>
             <a th:href="@{/baocao}">
@@ -514,12 +541,16 @@
                 Báo cáo
             </a>
             <a th:href="@{/nhacungcap}">
-                <i class="fa-solid fa-truck-ramp-box"></i>
+                <i class="fa-solid fa-truck"></i>
                 Nhà cung cấp
             </a>
             <a th:href="@{/chatbot}">
                 <i class="fa-solid fa-robot"></i>
                 Chatbot hỗ trợ
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
+                <i class="fa-solid fa-tags"></i>
+                Khuyến mại
             </a>
             <a class="active" th:href="@{/caidat}" aria-current="page">
                 <i class="fa-solid fa-sliders"></i>

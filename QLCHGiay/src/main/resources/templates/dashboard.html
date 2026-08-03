@@ -1156,11 +1156,6 @@
             color: #ff6060;
         }
 
-        /* Phụ kiện dùng chung trang sản phẩm nên không cần một mục menu riêng. */
-        .sidebar-menu .menu-item:nth-child(3) {
-            display: none;
-        }
-
         /* MAIN + TOPBAR */
         .main-container {
             margin-left: 232px;
@@ -1763,6 +1758,7 @@
         }
 
     </style>
+    <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 <body>
 
@@ -1775,7 +1771,7 @@
         <div class="brand-icon-wrapper">
             <i class="fa-solid fa-shoe-prints brand-icon"></i>
         </div>
-        <span class="brand-name">SNEAKER<br>STORE</span>
+        <span class="brand-name">SNEAKER STORE</span>
     </div>
 
     <ul class="sidebar-menu">
@@ -1792,14 +1788,8 @@
             </a>
         </li>
         <li class="menu-item">
-            <a th:href="@{/sanpham}" class="menu-link">
-                <i class="fa-solid fa-spray-can-sparkles"></i>
-                <span data-i18n="nav.accessories">Phụ kiện giày</span>
-            </a>
-        </li>
-        <li class="menu-item">
             <a th:href="@{/khachhang}" class="menu-link">
-                <i class="fa-solid fa-users-gear"></i>
+                <i class="fa-solid fa-users"></i>
                 <span data-i18n="nav.customers">Khách hàng</span>
             </a>
         </li>
@@ -1817,7 +1807,7 @@
         </li>
         <li class="menu-item">
             <a th:href="@{/nhacungcap}" class="menu-link">
-                <i class="fa-solid fa-truck-ramp-box"></i>
+                <i class="fa-solid fa-truck"></i>
                 <span data-i18n="nav.suppliers">Nhà cung cấp</span>
             </a>
         </li>
@@ -1825,6 +1815,12 @@
             <a th:href="@{/chatbot}" class="menu-link">
                 <i class="fa-solid fa-robot"></i>
                 <span data-i18n="nav.chatbot">Chatbot hỗ trợ</span>
+            </a>
+        </li>
+        <li class="menu-item" th:if="${isAdmin}">
+            <a th:href="@{/khuyenmai}" class="menu-link">
+                <i class="fa-solid fa-tags"></i>
+                <span data-i18n="nav.promotions">Khuyến mại</span>
             </a>
         </li>
         <li class="menu-item">

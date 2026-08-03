@@ -649,6 +649,10 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
+                <i class="fa-solid fa-tags"></i>
+                <span>Khuyến mại</span>
+            </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Cài đặt</span>

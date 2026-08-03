@@ -31,6 +31,13 @@ public class ChiTietHoaDon {
     @Column(name = "donGia", precision = 18, scale = 2)
     private BigDecimal donGia;
 
+    @Column(name = "giaGoc", precision = 18, scale = 2)
+    private BigDecimal giaGoc;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "maKhuyenMai")
+    private KhuyenMai maKhuyenMai;
+
     @ColumnDefault("[soLuong]*[donGia]")
     @Column(name = "thanhTien", precision = 29, scale = 2, insertable = false, updatable = false)
     private BigDecimal thanhTien;

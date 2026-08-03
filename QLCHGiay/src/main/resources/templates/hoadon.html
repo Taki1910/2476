@@ -642,6 +642,10 @@
                 <i class="fa-solid fa-robot"></i>
                 <span>Chatbot hỗ trợ</span>
             </a>
+            <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
+                <i class="fa-solid fa-tags"></i>
+                <span>Khuyến mại</span>
+            </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Cài đặt</span>
@@ -825,7 +829,7 @@
 
                         <tbody>
 
-                        <tr th:each="x : ${items}">
+                        <tr th:each="x : ${items}" th:attr="data-id=${x.id}">
 
                             <td class="invoice-code"
                                 th:text="${x.id != null ? '#HD-' + x.id : '#HD'}">
@@ -895,7 +899,8 @@
                                     </a>
 
                                     <a class="action-btn"
-                                       th:if="${!isEmployee && x.trangThaiHienThi != 'Đã thanh toán'}"
+                                       th:if="${x.trangThaiHienThi != 'Đã thanh toán'
+                                            && (!isEmployee || editableInvoiceIds.contains(x.id))}"
                                        th:href="@{/hoadon/sua/{id}(id=${x.id})}"
                                        title="Chỉnh sửa"
                                        aria-label="Chỉnh sửa hóa đơn">
@@ -918,7 +923,8 @@
                                             <i class="fa-solid fa-money-bill-wave"></i>
                                         </button>
                                     </form>
-                                    <form th:if="${isAdmin && x.trangThaiHienThi != 'Đã thanh toán'}"
+                                    <form th:if="${x.trangThaiHienThi != 'Đã thanh toán'
+                                            && (!isEmployee || editableInvoiceIds.contains(x.id))}"
                                           method="post"
                                           th:action="@{/hoadon/xoa/{id}(id=${x.id})}"
                                           onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')">
@@ -1008,6 +1014,7 @@
         pageSize: 10,
         itemLabel: "hóa đơn",
         emptyMessage: "Không tìm thấy hóa đơn phù hợp.",
+        sort: (left, right) => Number(right.dataset.id) - Number(left.dataset.id),
         filter: createInvoiceFilter()
     });
     filterInvoices();

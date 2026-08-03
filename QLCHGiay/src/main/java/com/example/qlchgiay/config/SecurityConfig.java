@@ -81,7 +81,7 @@ public class SecurityConfig {
                                 "/", "/login", "/quen-mat-khau", "/error",
                                 "/css/**", "/js/**", "/images/**", "/favicon.ico"
                         ).permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/**", "/khuyenmai", "/khuyenmai/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

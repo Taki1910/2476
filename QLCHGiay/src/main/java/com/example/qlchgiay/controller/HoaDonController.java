@@ -3,6 +3,7 @@ package com.example.qlchgiay.controller;
 import com.example.qlchgiay.model.*;
 import com.example.qlchgiay.repo.*;
 import com.example.qlchgiay.service.WorkSessionService;
+import com.example.qlchgiay.service.KhuyenMaiService;
 import jakarta.servlet.http.HttpSession;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Controller
@@ -31,13 +33,17 @@ public class HoaDonController {
     private final ChiTietSanPhamRepo chiTietSanPhamRepo;
     private final ChiTietHoaDonRepo chiTietHoaDonRepo;
     private final ThanhToanRepo thanhToanRepo;
+    private final LichSuChinhSuaHoaDonRepo invoiceHistoryRepo;
     private final WorkSessionService workSessionService;
+    private final KhuyenMaiService promotionService;
 
     public HoaDonController(HoaDonRepo hoaDonRepo, DonHangRepo donHangRepo, NhanVienRepo nhanVienRepo,
                             KhachHangRepo khachHangRepo, SanPhamRepo sanPhamRepo,
                             ChiTietSanPhamRepo chiTietSanPhamRepo, ChiTietHoaDonRepo chiTietHoaDonRepo,
                             ThanhToanRepo thanhToanRepo,
-                            WorkSessionService workSessionService) {
+                            LichSuChinhSuaHoaDonRepo invoiceHistoryRepo,
+                            WorkSessionService workSessionService,
+                            KhuyenMaiService promotionService) {
         this.hoaDonRepo = hoaDonRepo;
         this.donHangRepo = donHangRepo;
         this.nhanVienRepo = nhanVienRepo;
@@ -46,7 +52,9 @@ public class HoaDonController {
         this.chiTietSanPhamRepo = chiTietSanPhamRepo;
         this.chiTietHoaDonRepo = chiTietHoaDonRepo;
         this.thanhToanRepo = thanhToanRepo;
+        this.invoiceHistoryRepo = invoiceHistoryRepo;
         this.workSessionService = workSessionService;
+        this.promotionService = promotionService;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -78,6 +86,13 @@ public class HoaDonController {
     public String create(HttpSession session, InvoiceForm form, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
         HoaDon invoice = new HoaDon();
+        if (SessionUserControllerAdvice.isEmployee(session)) {
+            invoice.setMaPhien(workSessionService.currentSession(session).orElseThrow(
+                    () -> new IllegalArgumentException(
+                            "Không tìm thấy phiên làm việc hiện tại. Vui lòng đăng nhập lại."
+                    )
+            ));
+        }
         form.trangThai = UNPAID_STATUS;
         saveInvoice(invoice, form, session);
         if (form.taoKhachMoi && SessionUserControllerAdvice.isEmployee(session)) {
@@ -96,6 +111,17 @@ public class HoaDonController {
         if (item == null) return missing(redirect);
         model.addAttribute("item", item);
         model.addAttribute("details", chiTietHoaDonRepo.findByMaHoaDonId(id));
+        model.addAttribute(
+                "history",
+                printMode
+                        ? List.of()
+                        : invoiceHistoryRepo.findByMaHoaDonIdOrderByThoiGianDesc(id)
+        );
+        model.addAttribute(
+                "canEdit",
+                !PAID_STATUS.equals(item.getTrangThaiHienThi())
+                        && canEditInvoice(item, session)
+        );
         model.addAttribute("printMode", printMode);
         return "hoadon-detail";
     }
@@ -171,9 +197,9 @@ public class HoaDonController {
     @GetMapping("/sua/{id}")
     public String updateForm(@PathVariable Integer id, HttpSession session, Model model, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
-        if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
         HoaDon item = hoaDonRepo.findById(id).orElse(null);
         if (item == null) return missing(redirect);
+        if (!canEditInvoice(item, session)) return editDenied(redirect);
         if (PAID_STATUS.equals(item.getTrangThaiHienThi())) {
             return paidEditDenied(redirect, id);
         }
@@ -187,13 +213,22 @@ public class HoaDonController {
     @Transactional
     public String update(@PathVariable Integer id, HttpSession session, InvoiceForm form, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
-        if (SessionUserControllerAdvice.isEmployee(session)) return editDenied(redirect);
-        HoaDon invoice = hoaDonRepo.findById(id).orElse(null);
+        HoaDon invoice = hoaDonRepo.findByIdForUpdate(id).orElse(null);
         if (invoice == null) return missing(redirect);
+        if (!canEditInvoice(invoice, session)) return editDenied(redirect);
         if (PAID_STATUS.equals(invoice.getTrangThaiHienThi())) {
             return paidEditDenied(redirect, id);
         }
+        String before = invoiceSnapshot(
+                invoice,
+                chiTietHoaDonRepo.findByMaHoaDonId(id)
+        );
         saveInvoice(invoice, form, session);
+        String after = invoiceSnapshot(
+                invoice,
+                chiTietHoaDonRepo.findByMaHoaDonId(id)
+        );
+        recordEdit(invoice, session, before, after);
         redirect.addFlashAttribute("success", "Đã cập nhật hóa đơn.");
         return "redirect:/hoadon/" + id;
     }
@@ -202,13 +237,24 @@ public class HoaDonController {
     @Transactional
     public String delete(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
         if (!loggedIn(session)) return "redirect:/login";
-        if (!SessionUserControllerAdvice.isAdmin(session)) {
-            redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền xóa hóa đơn.");
+        if (SessionUserControllerAdvice.isEmployee(session)
+                && workSessionService.currentSession(session).isEmpty()) {
+            redirect.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền xóa hóa đơn."
+            );
             return "redirect:/hoadon";
         }
         HoaDon invoice = hoaDonRepo.findByIdForUpdate(id).orElse(null);
         if (invoice == null) {
             return missing(redirect);
+        }
+        if (!canEditInvoice(invoice, session)) {
+            redirect.addFlashAttribute(
+                    "error",
+                    "Nhân viên chỉ được xóa hóa đơn do mình tạo trong phiên làm việc hiện tại."
+            );
+            return "redirect:/hoadon";
         }
         if (PAID_STATUS.equals(invoice.getTrangThaiHienThi())
                 || thanhToanRepo.existsByMaHoaDonId(id)) {
@@ -241,6 +287,9 @@ public class HoaDonController {
 
         List<SanPham> products = quantities.keySet().stream().map(id -> sanPhamRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại."))).toList();
+        Map<Integer, KhuyenMaiService.PriceQuote> quotes = promotionService.quoteProducts(
+                products, LocalDateTime.now()
+        );
         BigDecimal total = BigDecimal.ZERO;
         for (SanPham product : products) {
             int quantity = quantities.get(product.getId());
@@ -248,7 +297,8 @@ public class HoaDonController {
             int stock = product.getTonKho() == null ? 0 : product.getTonKho();
             if (quantity > stock)
                 throw new IllegalArgumentException("Sản phẩm " + product.getTenSP() + " không đủ tồn kho.");
-            total = total.add(product.getGia().multiply(BigDecimal.valueOf(quantity)));
+            KhuyenMaiService.PriceQuote quote = quotes.get(product.getId());
+            total = total.add(quote.finalPrice().multiply(BigDecimal.valueOf(quantity)));
         }
 
         DonHang order = invoice.getMaDonHang();
@@ -274,7 +324,10 @@ public class HoaDonController {
             line.setMaHoaDon(invoice);
             line.setMaChiTietSP(detailProduct);
             line.setSoLuong(quantities.get(product.getId()));
-            line.setDonGia(product.getGia());
+            KhuyenMaiService.PriceQuote quote = quotes.get(product.getId());
+            line.setGiaGoc(quote.originalPrice());
+            line.setDonGia(quote.finalPrice());
+            line.setMaKhuyenMai(quote.promotion());
             line.setThanhTien(line.getDonGia().multiply(BigDecimal.valueOf(line.getSoLuong())));
             chiTietHoaDonRepo.save(line);
         }
@@ -334,11 +387,79 @@ public class HoaDonController {
                         .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại."));
     }
 
+    private boolean canEditInvoice(HoaDon invoice, HttpSession session) {
+        if (SessionUserControllerAdvice.isAdmin(session)) {
+            return true;
+        }
+        if (!SessionUserControllerAdvice.isEmployee(session)
+                || invoice.getMaNhanVien() == null
+                || invoice.getMaPhien() == null) {
+            return false;
+        }
+        NhanVien employee = SessionUserControllerAdvice.currentEmployee(session);
+        if (employee == null || employee.getId() == null
+                || !Objects.equals(employee.getId(), invoice.getMaNhanVien().getId())) {
+            return false;
+        }
+        return workSessionService.currentSession(session)
+                .map(current -> Objects.equals(current.getId(), invoice.getMaPhien().getId()))
+                .orElse(false);
+    }
+
+    private String invoiceSnapshot(HoaDon invoice, List<ChiTietHoaDon> details) {
+        String customer = invoice.getMaDonHang() != null
+                && invoice.getMaDonHang().getMaKH() != null
+                && invoice.getMaDonHang().getMaKH().getTenKH() != null
+                ? invoice.getMaDonHang().getMaKH().getTenKH()
+                : "Khách lẻ";
+        StringJoiner products = new StringJoiner(", ");
+        for (ChiTietHoaDon detail : details) {
+            String productName = detail.getMaChiTietSP() != null
+                    && detail.getMaChiTietSP().getMaSP() != null
+                    && detail.getMaChiTietSP().getMaSP().getTenSP() != null
+                    ? detail.getMaChiTietSP().getMaSP().getTenSP()
+                    : "Sản phẩm";
+            products.add(productName + " × " + Optional.ofNullable(detail.getSoLuong()).orElse(0));
+        }
+        String total = Optional.ofNullable(invoice.getTongTien())
+                .orElse(BigDecimal.ZERO)
+                .stripTrailingZeros()
+                .toPlainString();
+        return "Khách hàng: " + customer
+                + " | Trạng thái: " + invoice.getTrangThaiHienThi()
+                + " | Sản phẩm: " + (products.length() == 0 ? "Không có" : products)
+                + " | Tổng tiền: " + total + " đ";
+    }
+
+    private void recordEdit(
+            HoaDon invoice,
+            HttpSession session,
+            String before,
+            String after
+    ) {
+        TaiKhoan account = (TaiKhoan) session.getAttribute("user");
+        LichSuChinhSuaHoaDon history = new LichSuChinhSuaHoaDon();
+        history.setMaHoaDon(invoice);
+        Object workSessionId = session.getAttribute(WorkSessionService.SESSION_ID_ATTRIBUTE);
+        if (workSessionId instanceof Integer id) {
+            history.setMaPhien(id);
+        }
+        history.setNguoiChinhSua(
+                SessionUserControllerAdvice.displayName(account, session)
+        );
+        history.setThoiGian(java.time.LocalDateTime.now());
+        history.setDuLieuTruoc(before);
+        history.setDuLieuSau(after);
+        invoiceHistoryRepo.save(history);
+    }
+
     private void loadForm(Model model, String title, HttpSession session) {
+        List<SanPham> products = sanPhamRepo.findAllByOrderByTenSPAsc();
         model.addAttribute("pageTitle", title);
         model.addAttribute("khachHangList", khachHangRepo.findAll());
         model.addAttribute("nhanVienList", nhanVienRepo.findAll());
-        model.addAttribute("sanPhamList", sanPhamRepo.findAllByOrderByTenSPAsc());
+        model.addAttribute("sanPhamList", products);
+        model.addAttribute("priceQuotes", promotionService.quoteProducts(products, LocalDateTime.now()));
         model.addAttribute("today", LocalDate.now());
         model.addAttribute("isEmployee", SessionUserControllerAdvice.isEmployee(session));
         model.addAttribute("currentEmployee", SessionUserControllerAdvice.currentEmployee(session));
@@ -347,7 +468,10 @@ public class HoaDonController {
     private String clean(String value) { return value == null ? "" : value.trim(); }
     private String missing(RedirectAttributes redirect) { redirect.addFlashAttribute("error", "Không tìm thấy hóa đơn."); return "redirect:/hoadon"; }
     private String editDenied(RedirectAttributes redirect) {
-        redirect.addFlashAttribute("error", "Tài khoản nhân viên không có quyền chỉnh sửa hóa đơn.");
+        redirect.addFlashAttribute(
+                "error",
+                "Nhân viên chỉ được chỉnh sửa hóa đơn do mình tạo trong phiên làm việc hiện tại."
+        );
         return "redirect:/hoadon";
     }
     private String paidEditDenied(RedirectAttributes redirect, Integer id) {
