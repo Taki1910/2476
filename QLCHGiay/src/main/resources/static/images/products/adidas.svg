@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Giày Adidas</title><desc id="desc">Ảnh minh họa giày sneaker Adidas màu đen</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f7fb"/><stop offset="1" stop-color="#dbe5f2"/></linearGradient><linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#303c4c"/><stop offset="1" stop-color="#111827"/></linearGradient></defs>
+  <rect width="640" height="420" rx="28" fill="url(#bg)"/><ellipse cx="321" cy="337" rx="216" ry="25" fill="#aebdce" opacity=".55"/>
+  <path d="M135 271c55-10 102-50 139-116l37-66c8-14 27-17 38-4l52 61c22 26 50 44 84 55l69 23c26 9 44 30 49 56l4 20H124c-4-17-1-28 11-29Z" fill="url(#shoe)" stroke="#111827" stroke-width="7"/>
+  <path d="m266 125 45 53m-24-70 50 58m-18-76 49 55" stroke="#ffffff" stroke-width="13" stroke-linecap="round" opacity=".9"/><path d="M127 312h480c0 17-14 30-31 30H143c-12 0-20-13-16-30Z" fill="#ffffff"/><path d="M174 278c84 7 176 7 277-2" fill="none" stroke="#ff6422" stroke-width="7" stroke-linecap="round"/>
+</svg>

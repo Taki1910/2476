@@ -13,18 +13,18 @@ import java.util.Optional;
 
 public interface SanPhamRepo extends JpaRepository<SanPham, Integer> {
     @Override
-    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize"})
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     List<SanPham> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize"})
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     List<SanPham> findAll(Sort sort);
 
     @Override
-    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize"})
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     Optional<SanPham> findById(Integer id);
 
-    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize"})
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     List<SanPham> findAllByOrderByTenSPAsc();
     List<SanPham> findByTenSPIgnoreCase(String tenSP);
 

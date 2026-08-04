@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
@@ -88,6 +89,9 @@ public class KhuyenMaiController {
         model.addAttribute("products", productRepo.findAllByOrderByTenSPAsc());
         model.addAttribute("promotions", promotions);
         model.addAttribute("now", now);
+        YearMonth currentMonth = YearMonth.from(now);
+        model.addAttribute("filterFrom", currentMonth.atDay(1));
+        model.addAttribute("filterTo", currentMonth.atEndOfMonth());
         model.addAttribute(
                 "activeCount",
                 promotions.stream().filter(x -> isActive(x, now)).count()

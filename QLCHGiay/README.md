@@ -11,8 +11,8 @@ Bảng lưu tóm tắt phiên làm việc được tạo idempotent từ `src/ma
    Nếu chạy bằng `sqlcmd`, dùng tùy chọn UTF-8:
    `sqlcmd -S localhost -U sa -P <mật_khẩu> -C -f 65001 -i seed-dashboard-data.sql`.
 3. Nếu cần dữ liệu kiểm thử sản phẩm, chạy thêm `seed-test-products.sql` để tạo
-   5 sản phẩm, mỗi sản phẩm có 5 biến thể. Script seed có thể chạy lại mà không
-   tạo trùng dữ liệu.
+   7 mẫu giày với 33 biến thể khác size/màu, kèm ảnh minh họa theo thương hiệu.
+   Script seed có thể chạy lại mà không tạo trùng dữ liệu.
 4. Khai báo mật khẩu SQL Server ngoài mã nguồn:
    PowerShell: `$env:DB_PASSWORD='<mật_khẩu>'`.
    Có thể ghi đè thêm `DB_URL`, `DB_USERNAME` và `SERVER_PORT` nếu cần.

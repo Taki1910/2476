@@ -14,9 +14,12 @@
         body{background:var(--bg)}.layout{grid-template-columns:250px minmax(0,1fr);min-height:100dvh}.sidebar{padding:28px 20px;background:var(--panel)}
         .brand{margin:0 10px 28px}.brand i{background:transparent}.sidebar{display:flex;flex-direction:column}.sidebar nav{flex:0 0 auto}.sidebar .logout{margin-top:auto;padding-top:18px;border-top:1px solid var(--line)}
         nav a{font-weight:400}nav a:hover,nav a:focus-visible{background:var(--soft);color:var(--text);outline:none}nav a:focus-visible,input:focus-visible,select:focus-visible,.small-btn:focus-visible,.btn:focus-visible,.new-link:focus-visible{outline:3px solid var(--orange-strong);outline-offset:2px}nav a.active{background:var(--orange-soft);color:var(--orange-strong)}
-        .content{max-width:1440px;padding:40px}.new-link,.btn.primary{background:var(--orange);color:var(--on-orange)}.btn{background:var(--soft);color:var(--text);border:1px solid var(--line)}
+        .content{max-width:1440px;padding:40px}.new-link,.btn,.small-btn,.toolbar-button,.calendar-nav button,.calendar-day{font-family:Arial,Helvetica,sans-serif}.new-link,.btn.primary{background:var(--orange);color:var(--on-orange)}.btn{background:var(--soft);color:var(--text);border:1px solid var(--line)}
         .stat,.card{background:var(--panel)}.stat strong{color:var(--text)}.product-option,.promo,.small-btn{background:var(--soft);color:var(--text)}.product-option strong,.products{color:var(--text)}.selected-count{color:var(--orange-strong)}
+        .product-option{grid-template-columns:22px 40px minmax(0,1fr) auto}.product-option img{width:40px;height:40px;object-fit:contain;border-radius:8px;background:#f8fafc;padding:3px}
+        .workspace{grid-template-columns:minmax(420px,1.2fr) minmax(330px,.8fr)}.workspace .card:first-child{grid-column:2;grid-row:1}.workspace .card:last-child{grid-column:1;grid-row:1}@media(max-width:1050px){.workspace .card:first-child,.workspace .card:last-child{grid-column:auto;grid-row:auto}}
         .small-btn{min-width:44px;min-height:44px}.alert.error{border-color:color-mix(in srgb,var(--danger) 40%,transparent);background:color-mix(in srgb,var(--danger) 12%,var(--panel));color:var(--danger)}.alert.success{border-color:color-mix(in srgb,var(--success) 40%,transparent);background:color-mix(in srgb,var(--success) 12%,var(--panel));color:var(--success)}
+        .promotion-toolbar{display:grid;grid-template-columns:minmax(180px,1.3fr) minmax(140px,.8fr) repeat(2,minmax(145px,.8fr)) auto;gap:10px;margin-bottom:14px}.promotion-toolbar input,.promotion-toolbar select{min-height:44px}.toolbar-button{min-height:44px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:var(--soft);color:var(--text);font-weight:700;cursor:pointer}.toolbar-button:hover,.toolbar-button:focus-visible{border-color:var(--orange-strong);outline:3px solid var(--orange-soft);outline-offset:1px}.promo[data-hidden="true"]{display:none}.promo-list-head{display:grid;grid-template-columns:minmax(170px,1.4fr) 100px minmax(190px,1.2fr) 110px 100px;gap:12px;padding:0 16px 9px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase}.promo{display:grid;grid-template-columns:minmax(170px,1.4fr) 100px minmax(190px,1.2fr) 110px 100px;gap:12px;align-items:center}.promo-top{display:block}.promo-top .badge{margin-top:7px}.promo h3{margin:0}.promo-meta{display:block;margin-top:7px}.promo-meta span{display:block;margin-top:3px}.products{margin:0}.promo-actions{justify-content:flex-end}.calendar-panel{margin-top:18px}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.calendar-toolbar h3{margin:0;font-size:17px}.calendar-nav{display:flex;gap:6px}.calendar-nav button{width:38px;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--soft);color:var(--text);cursor:pointer}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.calendar-weekday,.calendar-day{min-height:38px;padding:7px;border-radius:8px}.calendar-weekday{color:var(--muted);font-size:11px;font-weight:800;text-align:center}.calendar-day{border:1px solid transparent;background:var(--soft);font-size:12px;cursor:pointer}.calendar-day.is-other{opacity:.42}.calendar-day.is-today{border-color:var(--orange-strong)}.calendar-day.is-selected{background:var(--orange);color:#fff}.calendar-day.has-promotion::after{content:"";display:block;width:6px;height:6px;margin-top:5px;border-radius:50%;background:var(--success)}.calendar-events{display:grid;gap:7px;margin-top:14px}.calendar-event{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:8px;background:var(--soft);font-size:12px}.calendar-event strong{font-size:12px}.calendar-event small{color:var(--muted);white-space:nowrap}.calendar-empty{padding:12px;color:var(--muted);text-align:center;border:1px dashed var(--line);border-radius:8px;font-size:12px}@media(max-width:1050px){.promotion-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.promo-list-head,.promo{grid-template-columns:minmax(150px,1fr) 90px minmax(150px,1fr) 100px 90px}}@media(max-width:700px){.promotion-toolbar{grid-template-columns:1fr}.promo-list-head{display:none}.promo{display:grid;grid-template-columns:1fr 1fr;gap:9px}.promo-top,.products{grid-column:1/-1}.promo-actions{justify-content:flex-start}.calendar-day{min-height:32px;padding:5px 3px;font-size:11px}}
         .layout{display:block}.sidebar{position:fixed;inset:0 auto 0 0;z-index:100;width:250px;overflow-y:auto}.content{margin-left:250px}
         @media(max-width:900px){.sidebar{position:static;width:100%;overflow:visible}.content{margin-left:0}.sidebar .logout{margin-top:18px}nav{grid-template-columns:repeat(3,minmax(0,1fr))}}
         @media(max-width:650px){body{font-size:16px}.content{padding:22px 14px}nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -38,7 +41,14 @@
     <main class="content">
         <header class="header"><div><h1>Quản lý khuyến mại</h1><p>Lập lịch giảm giá theo sản phẩm; hóa đơn tự áp dụng chương trình đang hiệu lực.</p></div><a class="new-link" th:href="@{/khuyenmai}"><i class="fa-solid fa-plus"></i> Tạo mới</a></header>
         <div class="alert error" role="alert" th:if="${error}" th:text="${error}"></div><div class="alert success" role="status" th:if="${success}" th:text="${success}"></div>
-        <section class="stats" aria-label="Tổng quan khuyến mại"><div class="stat"><span>Đang áp dụng</span><strong th:text="${activeCount}">0</strong></div><div class="stat"><span>Sắp diễn ra</span><strong th:text="${scheduledCount}">0</strong></div><div class="stat"><span>Đã tắt</span><strong th:text="${inactiveCount}">0</strong></div></section>
+        <section class="stats" aria-label="Tổng quan khuyến mại"><div class="stat"><span>Đang áp dụng</span><strong id="activeCount" th:text="${activeCount}">0</strong></div><div class="stat"><span>Sắp diễn ra</span><strong id="scheduledCount" th:text="${scheduledCount}">0</strong></div><div class="stat"><span>Đã tắt</span><strong id="inactiveCount" th:text="${inactiveCount}">0</strong></div></section>
+        <div class="promotion-toolbar" aria-label="Bộ lọc khuyến mại">
+            <input id="promotionSearch" type="search" autocomplete="off" placeholder="Tìm tên hoặc sản phẩm..." aria-label="Tìm khuyến mại">
+            <select id="promotionStatus" aria-label="Lọc theo trạng thái"><option value="all">Tất cả trạng thái</option><option value="active">Đang chạy</option><option value="scheduled">Sắp diễn ra</option><option value="ended">Đã kết thúc</option><option value="disabled">Đã tắt</option></select>
+            <input id="filterFrom" type="date" th:value="${filterFrom}" aria-label="Từ ngày">
+            <input id="filterTo" type="date" th:value="${filterTo}" aria-label="Đến ngày">
+            <button class="toolbar-button" id="clearPromotionFilters" type="button"><i class="fa-solid fa-rotate-left"></i> Đặt lại</button>
+        </div>
         <div class="workspace">
             <section class="card"><h2 class="section-title"><i class="fa-solid fa-pen-to-square"></i><span th:text="${item.id == null ? 'Tạo khuyến mại' : 'Sửa khuyến mại'}">Tạo khuyến mại</span></h2>
                 <form id="promotionForm" method="post" th:action="@{/khuyenmai/luu}"><input type="hidden" name="id" th:value="${item.id}"><div class="grid">
@@ -49,18 +59,104 @@
                     <div><label for="end">Kết thúc *</label><input id="end" name="ketThuc" type="datetime-local" required th:value="${endValue}"><small id="timeError" class="sr-note" aria-live="polite"></small></div>
                     <div class="full check-row"><input id="enabled" name="trangThai" type="checkbox" value="true" th:checked="${item.trangThai}"><label for="enabled" style="margin:0">Kích hoạt chương trình</label></div>
                 </div><div class="product-tools"><label for="productSearch">Sản phẩm áp dụng *</label><input id="productSearch" type="search" autocomplete="off" placeholder="Tìm theo tên hoặc mã sản phẩm..."><div class="product-list" id="productList">
-                    <label class="product-option" th:each="product:${products}" th:attr="data-search=${product.id + ' ' + product.tenSP}"><input type="checkbox" name="productIds" th:value="${product.id}" th:checked="${selectedProductIds.contains(product.id)}"><span><strong th:text="${product.tenSP}">Sản phẩm</strong><br><small th:text="${'#SP-' + product.id}">#SP-1</small></span><small th:text="${#numbers.formatDecimal(product.gia != null ? product.gia : 0,0,'COMMA',0,'POINT') + ' đ'}">0 đ</small></label>
+                    <label class="product-option" th:each="product:${products}" th:attr="data-search=${product.id + ' ' + product.tenSP}"><input type="checkbox" name="productIds" th:value="${product.id}" th:checked="${selectedProductIds.contains(product.id)}"><img th:src="${product.hinhAnh != null ? (product.hinhAnh.startsWith('/') ? product.hinhAnh : '/images/products/' + product.hinhAnh) : '/images/products/placeholder.svg'}" th:alt="${'Ảnh ' + product.tenSP}"><span><strong th:text="${product.tenSP}">Sản phẩm</strong><br><small th:text="${'#SP-' + product.id}">#SP-1</small></span><small th:text="${#numbers.formatDecimal(product.gia != null ? product.gia : 0,0,'COMMA',0,'POINT') + ' đ'}">0 đ</small></label>
                 </div><p class="selected-count" id="selectedCount" aria-live="polite"></p></div><div class="form-actions"><a class="btn" th:href="@{/khuyenmai}" th:if="${item.id != null}">Hủy sửa</a><button class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Lưu khuyến mại</button></div></form>
             </section>
-            <section class="card"><h2 class="section-title"><i class="fa-solid fa-calendar-days"></i> Các chương trình</h2><div class="promo-list">
-                <article class="promo" th:each="promotion:${promotions}"><div class="promo-top"><div><h3 th:text="${promotion.tenKhuyenMai}">Tên chương trình</h3><div class="promo-meta"><span th:text="${promotion.loaiGiam == percentType ? #numbers.formatDecimal(promotion.giaTri,0,'COMMA',2,'POINT') + '%' : #numbers.formatDecimal(promotion.giaTri,0,'COMMA',0,'POINT') + ' đ'}">10%</span><span th:text="${#temporals.format(promotion.batDau,'dd/MM/yyyy HH:mm') + ' — ' + #temporals.format(promotion.ketThuc,'dd/MM/yyyy HH:mm')}">Thời gian</span></div></div><span class="badge off" th:if="${!promotion.trangThai}">Đã tắt</span><span class="badge on" th:if="${promotion.trangThai && !promotion.batDau.isAfter(now) && promotion.ketThuc.isAfter(now)}">Đang chạy</span><span class="badge" th:if="${promotion.trangThai && promotion.batDau.isAfter(now)}">Sắp diễn ra</span><span class="badge off" th:if="${promotion.trangThai && !promotion.ketThuc.isAfter(now)}">Đã kết thúc</span></div>
+            <section class="card"><h2 class="section-title"><i class="fa-solid fa-calendar-days"></i> Các chương trình</h2><div class="promo-list-head" aria-hidden="true"><span>Chương trình</span><span>Giá trị</span><span>Thời gian</span><span>Trạng thái</span><span>Thao tác</span></div><div class="promo-list" id="promoList">
+                <article class="promo" th:each="promotion:${promotions}" th:attr="data-start=${promotion.batDau},data-end=${promotion.ketThuc},data-enabled=${promotion.trangThai},data-search=${promotion.tenKhuyenMai + ' ' + #strings.listJoin(promotion.sanPhams.![tenSP], ' ')}"><div class="promo-top"><div><h3 th:text="${promotion.tenKhuyenMai}">Tên chương trình</h3><div class="promo-meta"><span th:text="${promotion.loaiGiam == percentType ? #numbers.formatDecimal(promotion.giaTri,0,'COMMA',2,'POINT') + '%' : #numbers.formatDecimal(promotion.giaTri,0,'COMMA',0,'POINT') + ' đ'}">10%</span><span th:text="${#temporals.format(promotion.batDau,'dd/MM/yyyy HH:mm') + ' — ' + #temporals.format(promotion.ketThuc,'dd/MM/yyyy HH:mm')}">Thời gian</span></div></div><span class="badge off" th:if="${!promotion.trangThai}">Đã tắt</span><span class="badge on" th:if="${promotion.trangThai && !promotion.batDau.isAfter(now) && promotion.ketThuc.isAfter(now)}">Đang chạy</span><span class="badge" th:if="${promotion.trangThai && promotion.batDau.isAfter(now)}">Sắp diễn ra</span><span class="badge off" th:if="${promotion.trangThai && !promotion.ketThuc.isAfter(now)}">Đã kết thúc</span></div>
                     <p class="products"><i class="fa-solid fa-box"></i> <span th:text="${#strings.listJoin(promotion.sanPhams.![tenSP], ', ')}">Sản phẩm</span></p><div class="promo-actions"><a class="small-btn" th:href="@{/khuyenmai(edit=${promotion.id})}" aria-label="Sửa khuyến mại"><i class="fa-solid fa-pen"></i></a><form method="post" th:action="@{/khuyenmai/trang-thai/{id}(id=${promotion.id})}"><button class="small-btn" type="submit" th:attr="aria-label=${promotion.trangThai ? 'Tắt khuyến mại' : 'Bật khuyến mại'}"><i class="fa-solid" th:classappend="${promotion.trangThai ? ' fa-toggle-on' : ' fa-toggle-off'}"></i></button></form></div>
                 </article><p class="empty" th:if="${#lists.isEmpty(promotions)}">Chưa có chương trình khuyến mại.</p>
-            </div></section>
+            </div><p class="empty" id="noPromotionResult" hidden>Không có chương trình phù hợp với bộ lọc.</p></section>
         </div>
+        <section class="card calendar-panel" aria-labelledby="calendarTitle"><div class="calendar-toolbar"><h2 class="section-title" id="calendarTitle"><i class="fa-solid fa-calendar-days"></i> Lịch chương trình</h2><div class="calendar-nav"><button id="previousMonth" type="button" aria-label="Tháng trước"><i class="fa-solid fa-chevron-left"></i></button><button id="nextMonth" type="button" aria-label="Tháng sau"><i class="fa-solid fa-chevron-right"></i></button></div></div><h3 id="calendarMonth" style="margin:0 0 10px;text-align:center"></h3><div class="calendar-grid" id="calendarGrid"></div><div class="calendar-events" id="calendarEvents"></div></section>
     </main>
 </div><script>
 const type=document.getElementById('type'),value=document.getElementById('value'),hint=document.getElementById('valueHint'),start=document.getElementById('start'),end=document.getElementById('end'),timeError=document.getElementById('timeError'),checks=[...document.querySelectorAll('input[name="productIds"]')],selectedCount=document.getElementById('selectedCount');
 function syncValue(){const percent=type.value==='PHAN_TRAM';value.max=percent?'100':'';hint.textContent=percent?'Từ 0,01 đến 100%.':'Số tiền giảm sẽ không làm giá bán thấp hơn 0 đ.'}function validateTime(){const invalid=start.value&&end.value&&end.value<=start.value;end.setCustomValidity(invalid?'Thời gian kết thúc phải sau thời gian bắt đầu.':'');timeError.textContent=invalid?'Thời gian kết thúc phải sau thời gian bắt đầu.':''}function syncCount(){selectedCount.textContent=`Đã chọn ${checks.filter(x=>x.checked).length} sản phẩm`}
 type.addEventListener('change',syncValue);start.addEventListener('change',validateTime);end.addEventListener('change',validateTime);checks.forEach(x=>x.addEventListener('change',syncCount));document.getElementById('productSearch').addEventListener('input',event=>{const query=event.target.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();document.querySelectorAll('.product-option').forEach(option=>option.classList.toggle('search-hidden',!option.dataset.search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query)))});syncValue();validateTime();syncCount();
+const promotionCards=[...document.querySelectorAll('#promoList .promo')];
+const searchInput=document.getElementById('promotionSearch');
+const statusSelect=document.getElementById('promotionStatus');
+const fromInput=document.getElementById('filterFrom');
+const toInput=document.getElementById('filterTo');
+const noPromotionResult=document.getElementById('noPromotionResult');
+const calendarGrid=document.getElementById('calendarGrid');
+const calendarEvents=document.getElementById('calendarEvents');
+const calendarMonth=document.getElementById('calendarMonth');
+const monthNames=['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+const weekdays=['T2','T3','T4','T5','T6','T7','CN'];
+const initialFrom=fromInput.value;
+const initialTo=toInput.value;
+let calendarCursor=initialFrom?new Date(`${initialFrom}T12:00:00`):new Date();
+
+function dateOnly(value){return value?new Date(`${value}T12:00:00`):null}
+function cardStatus(card,now=new Date()){
+    if(card.dataset.enabled!=='true')return 'disabled';
+    const start=new Date(card.dataset.start),end=new Date(card.dataset.end);
+    if(start>now)return 'scheduled';
+    if(end<=now)return 'ended';
+    return 'active';
+}
+function overlaps(card,from,to){
+    const start=new Date(card.dataset.start),end=new Date(card.dataset.end);
+    return (!from||end>=from)&&(!to||start<=to);
+}
+function visibleCards(){return promotionCards.filter(card=>card.dataset.hidden!=='true')}
+function applyPromotionFilters(){
+    const query=(searchInput.value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const status=statusSelect.value;
+    const from=fromInput.value?new Date(`${fromInput.value}T00:00:00`):null;
+    const to=toInput.value?new Date(`${toInput.value}T23:59:59`):null;
+    if(from&&to&&from>to){toInput.setCustomValidity('Đến ngày phải sau hoặc bằng từ ngày.');return}
+    toInput.setCustomValidity('');
+    const counts={active:0,scheduled:0,disabled:0,ended:0};
+    promotionCards.forEach(card=>{
+        const cardStatusValue=cardStatus(card);
+        const matchesQuery=!query||card.dataset.search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query);
+        const matchesStatus=status==='all'||status===cardStatusValue;
+        const matchesDate=overlaps(card,from,to);
+        const visible=matchesQuery&&matchesStatus&&matchesDate;
+        card.dataset.hidden=String(!visible);
+        if(visible)counts[cardStatusValue]++;
+    });
+    document.getElementById('activeCount').textContent=counts.active;
+    document.getElementById('scheduledCount').textContent=counts.scheduled;
+    document.getElementById('inactiveCount').textContent=counts.disabled+counts.ended;
+    noPromotionResult.hidden=visibleCards().length>0;
+    renderCalendar();
+}
+function renderCalendar(){
+    const year=calendarCursor.getFullYear(),month=calendarCursor.getMonth();
+    calendarMonth.textContent=`${monthNames[month]} ${year}`;
+    calendarGrid.innerHTML=weekdays.map(day=>`<div class="calendar-weekday">${day}</div>`).join('');
+    const first=new Date(year,month,1),startOffset=(first.getDay()+6)%7,daysInMonth=new Date(year,month+1,0).getDate();
+    const cells=[];
+    for(let i=0;i<42;i++){
+        const date=new Date(year,month,1-startOffset+i),iso=date.toISOString().slice(0,10);
+        const dayCards=visibleCards().filter(card=>overlaps(card,new Date(`${iso}T00:00:00`),new Date(`${iso}T23:59:59`)));
+        const selected=fromInput.value===iso&&toInput.value===iso;
+        const other=date.getMonth()!==month;
+        const today=new Date();
+        const todayIso=today.toISOString().slice(0,10);
+        cells.push(`<button type="button" class="calendar-day${other?' is-other':''}${todayIso===iso?' is-today':''}${selected?' is-selected':''}${dayCards.length?' has-promotion':''}" data-date="${iso}">${date.getDate()}</button>`);
+    }
+    calendarGrid.insertAdjacentHTML('beforeend',cells.join(''));
+    calendarGrid.querySelectorAll('[data-date]').forEach(button=>button.addEventListener('click',()=>{
+        fromInput.value=button.dataset.date;toInput.value=button.dataset.date;applyPromotionFilters();
+    }));
+    const monthCards=visibleCards().filter(card=>new Date(card.dataset.start).getMonth()===month&&new Date(card.dataset.start).getFullYear()===year);
+    calendarEvents.innerHTML=monthCards.length?monthCards.map(card=>`<div class="calendar-event"><strong>${card.querySelector('h3').textContent}</strong><small>${new Date(card.dataset.start).toLocaleDateString('vi-VN')} — ${new Date(card.dataset.end).toLocaleDateString('vi-VN')}</small></div>`).join(''):'<div class="calendar-empty">Không có chương trình trong tháng này.</div>';
+}
+searchInput.addEventListener('input',applyPromotionFilters);statusSelect.addEventListener('change',applyPromotionFilters);fromInput.addEventListener('change',applyPromotionFilters);toInput.addEventListener('change',applyPromotionFilters);
+document.getElementById('clearPromotionFilters').addEventListener('click',()=>{searchInput.value='';statusSelect.value='all';fromInput.value=initialFrom;toInput.value=initialTo;calendarCursor=initialFrom?new Date(`${initialFrom}T12:00:00`):new Date();applyPromotionFilters()});
+function selectCalendarMonth(){
+    const year=calendarCursor.getFullYear(),month=calendarCursor.getMonth();
+    fromInput.value=`${year}-${String(month+1).padStart(2,'0')}-01`;
+    const lastDay=new Date(year,month+1,0).getDate();
+    toInput.value=`${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    applyPromotionFilters();
+}
+document.getElementById('previousMonth').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);selectCalendarMonth()});
+document.getElementById('nextMonth').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);selectCalendarMonth()});
+applyPromotionFilters();
 </script></body></html>

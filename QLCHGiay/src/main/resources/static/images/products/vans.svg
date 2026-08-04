@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Giày Vans</title><desc id="desc">Ảnh minh họa giày Vans màu xanh</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#effaff"/><stop offset="1" stop-color="#cdebf6"/></linearGradient><linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#256b91"/><stop offset="1" stop-color="#12344f"/></linearGradient></defs>
+  <rect width="640" height="420" rx="28" fill="url(#bg)"/><ellipse cx="322" cy="338" rx="215" ry="24" fill="#9bc3d1" opacity=".55"/>
+  <path d="M132 273c53-12 101-49 139-110l40-64c8-13 27-15 38-3l56 63c19 21 44 36 74 46l76 25c27 9 46 31 51 57l4 18H124c-3-16 0-27 8-32Z" fill="url(#shoe)" stroke="#102f44" stroke-width="7"/><path d="M195 225c42-15 80-39 112-71" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round"/><path d="M130 312h484c0 17-14 30-31 30H145c-12 0-19-13-15-30Z" fill="#f8fafc"/><path d="M170 279c88 8 181 8 286-2" fill="none" stroke="#ff6422" stroke-width="7" stroke-linecap="round"/>
+</svg>

@@ -13,14 +13,14 @@ import java.util.Set;
 
 public interface KhuyenMaiRepo extends JpaRepository<KhuyenMai, Integer> {
     @Override
-    @EntityGraph(attributePaths = "sanPhams")
+    @EntityGraph(attributePaths = {"sanPhams", "sanPhams.chiTietSanPhams"})
     List<KhuyenMai> findAll();
 
     @Override
-    @EntityGraph(attributePaths = "sanPhams")
+    @EntityGraph(attributePaths = {"sanPhams", "sanPhams.chiTietSanPhams"})
     Optional<KhuyenMai> findById(Integer id);
 
-    @EntityGraph(attributePaths = "sanPhams")
+    @EntityGraph(attributePaths = {"sanPhams", "sanPhams.chiTietSanPhams"})
     @Query("""
             SELECT DISTINCT k FROM KhuyenMai k
             WHERE k.trangThai = true

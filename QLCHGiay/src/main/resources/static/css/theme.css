@@ -468,7 +468,7 @@ button.logout-button {
     border: 0;
     border-radius: 10px;
     background: transparent;
-    color: #ff6060;
+    color: #ff6060 !important;
     font: inherit;
     font-size: 14px;
     font-weight: 600;
@@ -479,6 +479,7 @@ button.logout-button {
 button.logout-button:hover,
 button.logout-button:focus-visible {
     background: rgba(248, 113, 113, 0.1);
+    color: #ff6060 !important;
     outline: 2px solid transparent;
 }
 

@@ -105,7 +105,19 @@ BEGIN TRY
         (N'Puma All-Pro Nitro', N'Giày bóng rổ', N'Đen',      N'Lưới', N'40', 2990000,  8, N'Puma', N'Việt Nam', N'Giày bóng rổ đệm Nitro, biến thể đen size 40.'),
         (N'Puma All-Pro Nitro', N'Giày bóng rổ', N'Đỏ',       N'Lưới', N'41', 3090000,  5, N'Puma', N'Việt Nam', N'Giày bóng rổ đệm Nitro, biến thể đỏ size 41.'),
         (N'Puma All-Pro Nitro', N'Giày bóng rổ', N'Xanh navy',N'Lưới', N'42', 3090000,  3, N'Puma', N'Việt Nam', N'Giày bóng rổ đệm Nitro, biến thể xanh navy size 42.'),
-        (N'Puma All-Pro Nitro', N'Giày bóng rổ', N'Xám',      N'Lưới', N'43', 3090000,  1, N'Puma', N'Việt Nam', N'Giày bóng rổ đệm Nitro, biến thể xám size 43.');
+        (N'Puma All-Pro Nitro', N'Giày bóng rổ', N'Xám',      N'Lưới', N'43', 3090000,  1, N'Puma', N'Việt Nam', N'Giày bóng rổ đệm Nitro, biến thể xám size 43.'),
+
+        /* Nike Dunk Low: cùng mẫu, khác màu và size; có màu Trắng ở hai size. */
+        (N'Nike Dunk Low', N'Giày thời trang', N'Trắng',    N'Da tổng hợp', N'38', 2890000,  6, N'Nike', N'Việt Nam', N'Nike Dunk Low trắng size 38.'),
+        (N'Nike Dunk Low', N'Giày thời trang', N'Đen',      N'Da tổng hợp', N'39', 2890000,  6, N'Nike', N'Việt Nam', N'Nike Dunk Low đen size 39.'),
+        (N'Nike Dunk Low', N'Giày thời trang', N'Trắng',    N'Da tổng hợp', N'40', 2990000,  7, N'Nike', N'Việt Nam', N'Nike Dunk Low trắng size 40.'),
+        (N'Nike Dunk Low', N'Giày thời trang', N'Xanh navy',N'Da tổng hợp', N'40', 2990000,  4, N'Nike', N'Việt Nam', N'Nike Dunk Low xanh navy size 40.'),
+
+        /* Adidas Forum Low: cùng mẫu, màu Trắng ở hai size và nhiều màu khác. */
+        (N'Adidas Forum Low', N'Giày thời trang', N'Trắng', N'Da tổng hợp', N'39', 2690000,  6, N'Adidas', N'Indonesia', N'Adidas Forum Low trắng size 39.'),
+        (N'Adidas Forum Low', N'Giày thời trang', N'Đỏ',   N'Da tổng hợp', N'40', 2790000,  5, N'Adidas', N'Indonesia', N'Adidas Forum Low đỏ size 40.'),
+        (N'Adidas Forum Low', N'Giày thời trang', N'Trắng', N'Da tổng hợp', N'41', 2790000,  4, N'Adidas', N'Indonesia', N'Adidas Forum Low trắng size 41.'),
+        (N'Adidas Forum Low', N'Giày thời trang', N'Xám',   N'Da tổng hợp', N'41', 2790000,  3, N'Adidas', N'Indonesia', N'Adidas Forum Low xám size 41.');
 
     INSERT INTO SanPham (tenSP, maLoai, maMau, maChatLieu, maSize, gia, tonKho)
     SELECT v.tenSP, l.maLoai, m.maMau, c.maChatLieu, s.maSize, v.gia, v.tonKho
@@ -142,6 +154,23 @@ BEGIN TRY
         SELECT 1 FROM ChiTietSanPham d WHERE d.maSP = p.maSP
     );
 
+    UPDATE detail
+    SET hinhAnh = CASE
+        WHEN product.tenSP LIKE N'%Adidas%' THEN N'/images/products/adidas.svg'
+        WHEN product.tenSP LIKE N'%Converse%' THEN N'/images/products/converse.svg'
+        WHEN product.tenSP LIKE N'%New Balance%' THEN N'/images/products/new-balance.svg'
+        WHEN product.tenSP LIKE N'%Puma%' THEN N'/images/products/puma.svg'
+        ELSE N'/images/products/nike.svg'
+    END
+    FROM ChiTietSanPham detail
+    INNER JOIN SanPham product ON product.maSP = detail.maSP
+    WHERE detail.hinhAnh IS NULL
+      AND product.tenSP IN (
+          N'Nike Air Max Pulse', N'Adidas Ultraboost Light',
+          N'Converse Run Star Hike', N'New Balance 550', N'Puma All-Pro Nitro',
+          N'Nike Dunk Low', N'Adidas Forum Low'
+      );
+
     COMMIT TRANSACTION;
 
     SELECT p.tenSP AS sanPham,
@@ -156,7 +185,9 @@ BEGIN TRY
         N'Adidas Ultraboost Light',
         N'Converse Run Star Hike',
         N'New Balance 550',
-        N'Puma All-Pro Nitro'
+        N'Puma All-Pro Nitro',
+        N'Nike Dunk Low',
+        N'Adidas Forum Low'
     )
     GROUP BY p.tenSP
     ORDER BY p.tenSP;

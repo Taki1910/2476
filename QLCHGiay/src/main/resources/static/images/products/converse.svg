@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Giày Converse</title><desc id="desc">Ảnh minh họa giày Converse cổ cao màu đỏ</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2f0"/><stop offset="1" stop-color="#ffd4cf"/></linearGradient><linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ef6357"/><stop offset="1" stop-color="#9f1d2b"/></linearGradient></defs>
+  <rect width="640" height="420" rx="28" fill="url(#bg)"/><ellipse cx="323" cy="338" rx="214" ry="24" fill="#d9a5a0" opacity=".55"/>
+  <path d="M157 273c41-20 77-54 103-101l26-51c7-15 27-19 40-7l65 63c20 19 45 33 74 42l82 25c28 9 47 30 52 57l3 18H126c2-18 12-34 31-46Z" fill="url(#shoe)" stroke="#5e1720" stroke-width="7"/><path d="M284 119h72m-83 28h97m-108 28h118" stroke="#ffe8df" stroke-width="11" stroke-linecap="round"/><circle cx="330" cy="171" r="25" fill="#f7f7f7" stroke="#5e1720" stroke-width="5"/><path d="M135 312h480c0 17-14 30-31 30H148c-12 0-18-13-13-30Z" fill="#ffffff"/><path d="M175 278c87 8 177 8 280-1" fill="none" stroke="#5e1720" stroke-width="7"/>
+</svg>

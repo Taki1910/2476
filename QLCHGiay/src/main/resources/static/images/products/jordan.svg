@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Giày Jordan</title><desc id="desc">Ảnh minh họa giày Jordan màu đen và đỏ</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f3f4f6"/><stop offset="1" stop-color="#d5d9e2"/></linearGradient><linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#273142"/><stop offset="1" stop-color="#070b13"/></linearGradient></defs>
+  <rect width="640" height="420" rx="28" fill="url(#bg)"/><ellipse cx="321" cy="338" rx="218" ry="25" fill="#9ca7b8" opacity=".55"/>
+  <path d="M130 273c60-13 108-49 145-111l35-59c8-14 27-17 39-4l57 63c18 20 42 35 70 45l78 27c26 9 44 30 49 56l4 19H122c-3-17 0-30 8-36Z" fill="url(#shoe)" stroke="#090d15" stroke-width="7"/><path d="M231 228c37-15 67-33 91-55l36-33 50 48" fill="none" stroke="#e11d48" stroke-width="15" stroke-linecap="round"/><path d="M124 312h483c0 17-14 30-31 30H141c-12 0-20-13-17-30Z" fill="#e11d48"/><path d="M178 279c93 8 189 7 295-2" fill="none" stroke="#f9fafb" stroke-width="7" stroke-linecap="round"/>
+</svg>

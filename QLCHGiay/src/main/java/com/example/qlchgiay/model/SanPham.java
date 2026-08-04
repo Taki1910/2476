@@ -9,6 +9,8 @@ import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -49,5 +51,28 @@ public class SanPham {
     @Column(name = "tonKho")
     private Integer tonKho;
 
+    @OneToMany(mappedBy = "maSP", fetch = FetchType.LAZY)
+    private Set<ChiTietSanPham> chiTietSanPhams = new LinkedHashSet<>();
+
+    @Transient
+    public String getHinhAnh() {
+        String image = chiTietSanPhams.stream()
+                .map(ChiTietSanPham::getHinhAnh)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
+        if (image == null || image.startsWith("/")
+                || image.startsWith("http://") || image.startsWith("https://")) {
+            return image;
+        }
+        return switch (image.toLowerCase()) {
+            case "af1.jpg" -> "/images/products/nike.svg";
+            case "superstar.jpg" -> "/images/products/adidas.svg";
+            case "converse.jpg" -> "/images/products/converse.svg";
+            case "jordan.jpg" -> "/images/products/jordan.svg";
+            case "vans.jpg" -> "/images/products/vans.svg";
+            default -> "/images/products/" + image;
+        };
+    }
 
 }

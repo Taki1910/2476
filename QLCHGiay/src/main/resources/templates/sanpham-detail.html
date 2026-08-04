@@ -12,7 +12,7 @@
     <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
 <body><main class="page"><a class="back" th:href="@{/sanpham}"><i class="fa-solid fa-arrow-left"></i> Quay lại danh sách</a><section class="card">
-    <div class="title"><div><h1 th:text="${sanPham.tenSP}">Tên sản phẩm</h1><span class="code" th:text="'SP' + ${sanPham.id}">SP1</span></div><i class="fa-solid fa-shoe-prints" style="font-size:38px;color:#ff6a1a"></i></div>
+    <div class="title"><div><h1 th:text="${sanPham.tenSP}">Tên sản phẩm</h1><span class="code" th:text="'SP' + ${sanPham.id}">SP1</span></div><img th:if="${sanPham.hinhAnh != null}" th:src="${sanPham.hinhAnh.startsWith('/') ? sanPham.hinhAnh : '/images/products/' + sanPham.hinhAnh}" th:alt="${'Ảnh ' + sanPham.tenSP}" style="width:72px;height:58px;object-fit:contain;border-radius:10px;background:#f8fafc;padding:6px"><i th:unless="${sanPham.hinhAnh != null}" class="fa-solid fa-shoe-prints" style="font-size:38px;color:#ff6a1a"></i></div>
     <div class="grid">
         <div class="item"><span>Loại</span><strong th:text="${sanPham.maLoai != null ? sanPham.maLoai.tenLoai : '-'}">-</strong></div>
         <div class="item"><span>Màu sắc</span><strong th:text="${sanPham.maMau != null ? sanPham.maMau.tenMau : '-'}">-</strong></div>

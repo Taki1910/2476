@@ -7,6 +7,7 @@ import com.example.qlchgiay.model.SanPham;
 import com.example.qlchgiay.model.Size;
 import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.ChatLieuRepo;
+import com.example.qlchgiay.repo.ChiTietSanPhamRepo;
 import com.example.qlchgiay.repo.LoaiRepo;
 import com.example.qlchgiay.repo.MauRepo;
 import com.example.qlchgiay.repo.SanPhamRepo;
@@ -38,6 +39,7 @@ class SanPhamControllerTest {
     @Mock private MauRepo mauRepo;
     @Mock private ChatLieuRepo chatLieuRepo;
     @Mock private SizeRepo sizeRepo;
+    @Mock private ChiTietSanPhamRepo chiTietSanPhamRepo;
     @Mock private HttpSession session;
 
     private SanPhamController controller;
@@ -49,7 +51,8 @@ class SanPhamControllerTest {
                 loaiRepo,
                 mauRepo,
                 chatLieuRepo,
-                sizeRepo
+                sizeRepo,
+                chiTietSanPhamRepo
         );
         when(session.getAttribute("user")).thenReturn(new TaiKhoan());
     }
@@ -82,6 +85,8 @@ class SanPhamControllerTest {
                 null,
                 BigDecimal.valueOf(1_500_000),
                 8,
+                null,
+                null,
                 new RedirectAttributesModelMap()
         );
 
@@ -135,6 +140,8 @@ class SanPhamControllerTest {
                 null,
                 BigDecimal.valueOf(2_100_000),
                 5,
+                null,
+                null,
                 new RedirectAttributesModelMap()
         );
 
@@ -161,6 +168,8 @@ class SanPhamControllerTest {
                         null,
                         BigDecimal.valueOf(1_000_000),
                         1,
+                        null,
+                        null,
                         new RedirectAttributesModelMap()
                 )
         );
@@ -188,6 +197,8 @@ class SanPhamControllerTest {
                         null,
                         BigDecimal.valueOf(999_999),
                         1,
+                        null,
+                        null,
                         new RedirectAttributesModelMap()
                 )
         );
@@ -213,6 +224,8 @@ class SanPhamControllerTest {
                         null,
                         BigDecimal.valueOf(1_000_000),
                         0,
+                        null,
+                        null,
                         new RedirectAttributesModelMap()
                 )
         );

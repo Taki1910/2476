@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Giày New Balance</title><desc id="desc">Ảnh minh họa giày New Balance màu xám và đỏ</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient><linearGradient id="shoe" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9ca3af"/><stop offset="1" stop-color="#475569"/></linearGradient></defs>
+  <rect width="640" height="420" rx="28" fill="url(#bg)"/><ellipse cx="322" cy="338" rx="216" ry="24" fill="#aab5c5" opacity=".55"/>
+  <path d="M132 273c54-11 102-49 140-111l38-63c8-13 27-16 38-3l56 63c19 21 44 36 74 46l76 25c27 9 46 31 51 57l4 18H124c-3-16 0-27 8-32Z" fill="url(#shoe)" stroke="#334155" stroke-width="7"/><path d="M211 224c43-12 82-36 115-69" fill="none" stroke="#dc2626" stroke-width="16" stroke-linecap="round"/><path d="M128 312h484c0 17-14 30-31 30H143c-12 0-19-13-15-30Z" fill="#f8fafc"/><path d="M170 279c88 8 181 8 286-2" fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round"/>
+</svg>

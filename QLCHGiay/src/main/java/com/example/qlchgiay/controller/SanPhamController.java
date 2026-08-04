@@ -4,10 +4,16 @@ import com.example.qlchgiay.model.*;
 import com.example.qlchgiay.repo.ChatLieuRepo;
 import com.example.qlchgiay.repo.LoaiRepo;
 import com.example.qlchgiay.repo.MauRepo;
+import com.example.qlchgiay.repo.ChiTietSanPhamRepo;
 import com.example.qlchgiay.repo.SanPhamRepo;
 import com.example.qlchgiay.repo.SizeRepo;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -16,28 +22,46 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 @Controller
 public class SanPhamController {
     private static final BigDecimal MINIMUM_PRICE = BigDecimal.valueOf(1_000_000);
+    private static final long MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
     private final SanPhamRepo sanPhamRepo;
     private final LoaiRepo loaiRepo;
     private final MauRepo mauRepo;
     private final ChatLieuRepo chatLieuRepo;
     private final SizeRepo sizeRepo;
+    private final ChiTietSanPhamRepo chiTietSanPhamRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SanPhamController(SanPhamRepo sanPhamRepo, LoaiRepo loaiRepo, MauRepo mauRepo,
-                             ChatLieuRepo chatLieuRepo, SizeRepo sizeRepo) {
+                             ChatLieuRepo chatLieuRepo, SizeRepo sizeRepo,
+                             ChiTietSanPhamRepo chiTietSanPhamRepo) {
         this.sanPhamRepo = sanPhamRepo;
         this.loaiRepo = loaiRepo;
         this.mauRepo = mauRepo;
         this.chatLieuRepo = chatLieuRepo;
         this.sizeRepo = sizeRepo;
+        this.chiTietSanPhamRepo = chiTietSanPhamRepo;
+    }
+
+    SanPhamController(SanPhamRepo sanPhamRepo, LoaiRepo loaiRepo, MauRepo mauRepo,
+                      ChatLieuRepo chatLieuRepo, SizeRepo sizeRepo) {
+        this(sanPhamRepo, loaiRepo, mauRepo, chatLieuRepo, sizeRepo, null);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -53,6 +77,7 @@ public class SanPhamController {
     public String showCreate(HttpSession session, Model model) {
         if (!loggedIn(session)) return "redirect:/login";
         model.addAttribute("sanPham", new SanPham());
+        model.addAttribute("imageUrl", null);
         model.addAttribute("pageTitle", "Thêm sản phẩm");
         loadOptions(model);
         return "sanpham-form";
@@ -70,13 +95,19 @@ public class SanPhamController {
                          @RequestParam(required = false) String tenChatLieuMoi,
                          @RequestParam(required = false) String tenSizeMoi,
                          @RequestParam BigDecimal gia, @RequestParam Integer tonKho,
+                         @RequestParam(required = false) String hinhAnh,
+                         @RequestParam(required = false) MultipartFile hinhAnhFile,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        validateImageFile(hinhAnhFile);
+        String imagePath = hinhAnhFile != null && !hinhAnhFile.isEmpty()
+                ? storeImage(hinhAnhFile)
+                : hinhAnh;
         SanPham sanPham = new SanPham();
         applyForm(
                 sanPham, tenSP, maLoai, maMau, maChatLieu, maSize,
                 tenLoaiMoi, tenMauMoi, tenChatLieuMoi, tenSizeMoi,
-                gia, tonKho
+                gia, tonKho, imagePath
         );
         SanPham existingVariant = findMatchingVariant(sanPham);
         if (existingVariant != null) {
@@ -84,6 +115,7 @@ public class SanPhamController {
             existingVariant.setTonKho(safeStock(existingVariant) + addedStock);
             existingVariant.setGia(sanPham.getGia());
             sanPhamRepo.save(existingVariant);
+            saveProductImage(existingVariant, imagePath);
             redirectAttributes.addFlashAttribute(
                     "success",
                     "Biến thể #SP-" + existingVariant.getId()
@@ -91,6 +123,7 @@ public class SanPhamController {
             );
         } else {
             sanPhamRepo.save(sanPham);
+            saveProductImage(sanPham, imagePath);
             redirectAttributes.addFlashAttribute("success", "Đã thêm sản phẩm thành công.");
         }
         return "redirect:/sanpham";
@@ -106,6 +139,7 @@ public class SanPhamController {
             return "redirect:/sanpham";
         }
         model.addAttribute("sanPham", sanPham);
+        model.addAttribute("imageUrl", imageUrl(sanPham.getHinhAnh()));
         return "sanpham-detail";
     }
 
@@ -119,6 +153,7 @@ public class SanPhamController {
             return "redirect:/sanpham";
         }
         model.addAttribute("sanPham", sanPham);
+        model.addAttribute("imageUrl", imageUrl(sanPham.getHinhAnh()));
         model.addAttribute("pageTitle", "Cập nhật sản phẩm");
         loadOptions(model);
         return "sanpham-form";
@@ -137,8 +172,14 @@ public class SanPhamController {
                          @RequestParam(required = false) String tenChatLieuMoi,
                          @RequestParam(required = false) String tenSizeMoi,
                          @RequestParam BigDecimal gia, @RequestParam Integer tonKho,
+                         @RequestParam(required = false) String hinhAnh,
+                         @RequestParam(required = false) MultipartFile hinhAnhFile,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        validateImageFile(hinhAnhFile);
+        String imagePath = hinhAnhFile != null && !hinhAnhFile.isEmpty()
+                ? storeImage(hinhAnhFile)
+                : hinhAnh;
         SanPham sanPham = sanPhamRepo.findById(id).orElse(null);
         if (sanPham == null) {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
@@ -147,9 +188,10 @@ public class SanPhamController {
         applyForm(
                 sanPham, tenSP, maLoai, maMau, maChatLieu, maSize,
                 tenLoaiMoi, tenMauMoi, tenChatLieuMoi, tenSizeMoi,
-                gia, tonKho
+                gia, tonKho, imagePath
         );
         sanPhamRepo.save(sanPham);
+        saveProductImage(sanPham, imagePath);
         redirectAttributes.addFlashAttribute("success", "Đã cập nhật sản phẩm thành công.");
         return "redirect:/sanpham";
     }
@@ -184,7 +226,7 @@ public class SanPhamController {
                            Integer maChatLieu, Integer maSize,
                            String tenLoaiMoi, String tenMauMoi,
                            String tenChatLieuMoi, String tenSizeMoi,
-                           BigDecimal gia, Integer tonKho) {
+                           BigDecimal gia, Integer tonKho, String hinhAnh) {
         String normalizedName = tenSP == null ? "" : tenSP.trim();
         if (normalizedName.isEmpty() || normalizedName.length() > 100) {
             throw new IllegalArgumentException("Tên sản phẩm phải có từ 1 đến 100 ký tự.");
@@ -200,10 +242,114 @@ public class SanPhamController {
         sanPham.setTenSP(normalizedName);
         sanPham.setGia(gia);
         sanPham.setTonKho(tonKho);
+        normalizeImage(hinhAnh);
         sanPham.setMaLoai(resolveLoai(maLoai, tenLoaiMoi));
         sanPham.setMaMau(resolveMau(maMau, tenMauMoi));
         sanPham.setMaChatLieu(resolveChatLieu(maChatLieu, tenChatLieuMoi));
         sanPham.setMaSize(resolveSize(maSize, tenSizeMoi));
+    }
+
+    private void saveProductImage(SanPham product, String rawImage) {
+        if (chiTietSanPhamRepo == null || product.getId() == null
+                || rawImage == null || rawImage.isBlank()) {
+            return;
+        }
+        ChiTietSanPham detail = chiTietSanPhamRepo.findFirstByMaSPId(product.getId())
+                .orElseGet(ChiTietSanPham::new);
+        detail.setMaSP(product);
+        detail.setHinhAnh(normalizeImage(rawImage));
+        chiTietSanPhamRepo.save(detail);
+    }
+
+    private String normalizeImage(String rawImage) {
+        if (rawImage == null || rawImage.isBlank()) {
+            return null;
+        }
+        String image = rawImage.trim();
+        if (image.length() > 255) {
+            throw new IllegalArgumentException("Đường dẫn ảnh không được vượt quá 255 ký tự.");
+        }
+        if (!(image.startsWith("http://") || image.startsWith("https://")
+                || image.startsWith("/images/") || image.startsWith("/uploads/products/"))) {
+            throw new IllegalArgumentException("Ảnh phải là URL http(s), đường dẫn /images/ hoặc ảnh đã tải lên.");
+        }
+        return image;
+    }
+
+    private String imageUrl(String image) {
+        if (image == null || image.isBlank()) return null;
+        return image.startsWith("/") ? image : "/images/products/" + image;
+    }
+
+    @GetMapping("/uploads/products/{filename:.+}")
+    @ResponseBody
+    public ResponseEntity<Resource> productImage(@PathVariable String filename) {
+        Path root = uploadRoot();
+        Path target = root.resolve(filename).normalize();
+        if (!target.startsWith(root)) return ResponseEntity.notFound().build();
+        Resource resource = new FileSystemResource(target);
+        if (!resource.exists() || !resource.isReadable()) return ResponseEntity.notFound().build();
+        MediaType mediaType = mediaType(filename);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .contentType(mediaType)
+                .body(resource);
+    }
+
+    private void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) return;
+        if (file.getSize() > MAX_IMAGE_BYTES) {
+            throw new IllegalArgumentException("Ảnh không được vượt quá 5 MB.");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !Set.of(
+                "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"
+        ).contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Chỉ hỗ trợ ảnh PNG, JPG, WEBP, GIF hoặc SVG.");
+        }
+    }
+
+    private String storeImage(MultipartFile file) {
+        String originalName = file.getOriginalFilename() == null ? "image" : file.getOriginalFilename();
+        String extension = originalName.contains(".")
+                ? originalName.substring(originalName.lastIndexOf('.')).toLowerCase(Locale.ROOT)
+                : extensionFromContentType(file.getContentType());
+        if (!Set.of(".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg").contains(extension)) {
+            throw new IllegalArgumentException("Định dạng phần mở rộng của ảnh không hợp lệ.");
+        }
+        String filename = UUID.randomUUID() + extension;
+        Path root = uploadRoot();
+        try {
+            Files.createDirectories(root);
+            file.transferTo(root.resolve(filename));
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Không thể lưu ảnh sản phẩm.", exception);
+        }
+        return "/uploads/products/" + filename;
+    }
+
+    private String extensionFromContentType(String contentType) {
+        return switch (contentType == null ? "" : contentType.toLowerCase(Locale.ROOT)) {
+            case "image/png" -> ".png";
+            case "image/jpeg" -> ".jpg";
+            case "image/webp" -> ".webp";
+            case "image/gif" -> ".gif";
+            case "image/svg+xml" -> ".svg";
+            default -> ".img";
+        };
+    }
+
+    private Path uploadRoot() {
+        return Path.of(System.getProperty("user.dir"), "uploads", "products").toAbsolutePath().normalize();
+    }
+
+    private MediaType mediaType(String filename) {
+        String lower = filename.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) return MediaType.IMAGE_PNG;
+        if (lower.endsWith(".webp")) return MediaType.parseMediaType("image/webp");
+        if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF;
+        if (lower.endsWith(".svg")) return MediaType.parseMediaType("image/svg+xml");
+        return MediaType.IMAGE_JPEG;
     }
 
     private SanPham findMatchingVariant(SanPham candidate) {
