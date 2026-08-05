@@ -1167,8 +1167,14 @@
         return (value || "")
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
             .toLowerCase()
             .trim();
+    }
+
+    function tokenMatches(text, query) {
+        return normalizeText(query).split(/\s+/).filter(Boolean)
+            .every(token => normalizeText(text).includes(token));
     }
 
     function toggleAdvancedFilter() {
@@ -1181,7 +1187,7 @@
     }
 
     function createProductFilter() {
-        const keyword = normalizeText(document.getElementById("productSearch").value);
+        const keyword = document.getElementById("productSearch").value;
         const selectedCategory = normalizeText(document.getElementById("categoryFilter").value);
         const selectedColor = normalizeText(document.getElementById("colorFilter").value);
         const selectedSize = normalizeText(document.getElementById("sizeFilter").value);
@@ -1192,7 +1198,7 @@
             const category = normalizeText(row.dataset.category);
             const color = normalizeText(row.dataset.color);
             const size = normalizeText(row.dataset.size);
-            const matchesKeyword = keyword === "" || searchableText.includes(keyword);
+            const matchesKeyword = tokenMatches(searchableText, keyword);
             const matchesCategory = selectedCategory === "" || category === selectedCategory;
             const matchesColor = selectedColor === "" || color === selectedColor;
             const matchesSize = selectedSize === "" || size === selectedSize;

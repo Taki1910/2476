@@ -209,9 +209,15 @@
         return (value || '')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
             .toLowerCase()
             .trim()
             .replace(/\s+/g, ' ');
+    }
+
+    function tokenMatches(text, query) {
+        return normalizeProductText(query).split(/\s+/).filter(Boolean)
+            .every((token) => normalizeProductText(text).includes(token));
     }
 
     function showProductSuggestions() {
@@ -220,7 +226,7 @@
 
         productSuggestionItems.forEach((item) => {
             const matches = keyword.length >= 2
-                && normalizeProductText(item.dataset.name).includes(keyword)
+                && tokenMatches(item.dataset.name, keyword)
                 && visibleCount < 8;
             item.hidden = !matches;
             if (matches) visibleCount += 1;

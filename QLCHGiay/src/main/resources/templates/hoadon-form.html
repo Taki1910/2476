@@ -108,7 +108,8 @@ const rows=document.getElementById('productRows');
 const cards=[...document.querySelectorAll('.product-card')];
 const emptyCart=document.getElementById('emptyCart');
 
-function normalizeText(value){return (value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function normalizeText(value){return (value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase().trim()}
+function tokenMatches(text,query){return normalizeText(query).split(/\s+/).filter(Boolean).every(token=>normalizeText(text).includes(token))}
 function syncCatalogState(){
     cards.forEach(card=>card.classList.toggle('selected',Boolean(rows.querySelector(`.product-row[data-product-id="${card.dataset.id}"]`))));
     emptyCart.hidden=rows.children.length>0;
@@ -162,10 +163,9 @@ function calculate(){
 }
 cards.forEach(card=>card.addEventListener('click',()=>addProduct(card.dataset.id)));
 document.getElementById('productSearch').addEventListener('input',event=>{
-    const keyword=normalizeText(event.target.value);
     let visible=0;
     cards.forEach(card=>{
-        const matches=normalizeText(card.textContent).includes(keyword);
+        const matches=tokenMatches(card.textContent,event.target.value);
         card.hidden=!matches;
         if(matches)visible++;
     });
