@@ -15,7 +15,9 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDate;
 import java.time.Year;
+import java.beans.PropertyEditorSupport;
 
 @Controller
 @RequestMapping("/khachhang")
@@ -31,6 +33,12 @@ public class KhachHangController {
     @InitBinder
     void trimTextFields(WebDataBinder binder) {
         binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+        binder.registerCustomEditor(String.class, "soDienThoai", new PropertyEditorSupport() {
+            @Override
+            public void setAsText(String text) {
+                setValue(text == null || text.isEmpty() ? null : text);
+            }
+        });
     }
 
     @GetMapping("/them")
@@ -107,7 +115,7 @@ public class KhachHangController {
             return showForm(model, "Cập nhật khách hàng");
         }
 
-        item.setTenKH(form.getTenKH()); item.setGioiTinh(form.getGioiTinh()); item.setNamSinh(form.getNamSinh());
+        item.setTenKH(form.getTenKH()); item.setGioiTinh(form.getGioiTinh()); item.setNgaySinh(form.getNgaySinh());
         item.setSoDienThoai(form.getSoDienThoai()); item.setDiaChi(form.getDiaChi());
         try {
             repo.saveAndFlush(item);
@@ -129,8 +137,14 @@ public class KhachHangController {
             ra.addFlashAttribute("error", "Tài khoản nhân viên không có quyền xóa khách hàng.");
             return "redirect:/khachhang";
         }
-        try { repo.deleteById(id); repo.flush(); ra.addFlashAttribute("success", "Đã xóa khách hàng."); }
-        catch (DataIntegrityViolationException ex) { ra.addFlashAttribute("error", "Không thể xóa khách hàng đã phát sinh đơn hàng hoặc giỏ hàng."); }
+        KhachHang customer = repo.findById(id).orElse(null);
+        if (customer == null) return missing(ra);
+        customer.setTrangThai(customer.isActive() ? "ARCHIVED" : "ACTIVE");
+        repo.save(customer);
+        ra.addFlashAttribute(
+                "success",
+                customer.isActive() ? "Đã kích hoạt lại khách hàng." : "Đã lưu trữ khách hàng."
+        );
         return "redirect:/khachhang";
     }
 
@@ -141,6 +155,15 @@ public class KhachHangController {
                     "namSinh",
                     "customer.birthYear.invalid",
                     "Năm sinh phải từ 1900 đến năm hiện tại."
+            );
+        }
+        if (item.getNgaySinh() != null
+                && (item.getNgaySinh().isBefore(LocalDate.of(1900, 1, 1))
+                || item.getNgaySinh().isAfter(LocalDate.now()))) {
+            bindingResult.rejectValue(
+                    "ngaySinh",
+                    "customer.birthDate.invalid",
+                    "Ngày sinh phải từ 01/01/1900 đến ngày hiện tại."
             );
         }
 
@@ -165,5 +188,5 @@ public class KhachHangController {
     }
 
     private String missing(RedirectAttributes ra) { ra.addFlashAttribute("error", "Không tìm thấy khách hàng."); return "redirect:/khachhang"; }
-    private boolean loggedIn(HttpSession s) { return s.getAttribute("user") instanceof TaiKhoan; }
+    private boolean loggedIn(HttpSession s) { return SessionUserControllerAdvice.hasBusinessAccess(s); }
 }

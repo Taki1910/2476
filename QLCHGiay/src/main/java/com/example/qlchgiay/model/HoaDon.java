@@ -45,6 +45,17 @@ public class HoaDon {
     @Column(name = "trangThai", length = 50)
     private String trangThai;
 
+    @Nationalized
+    @Column(name = "tenKhachHangSnapshot", length = 100)
+    private String tenKhachHangSnapshot;
+
+    @Column(name = "soDienThoaiKhachHangSnapshot", length = 15)
+    private String soDienThoaiKhachHangSnapshot;
+
+    @Nationalized
+    @Column(name = "tenNhanVienSnapshot", length = 100)
+    private String tenNhanVienSnapshot;
+
     @Transient
     public String getTrangThaiHienThi() {
         if (trangThai == null || trangThai.isBlank()) return "Chưa thanh toán";
@@ -52,6 +63,28 @@ public class HoaDon {
         if (value.contains("hủy")) return "Đã hủy";
         if (value.contains("đã thanh toán") || value.contains("hoàn thành")) return "Đã thanh toán";
         return "Chưa thanh toán";
+    }
+
+    @Transient
+    public String getTenKhachHangHienThi() {
+        if (tenKhachHangSnapshot != null && !tenKhachHangSnapshot.isBlank()) return tenKhachHangSnapshot;
+        return maDonHang != null && maDonHang.getMaKH() != null
+                ? maDonHang.getMaKH().getTenKH() : "Khách lẻ";
+    }
+
+    @Transient
+    public String getSoDienThoaiKhachHangHienThi() {
+        if (soDienThoaiKhachHangSnapshot != null && !soDienThoaiKhachHangSnapshot.isBlank()) {
+            return soDienThoaiKhachHangSnapshot;
+        }
+        return maDonHang != null && maDonHang.getMaKH() != null
+                ? maDonHang.getMaKH().getSoDienThoai() : null;
+    }
+
+    @Transient
+    public String getTenNhanVienHienThi() {
+        if (tenNhanVienSnapshot != null && !tenNhanVienSnapshot.isBlank()) return tenNhanVienSnapshot;
+        return maNhanVien != null ? maNhanVien.getTenNhanVien() : "Chưa phân công";
     }
 
 }

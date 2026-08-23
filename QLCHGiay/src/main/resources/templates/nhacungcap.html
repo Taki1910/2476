@@ -619,7 +619,7 @@
                 <span>Báo cáo</span>
             </a>
 
-            <a th:href="@{/nhacungcap}" class="active">
+            <a th:if="${isAdmin}" th:href="@{/nhacungcap}" class="active">
                 <i class="fa-solid fa-truck"></i>
                 <span>Nhà cung cấp</span>
             </a>
@@ -631,6 +631,10 @@
             <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
                 <i class="fa-solid fa-tags"></i>
                 <span>Khuyến mại</span>
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/nhanvien}">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Nhân viên</span>
             </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
@@ -733,24 +737,6 @@
                     </div>
                 </article>
 
-                <article class="stat-card">
-                    <div class="stat-head">
-                        <div>
-                            <div class="stat-title">Nhập hàng tháng này</div>
-                            <div class="stat-value" th:text="${items != null ? #lists.size(items) : 0}">0</div>
-
-                            <div class="stat-note">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                                Tăng so với tháng trước
-                            </div>
-                        </div>
-
-                        <div class="stat-icon">
-                            <i class="fa-solid fa-boxes-packing"></i>
-                        </div>
-                    </div>
-                </article>
-
             </div>
 
             <section class="panel">
@@ -778,8 +764,6 @@
                                 onchange="filterSuppliers()">
                             <option value="">Tất cả trạng thái</option>
                             <option value="hoạt động">Hoạt động</option>
-                            <option value="đang hợp tác">Đang hợp tác</option>
-                            <option value="tạm ngừng">Tạm ngừng</option>
                             <option value="ngừng hợp tác">Ngừng hợp tác</option>
                         </select>
 
@@ -857,27 +841,12 @@
 
                             <td>
                                 <span class="badge"
-                                      th:classappend="${x.trangThai != null
-                                      && (#strings.containsIgnoreCase(x.trangThai, 'hoạt động')
-                                      || #strings.containsIgnoreCase(x.trangThai, 'hợp tác'))
-                                      ? ' badge-success'
-                                      : (
-                                          x.trangThai != null
-                                          && (#strings.containsIgnoreCase(x.trangThai, 'tạm'))
-                                          ? ' badge-warning'
-                                          : ' badge-danger'
-                                      )}">
+                                      th:classappend="${x.trangThai == 'Hoạt động'
+                                      ? ' badge-success' : ' badge-danger'}">
 
-                                    <i th:class="${x.trangThai != null
-                                    && (#strings.containsIgnoreCase(x.trangThai, 'hoạt động')
-                                    || #strings.containsIgnoreCase(x.trangThai, 'hợp tác'))
+                                    <i th:class="${x.trangThai == 'Hoạt động'
                                     ? 'fa-solid fa-circle-check'
-                                    : (
-                                        x.trangThai != null
-                                        && #strings.containsIgnoreCase(x.trangThai, 'tạm')
-                                        ? 'fa-solid fa-clock'
-                                        : 'fa-solid fa-circle-xmark'
-                                    )}"></i>
+                                    : 'fa-solid fa-circle-xmark'}"></i>
 
                                     <span th:text="${x.trangThai != null
                                     ? x.trangThai
@@ -903,7 +872,16 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <form th:if="${isAdmin}" method="post" th:action="@{/nhacungcap/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa nhà cung cấp này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
+                                    <form th:if="${isAdmin && x.trangThai == 'Hoạt động'}"
+                                          method="post"
+                                          th:action="@{/nhacungcap/ngung-hop-tac/{id}(id=${x.id})}"
+                                          onsubmit="return confirm('Xác nhận ngừng hợp tác với nhà cung cấp này? Hồ sơ và dữ liệu lịch sử vẫn được giữ lại.')">
+                                        <button type="submit" class="action-btn"
+                                                title="Ngừng hợp tác"
+                                                aria-label="Ngừng hợp tác với nhà cung cấp">
+                                            <i class="fa-solid fa-ban"></i>
+                                        </button>
+                                    </form>
 
                                 </div>
                             </td>
@@ -989,5 +967,6 @@
     filterSuppliers();
 </script>
 
+<script th:src="@{/js/freshness.js(v='20260817')}" src="/js/freshness.js?v=20260817"></script>
 </body>
 </html>

@@ -16,6 +16,11 @@ public interface HoaDonRepo extends JpaRepository<HoaDon, Integer> {
     })
     java.util.List<HoaDon> findAll();
 
+    @EntityGraph(attributePaths = {
+            "maDonHang", "maDonHang.maKH", "maNhanVien", "maPhien"
+    })
+    java.util.List<HoaDon> findAllByOrderByIdDesc();
+
     @Override
     @EntityGraph(attributePaths = {
             "maDonHang", "maDonHang.maKH", "maNhanVien", "maPhien"
@@ -26,4 +31,7 @@ public interface HoaDonRepo extends JpaRepository<HoaDon, Integer> {
     @EntityGraph(attributePaths = {"maDonHang", "maNhanVien", "maPhien"})
     @Query("SELECT h FROM HoaDon h WHERE h.id = :id")
     Optional<HoaDon> findByIdForUpdate(@Param("id") Integer id);
+
+    @EntityGraph(attributePaths = {"maDonHang", "maDonHang.maKH", "maNhanVien", "maPhien"})
+    java.util.List<HoaDon> findByMaNhanVienIdOrderByIdDesc(Integer employeeId);
 }

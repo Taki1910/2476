@@ -607,12 +607,12 @@
                 <span>Hóa đơn</span>
             </a>
 
-            <a th:href="@{/baocao}">
+            <a th:if="${isAdmin}" th:href="@{/baocao}">
                 <i class="fa-solid fa-chart-line"></i>
                 <span>Báo cáo</span>
             </a>
 
-            <a th:href="@{/nhacungcap}">
+            <a th:if="${isAdmin}" th:href="@{/nhacungcap}">
                 <i class="fa-solid fa-truck"></i>
                 <span>Nhà cung cấp</span>
             </a>
@@ -624,6 +624,10 @@
             <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
                 <i class="fa-solid fa-tags"></i>
                 <span>Khuyến mại</span>
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/nhanvien}">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Nhân viên</span>
             </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
@@ -877,7 +881,7 @@
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
 
-                                    <form th:if="${isAdmin}" method="post" th:action="@{/khachhang/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn xóa khách hàng này?')"><button type="submit" class="action-btn" title="Xóa"><i class="fa-solid fa-trash"></i></button></form>
+                                    <form th:if="${isAdmin}" method="post" th:action="@{/khachhang/xoa/{id}(id=${x.id})}" onsubmit="return confirm('Bạn có chắc muốn thay đổi trạng thái khách hàng này?')"><button type="submit" class="action-btn" th:title="${x.active ? 'Lưu trữ' : 'Kích hoạt lại'}"><i th:class="${x.active ? 'fa-solid fa-box-archive' : 'fa-solid fa-rotate-left'}"></i></button></form>
 
                                 </div>
                             </td>
@@ -964,5 +968,6 @@
     filterCustomers();
 </script>
 
+<script th:src="@{/js/freshness.js(v='20260817')}" src="/js/freshness.js?v=20260817"></script>
 </body>
 </html>

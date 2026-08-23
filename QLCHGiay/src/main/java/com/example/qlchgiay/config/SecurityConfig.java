@@ -20,10 +20,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Locale;
 
 @Configuration
 public class SecurityConfig {
@@ -81,7 +81,13 @@ public class SecurityConfig {
                                 "/", "/login", "/quen-mat-khau", "/error",
                                 "/css/**", "/js/**", "/images/**", "/uploads/**", "/favicon.ico"
                         ).permitAll()
-                        .requestMatchers("/admin/**", "/khuyenmai", "/khuyenmai/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/admin/**", "/nhanvien", "/nhanvien/**",
+                                "/nhacungcap", "/nhacungcap/**",
+                                "/sanpham/them", "/sanpham/them-hang-loat",
+                                "/sanpham/sua/**", "/sanpham/xoa/**",
+                                "/khuyenmai", "/khuyenmai/**", "/baocao"
+                        ).hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
@@ -104,8 +110,18 @@ public class SecurityConfig {
                                     "userRole",
                                     SessionUserControllerAdvice.displayRole(account, null)
                             );
-                            var notifications =
-                                    workSessionService.handleSuccessfulLogin(account, session);
+                            var notifications = java.util.List
+                                    .<WorkSessionService.WorkSummary>of();
+                            try {
+                                notifications = workSessionService
+                                        .handleSuccessfulLogin(account, session);
+                            } catch (DataIntegrityViolationException exception) {
+                                session.invalidate();
+                                response.sendRedirect(
+                                        request.getContextPath() + "/login?sessionError"
+                                );
+                                return;
+                            }
                             if (notifications.isEmpty()) {
                                 session.removeAttribute(
                                         WorkSessionService.NOTIFICATIONS_ATTRIBUTE
@@ -184,28 +200,15 @@ public class SecurityConfig {
     }
 
     private static UserDetails toUserDetails(TaiKhoan account) {
-        String role = SessionUserControllerAdvice.isAdmin(account)
-                ? "ADMIN"
-                : "EMPLOYEE";
+        boolean admin = SessionUserControllerAdvice.isAdmin(account);
+        boolean employee = SessionUserControllerAdvice.isEmployee(account);
+        String role = admin ? "ADMIN" : employee ? "EMPLOYEE" : "NO_ACCESS";
         return User.withUsername(account.getTenDangNhap())
                 .password(account.getMatKhau())
                 .roles(role)
                 .accountLocked(Boolean.TRUE.equals(account.getTamKhoaDangNhap()))
-                .disabled(isInactive(account.getTrangThai()))
+                .disabled(!SessionUserControllerAdvice.isActive(account) || (!admin && !employee))
                 .build();
-    }
-
-    private static boolean isInactive(String status) {
-        if (status == null || status.isBlank()) {
-            return false;
-        }
-        String value = status.trim().toLowerCase(Locale.ROOT);
-        return value.contains("ngừng")
-                || value.contains("ngung")
-                || value.contains("khóa")
-                || value.contains("khoa")
-                || value.contains("inactive")
-                || value.contains("disable");
     }
 
     static final class LegacyAwarePasswordEncoder implements PasswordEncoder {

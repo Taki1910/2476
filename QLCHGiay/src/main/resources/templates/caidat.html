@@ -537,11 +537,11 @@
                 <i class="fa-solid fa-file-invoice-dollar"></i>
                 Hóa đơn
             </a>
-            <a th:href="@{/baocao}">
+            <a th:if="${isAdmin}" th:href="@{/baocao}">
                 <i class="fa-solid fa-chart-line"></i>
                 Báo cáo
             </a>
-            <a th:href="@{/nhacungcap}">
+            <a th:if="${isAdmin}" th:href="@{/nhacungcap}">
                 <i class="fa-solid fa-truck"></i>
                 Nhà cung cấp
             </a>
@@ -552,6 +552,10 @@
             <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
                 <i class="fa-solid fa-tags"></i>
                 Khuyến mại
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/nhanvien}">
+                <i class="fa-solid fa-user-tie"></i>
+                Nhân viên
             </a>
             <a class="active" th:href="@{/caidat}" aria-current="page">
                 <i class="fa-solid fa-sliders"></i>
@@ -656,88 +660,6 @@
                 </div>
             </section>
 
-            <section class="card admin-card" th:if="${isAdmin}">
-                <h2>
-                    <i class="fa-solid fa-user-shield" style="color: var(--orange-strong)"></i>
-                    Đặt lại mật khẩu tài khoản
-                </h2>
-                <p class="desc">
-                    Chỉ quản lý được dùng chức năng này sau khi xác minh trực tiếp người yêu cầu.
-                </p>
-
-                <div th:if="${passwordError}"
-                     class="form-alert error"
-                     role="alert">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span th:text="${passwordError}">Không thể đặt lại mật khẩu</span>
-                </div>
-                <div th:if="${passwordSuccess}"
-                     class="form-alert success"
-                     role="status"
-                     aria-live="polite">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span th:text="${passwordSuccess}">Đã đặt lại mật khẩu</span>
-                </div>
-
-                <form class="admin-form"
-                      method="post"
-                      th:action="@{/admin/dat-lai-mat-khau}">
-                    <div class="form-field">
-                        <label for="accountId">Tài khoản cần đặt lại</label>
-                        <select id="accountId" name="accountId" required>
-                            <option value="" selected disabled>Chọn tài khoản</option>
-                            <option th:each="account : ${accounts}"
-                                    th:value="${account.id}"
-                                    th:selected="${selectedAccountId == account.id}"
-                                    th:text="${'@' + account.tenDangNhap
-                                        + (account.vaiTro != null ? ' — ' + account.vaiTro : '')
-                                        + (account.tamKhoaDangNhap == true ? ' — Tạm khóa' : '')}">
-                                @taikhoan — Nhân viên
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="form-field">
-                        <label for="newPassword">Mật khẩu mới</label>
-                        <input id="newPassword"
-                               name="newPassword"
-                               type="password"
-                               minlength="8"
-                               maxlength="72"
-                               autocomplete="new-password"
-                               aria-describedby="passwordHelp"
-                               required>
-                        <small id="passwordHelp" class="form-help">
-                            Tối thiểu 8 ký tự; gửi mật khẩu qua kênh nội bộ an toàn.
-                        </small>
-                    </div>
-
-                    <div class="form-field">
-                        <label for="confirmPassword">Nhập lại mật khẩu mới</label>
-                        <input id="confirmPassword"
-                               name="confirmPassword"
-                               type="password"
-                               minlength="8"
-                               maxlength="72"
-                               autocomplete="new-password"
-                               required>
-                    </div>
-
-                    <div class="admin-actions">
-                        <button class="reset-button" type="submit">
-                            <i class="fa-solid fa-key"></i>
-                            Đặt lại mật khẩu
-                        </button>
-                        <button class="unlock-button"
-                                type="submit"
-                                th:formaction="@{/admin/mo-khoa-tai-khoan}"
-                                formnovalidate>
-                            <i class="fa-solid fa-lock-open"></i>
-                            Mở khóa
-                        </button>
-                    </div>
-                </form>
-            </section>
         </div>
 
         <div class="notice">

@@ -22,7 +22,17 @@ public interface TaiKhoanRepo extends JpaRepository<TaiKhoan, Integer> {
 
     TaiKhoan findByTenDangNhap(String tenDangNhap);
 
-    List<TaiKhoan> findAllByOrderByTenDangNhapAsc();
+    boolean existsByTenDangNhapIgnoreCase(String tenDangNhap);
+
+    Optional<TaiKhoan> findFirstByMaNhanVienId(Integer employeeId);
+
+    @Query("""
+            SELECT t FROM TaiKhoan t
+            LEFT JOIN FETCH t.maNhanVien nv
+            LEFT JOIN FETCH nv.maChucVu
+            ORDER BY t.tenDangNhap ASC
+            """)
+    List<TaiKhoan> findAllWithEmployeesOrderByUsername();
 
     List<TaiKhoan> findByYeuCauDatLaiMatKhauTrueOrderByTenDangNhapAsc();
 }

@@ -17,6 +17,7 @@
         .hint{display:block;margin-top:6px;color:#aaa29b;font-size:12px}
         .custom-value-editor{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.custom-value-editor[hidden]{display:none}.custom-value-editor input{height:40px}.add-custom-btn{height:40px;padding:0 15px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}.custom-value-note{grid-column:1/-1;color:#8d8782;font-size:11px}.image-field{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:center}.image-picker{position:relative;width:120px;height:100px;display:block;cursor:pointer}.image-preview{width:120px;height:100px;object-fit:contain;padding:8px;border:1px solid #37322e;border-radius:12px;background:#1b1816}.image-placeholder{display:grid;place-items:center;color:#aaa29b;font-size:28px}.image-picker:hover .image-preview,.image-picker:focus-visible .image-preview{border-color:#ff6a1a;box-shadow:0 0 0 3px rgba(255,106,26,.12)}.image-picker-action{position:absolute;left:8px;right:8px;bottom:7px;padding:4px 6px;border-radius:6px;background:rgba(13,12,11,.82);color:#fff;text-align:center;font-size:11px}.image-input{min-width:0}.image-input small{display:block;margin-top:6px;color:#aaa29b;font-size:12px}
         .name-field{position:relative}.product-suggestions{position:absolute;z-index:20;top:calc(100% + 7px);left:0;right:0;max-height:280px;overflow:auto;padding:7px;background:#201c19;border:1px solid #494039;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.35)}.product-suggestions[hidden]{display:none}.product-suggestion{width:100%;display:block;padding:11px 12px;text-align:left;color:#f5f5f5;background:transparent;border:0;border-radius:8px;cursor:pointer}.product-suggestion:hover,.product-suggestion:focus-visible{background:#322822;outline:0}.product-suggestion strong{display:block}.product-suggestion small{display:block;margin-top:5px;color:#aaa29b;line-height:1.35}.variant-match{margin:9px 0 0;padding:10px 12px;color:#d8f7e8;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:9px;font-size:12px;line-height:1.45}.variant-match[hidden]{display:none}
+        .variant-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;padding:10px;border:1px solid #37322e;border-radius:9px;background:#1b1816}.variant-option{display:flex;align-items:center;gap:8px;min-height:34px;margin:0;padding:5px 7px;border-radius:7px;color:#e6e1dd;font-weight:600}.variant-option:hover{background:#29231f}.variant-option input{width:17px;height:17px;margin:0;accent-color:#ff6a1a}.new-variant-value{margin-top:9px}.batch-summary{margin-top:7px;color:#aaa29b;font-size:12px}
         .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #2b2825}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border:0;border-radius:9px;text-decoration:none;font-weight:700;cursor:pointer}.cancel{background:#26221f;color:#c6c1bd}.save{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}
         @media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:20px 14px}}
         .image-input input[type=text]{margin-top:0}
@@ -30,8 +31,9 @@
     <section class="card">
         <div class="header"><h1 th:text="${pageTitle}">Thêm sản phẩm</h1><p>Nhập đầy đủ thông tin giày hoặc dép.</p></div>
         <form id="productForm" method="post" enctype="multipart/form-data"
-              th:attr="data-product-id=${sanPham.id != null ? sanPham.id : ''}"
-              th:action="${sanPham.id == null} ? @{/sanpham/them} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
+              th:attr="data-product-id=${sanPham.id != null ? sanPham.id : ''},data-has-image=${imageUrl != null}"
+              th:action="${sanPham.id == null} ? @{/sanpham/them-hang-loat} : @{/sanpham/sua/{id}(id=${sanPham.id})}">
+            <input th:if="${sanPham.id != null}" type="hidden" name="version" th:value="${sanPham.version}">
             <div class="grid">
                 <div class="full name-field">
                     <label for="tenSP">Tên sản phẩm *</label>
@@ -80,7 +82,7 @@
                         <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
                     </div>
                 </div>
-                <div data-custom-field>
+                <div data-custom-field th:if="${sanPham.id != null}">
                     <label for="maMau">Màu *</label>
                     <select id="maMau" name="maMau" data-custom-select required>
                         <option value="">-- Chọn màu --</option>
@@ -94,6 +96,17 @@
                         <button class="add-custom-btn" type="button" data-custom-confirm>Thêm</button>
                         <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
                     </div>
+                </div>
+                <div th:if="${sanPham.id == null}">
+                    <label>Màu * <span class="hint" style="display:inline">(chọn nhiều)</span></label>
+                    <div class="variant-options" id="colorOptions">
+                        <label class="variant-option" th:each="x : ${mauList}">
+                            <input type="checkbox" name="maMaus" th:value="${x.id}">
+                            <span th:text="${x.tenMau}">Màu</span>
+                        </label>
+                    </div>
+                    <input class="new-variant-value" name="tenMauMoi" maxlength="50"
+                           placeholder="Hoặc nhập một màu mới">
                 </div>
                 <div data-custom-field>
                     <label for="maChatLieu">Chất liệu *</label>
@@ -110,7 +123,7 @@
                         <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
                     </div>
                 </div>
-                <div data-custom-field>
+                <div data-custom-field th:if="${sanPham.id != null}">
                     <label for="maSize">Size *</label>
                     <select id="maSize" name="maSize" data-custom-select required>
                         <option value="">-- Chọn size --</option>
@@ -125,6 +138,18 @@
                         <small class="custom-value-note">Giá trị mới sẽ được lưu khi lưu sản phẩm.</small>
                     </div>
                 </div>
+                <div th:if="${sanPham.id == null}">
+                    <label>Size * <span class="hint" style="display:inline">(chọn nhiều)</span></label>
+                    <div class="variant-options" id="sizeOptions">
+                        <label class="variant-option" th:each="x : ${sizeList}">
+                            <input type="checkbox" name="maSizes" th:value="${x.id}">
+                            <span th:text="${x.tenSize}">Size</span>
+                        </label>
+                    </div>
+                    <input class="new-variant-value" name="tenSizeMoi" maxlength="20"
+                           placeholder="Hoặc nhập một size mới">
+                    <p class="batch-summary" id="batchSummary" aria-live="polite"></p>
+                </div>
                 <div class="full image-field">
                     <label class="image-picker" for="hinhAnhFile" tabindex="0" role="button" aria-label="Chọn ảnh sản phẩm từ máy">
                         <div id="imagePreview" class="image-preview" th:classappend="${imageUrl == null ? ' image-placeholder' : ''}">
@@ -137,10 +162,10 @@
                     <div class="image-input">
                         <label for="hinhAnh">Ảnh sản phẩm</label>
                         <input id="hinhAnh" name="hinhAnh" type="text" maxlength="255" th:value="${sanPham.hinhAnh}" placeholder="Nhập URL /images/products/..." aria-label="URL hoặc đường dẫn ảnh">
-                        <small id="imageHint">Nhấn khung ảnh để chọn file (tối đa 5 MB), hoặc nhập URL ảnh có sẵn.</small>
+                        <small id="imageHint">* Bắt buộc. Chọn file (tối đa 5 MB), hoặc nhập URL ảnh có sẵn.</small>
                     </div>
                 </div>
-                <div><label for="gia">Giá bán (VNĐ) *</label><input id="gia" name="gia" type="number" min="1000000" step="1" required aria-describedby="giaHint" th:value="${sanPham.gia != null ? sanPham.gia : 1000000}"><small id="giaHint" class="hint">Tối thiểu 1.000.000 VNĐ.</small></div>
+                <div><label for="giaDisplay">Giá bán (VNĐ) *</label><input id="giaDisplay" type="text" inputmode="numeric" autocomplete="off" required aria-describedby="giaHint" th:value="${sanPham.gia != null ? sanPham.gia : 1000000}"><input id="gia" name="gia" type="hidden" th:value="${sanPham.gia != null ? sanPham.gia : 1000000}"><small id="giaHint" class="hint">Số nguyên dương, chia hết cho 1.000 VNĐ.</small></div>
                 <div><label for="tonKho">Số lượng tồn *</label><input id="tonKho" name="tonKho" type="number" min="1" step="1" required aria-describedby="tonKhoHint" th:value="${sanPham.tonKho != null ? sanPham.tonKho : 1}"><small id="tonKhoHint" class="hint">Phải lớn hơn 0.</small></div>
             </div>
             <div class="actions"><a class="btn cancel" th:href="@{/sanpham}">Hủy</a><button class="btn save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Lưu sản phẩm</button></div>
@@ -205,6 +230,18 @@
     const productSuggestionItems = [...productSuggestions.querySelectorAll('.product-suggestion')];
     const variantMatchHint = document.getElementById('variantMatchHint');
 
+    const priceDisplay = document.getElementById('giaDisplay');
+    const priceValue = document.getElementById('gia');
+    function syncPrice() {
+        const digits = (priceDisplay.value || '').replace(/\D/g, '');
+        priceValue.value = digits;
+        priceDisplay.value = digits ? Number(digits).toLocaleString('vi-VN') : '';
+        priceDisplay.setCustomValidity(digits && (Number(digits) <= 0 || Number(digits) % 1000 !== 0)
+            ? 'Giá phải là số nguyên dương và chia hết cho 1.000 VNĐ.' : '');
+    }
+    priceDisplay.addEventListener('input', syncPrice);
+    syncPrice();
+
     function normalizeProductText(value) {
         return (value || '')
             .normalize('NFD')
@@ -239,9 +276,17 @@
     function setExistingOption(selectId, value) {
         if (!value) return;
         const select = document.getElementById(selectId);
-        if ([...select.options].some((option) => option.value === value)) {
+        if (select && [...select.options].some((option) => option.value === value)) {
             select.value = value;
             select.dispatchEvent(new Event('change'));
+            return;
+        }
+        const groupName = selectId === 'maMau' ? 'maMaus' : selectId === 'maSize' ? 'maSizes' : '';
+        const checkbox = [...document.querySelectorAll(`input[name="${groupName}"]`)]
+            .find((input) => input.value === value);
+        if (checkbox) {
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change'));
         }
     }
 
@@ -251,7 +296,8 @@
         setExistingOption('maMau', item.dataset.mau);
         setExistingOption('maChatLieu', item.dataset.chatLieu);
         setExistingOption('maSize', item.dataset.size);
-        document.getElementById('gia').value = item.dataset.price;
+        priceDisplay.value = item.dataset.price;
+        syncPrice();
         productSuggestions.hidden = true;
         updateVariantMatch();
         document.getElementById('tonKho').focus();
@@ -259,6 +305,38 @@
 
     function updateVariantMatch() {
         const normalizedName = normalizeProductText(productNameInput.value);
+        const selectedColors = [...document.querySelectorAll('input[name="maMaus"]:checked')]
+            .map((input) => input.value);
+        const selectedSizes = [...document.querySelectorAll('input[name="maSizes"]:checked')]
+            .map((input) => input.value);
+        const batchMode = productForm.dataset.productId === '';
+        if (batchMode) {
+            const category = document.getElementById('maLoai').value;
+            const material = document.getElementById('maChatLieu').value;
+            const duplicates = productSuggestionItems.filter((item) =>
+                normalizeProductText(item.dataset.name) === normalizedName
+                && item.dataset.loai === category
+                && item.dataset.chatLieu === material
+                && selectedColors.includes(item.dataset.mau)
+                && selectedSizes.includes(item.dataset.size)
+            );
+            const customColor = document.querySelector('input[name="tenMauMoi"]')?.value.trim();
+            const customSize = document.querySelector('input[name="tenSizeMoi"]')?.value.trim();
+            const combinationCount = (selectedColors.length + (customColor ? 1 : 0))
+                * (selectedSizes.length + (customSize ? 1 : 0));
+            const summary = document.getElementById('batchSummary');
+            if (summary) summary.textContent = combinationCount > 0
+                ? `Sẽ tạo ${combinationCount} tổ hợp màu / size trong một giao dịch.`
+                : 'Chọn ít nhất một màu và một size.';
+            variantMatchHint.hidden = duplicates.length === 0;
+            variantMatchHint.dataset.hasDuplicate = duplicates.length ? 'true' : 'false';
+            if (duplicates.length) {
+                variantMatchHint.textContent = `Không thể tạo: ${duplicates.length} tổ hợp đã tồn tại (${duplicates
+                    .map((item) => `#SP-${item.dataset.productId}`)
+                    .join(', ')}).`;
+            }
+            return;
+        }
         const selectedVariant = productSuggestionItems.find((item) =>
             normalizeProductText(item.dataset.name) === normalizedName
             && item.dataset.loai === document.getElementById('maLoai').value
@@ -291,11 +369,69 @@
     document.querySelectorAll('[data-custom-select]').forEach((select) =>
         select.addEventListener('change', updateVariantMatch)
     );
+    document.querySelectorAll('input[name="maMaus"], input[name="maSizes"], input[name="tenMauMoi"], input[name="tenSizeMoi"]')
+        .forEach((input) => input.addEventListener('input', updateVariantMatch));
+    function hasProductImage() {
+        return productForm.dataset.hasImage === 'true'
+            || Boolean(document.getElementById('hinhAnhFile')?.files?.length)
+            || Boolean(document.getElementById('hinhAnh')?.value.trim());
+    }
+
+    function validateCustomSizeInput() {
+        const inputs = [...document.querySelectorAll('input[name="tenSizeMoi"]')];
+        inputs.forEach((input) => {
+            const value = input.value.trim();
+            input.setCustomValidity(value && !/^[1-9]\d*$/.test(value)
+                ? 'Size phải là số nguyên dương, không nhận số thập phân.' : '');
+        });
+        return inputs.every((input) => !input.validationMessage);
+    }
+
+    productForm.addEventListener('submit', (event) => {
+        syncPrice();
+        const imageInput = document.getElementById('hinhAnh');
+        if (!hasProductImage()) {
+            imageInput.setCustomValidity('Vui lòng chọn hoặc nhập ảnh sản phẩm.');
+        } else {
+            imageInput.setCustomValidity('');
+        }
+        const validSize = validateCustomSizeInput();
+        if (!productForm.checkValidity() || !validSize) {
+            event.preventDefault();
+            productForm.reportValidity();
+            return;
+        }
+        if (productForm.dataset.productId !== '') return;
+        const hasColor = document.querySelector('input[name="maMaus"]:checked')
+            || document.querySelector('input[name="tenMauMoi"]')?.value.trim();
+        const hasSize = document.querySelector('input[name="maSizes"]:checked')
+            || document.querySelector('input[name="tenSizeMoi"]')?.value.trim();
+        updateVariantMatch();
+        if (!hasColor || !hasSize || variantMatchHint.dataset.hasDuplicate === 'true') {
+            event.preventDefault();
+            if (!hasColor || !hasSize) {
+                variantMatchHint.hidden = false;
+                variantMatchHint.textContent = 'Vui lòng chọn hoặc nhập ít nhất một màu và một size.';
+            }
+            variantMatchHint.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+    });
+    document.querySelectorAll('input[name="tenSizeMoi"]').forEach((input) =>
+        input.addEventListener('input', validateCustomSizeInput)
+    );
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.name-field')) productSuggestions.hidden = true;
     });
     window.addEventListener('app-language-change', updateVariantMatch);
     updateVariantMatch();
+
+    const imageUrlInput = document.getElementById('hinhAnh');
+
+    imageUrlInput.addEventListener('input', () => {
+        if (imageUrlInput.value.trim()) {
+            imageUrlInput.setCustomValidity('');
+        }
+    });
 
     const imageFileInput = document.getElementById('hinhAnhFile');
     const imagePreview = document.getElementById('imagePreview');
@@ -311,6 +447,7 @@
             if (!file) {
                 return;
             }
+            imageUrlInput.setCustomValidity('');
             let previewImage = document.getElementById('currentImage');
             if (!previewImage) {
                 previewImage = document.createElement('img');

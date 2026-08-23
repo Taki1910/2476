@@ -36,6 +36,8 @@ public class AccountController {
     public String loginPage(
             @RequestParam(name = "error", required = false) String error,
             @RequestParam(name = "locked", required = false) String locked,
+            @RequestParam(name = "inactive", required = false) String inactive,
+            @RequestParam(name = "sessionError", required = false) String sessionError,
             @RequestParam(name = "logout", required = false) String logout,
             HttpSession session,
             Model model
@@ -43,7 +45,17 @@ public class AccountController {
         if (session.getAttribute("user") instanceof TaiKhoan) {
             return "redirect:/dashboard";
         }
-        if (locked != null) {
+        if (sessionError != null) {
+            model.addAttribute(
+                    "error",
+                    "Không thể tạo ca làm việc do có phiên đăng nhập đồng thời. Vui lòng thử lại."
+            );
+        } else if (inactive != null) {
+            model.addAttribute(
+                    "error",
+                    "Phiên đã kết thúc vì tài khoản hoặc nhân viên không còn hoạt động."
+            );
+        } else if (locked != null) {
             model.addAttribute(
                     "error",
                     "Tài khoản đã tạm khóa. Vui lòng liên hệ quản lý"
@@ -64,18 +76,14 @@ public class AccountController {
 
     @GetMapping("/caidat")
     public String settings(
-            @RequestParam(name = "accountId", required = false) Integer accountId,
             HttpSession session,
             Model model
     ) {
-        if (!(session.getAttribute("user") instanceof TaiKhoan user)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.hasBusinessAccess(session)) return "redirect:/login";
+        TaiKhoan user = (TaiKhoan) session.getAttribute("user");
         model.addAttribute("user", user);
         model.addAttribute("userName", session.getAttribute("userName"));
         model.addAttribute("userRole", session.getAttribute("userRole"));
-        if (SessionUserControllerAdvice.isAdmin(user)) {
-            model.addAttribute("accounts", accountRepo.findAllByOrderByTenDangNhapAsc());
-            model.addAttribute("selectedAccountId", accountId);
-        }
         return "caidat";
     }
 
@@ -98,7 +106,7 @@ public class AccountController {
                     "Mật khẩu phải có ít nhất 8 ký tự và không quá 72 byte"
             );
             redirectAttributes.addAttribute("accountId", accountId);
-            return "redirect:/caidat";
+            return "redirect:/nhanvien";
         }
         if (!newPassword.equals(confirmPassword)) {
             redirectAttributes.addFlashAttribute(
@@ -106,7 +114,7 @@ public class AccountController {
                     "Mật khẩu xác nhận không khớp"
             );
             redirectAttributes.addAttribute("accountId", accountId);
-            return "redirect:/caidat";
+            return "redirect:/nhanvien";
         }
 
         TaiKhoan account = accountRepo.findById(accountId).orElse(null);
@@ -116,7 +124,15 @@ public class AccountController {
                     "Tài khoản cần đặt lại không còn tồn tại"
             );
             redirectAttributes.addAttribute("accountId", accountId);
-            return "redirect:/caidat";
+            return "redirect:/nhanvien";
+        }
+
+        if (SessionUserControllerAdvice.isAdmin(account)) {
+            redirectAttributes.addFlashAttribute(
+                    "passwordError",
+                    "Chức năng này chỉ áp dụng cho tài khoản nhân viên"
+            );
+            return "redirect:/nhanvien";
         }
 
         account.setMatKhau(passwordEncoder.encode(newPassword));
@@ -128,7 +144,7 @@ public class AccountController {
                 "passwordSuccess",
                 "Đã đặt lại mật khẩu cho tài khoản @" + account.getTenDangNhap()
         );
-        return "redirect:/caidat";
+        return "redirect:/nhanvien";
     }
 
     @PostMapping("/admin/mo-khoa-tai-khoan")
@@ -145,7 +161,7 @@ public class AccountController {
                     "passwordError",
                     "Vui lòng chọn tài khoản cần mở khóa"
             );
-            return "redirect:/caidat";
+            return "redirect:/nhanvien";
         }
 
         TaiKhoan account = accountRepo.findById(accountId).orElse(null);
@@ -155,7 +171,15 @@ public class AccountController {
                     "Tài khoản cần mở khóa không còn tồn tại"
             );
             redirectAttributes.addAttribute("accountId", accountId);
-            return "redirect:/caidat";
+            return "redirect:/nhanvien";
+        }
+
+        if (SessionUserControllerAdvice.isAdmin(account)) {
+            redirectAttributes.addFlashAttribute(
+                    "passwordError",
+                    "Chức năng này chỉ áp dụng cho tài khoản nhân viên"
+            );
+            return "redirect:/nhanvien";
         }
 
         account.setSoLanDangNhapSai(0);
@@ -166,7 +190,7 @@ public class AccountController {
                 "passwordSuccess",
                 "Đã mở khóa đăng nhập cho tài khoản @" + account.getTenDangNhap()
         );
-        return "redirect:/caidat";
+        return "redirect:/nhanvien";
     }
 
 }

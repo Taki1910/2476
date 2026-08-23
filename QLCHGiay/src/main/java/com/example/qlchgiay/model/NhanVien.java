@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Nationalized;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @Entity
@@ -33,6 +35,9 @@ public class NhanVien {
     @Column(name = "namSinh")
     private Integer namSinh;
 
+    @Column(name = "ngaySinh")
+    private LocalDate ngaySinh;
+
     @Size(max = 100)
     @Nationalized
     @Column(name = "queQuan", length = 100)
@@ -46,6 +51,17 @@ public class NhanVien {
     @Nationalized
     @Column(name = "trangThai", length = 30)
     private String trangThai;
+
+    @Transient
+    public LocalDate getNgaySinhHieuLuc() {
+        if (ngaySinh != null) return ngaySinh;
+        return namSinh == null ? null : LocalDate.of(namSinh, 12, 31);
+    }
+
+    public void setNgaySinh(LocalDate ngaySinh) {
+        this.ngaySinh = ngaySinh;
+        this.namSinh = ngaySinh == null ? null : ngaySinh.getYear();
+    }
 
 
 }

@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Nationalized;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @Entity
@@ -30,10 +32,12 @@ public class KhachHang {
     @Column(name = "namSinh")
     private Integer namSinh;
 
-    @Size(max = 10, message = "Số điện thoại không được vượt quá 10 chữ số.")
+    @Column(name = "ngaySinh")
+    private LocalDate ngaySinh;
+
     @Pattern(
-            regexp = "^0\\d{9}$",
-            message = "Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0."
+            regexp = "^(03|05|07|08|09)\\d{8}$",
+            message = "Số điện thoại không đúng định dạng số di động Việt Nam."
     )
     @Column(name = "soDienThoai", length = 10)
     private String soDienThoai;
@@ -42,6 +46,25 @@ public class KhachHang {
     @Nationalized
     @Column(name = "diaChi", length = 200)
     private String diaChi;
+
+    @Column(name = "trangThai", nullable = false, length = 20)
+    private String trangThai = "ACTIVE";
+
+    @Transient
+    public boolean isActive() {
+        return trangThai == null || "ACTIVE".equalsIgnoreCase(trangThai);
+    }
+
+    @Transient
+    public LocalDate getNgaySinhHieuLuc() {
+        if (ngaySinh != null) return ngaySinh;
+        return namSinh == null ? null : LocalDate.of(namSinh, 12, 31);
+    }
+
+    public void setNgaySinh(LocalDate ngaySinh) {
+        this.ngaySinh = ngaySinh;
+        this.namSinh = ngaySinh == null ? null : ngaySinh.getYear();
+    }
 
 
 }

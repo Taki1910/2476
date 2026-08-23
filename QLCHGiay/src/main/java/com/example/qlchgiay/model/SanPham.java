@@ -5,10 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Nationalized;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -51,12 +53,31 @@ public class SanPham {
     @Column(name = "tonKho")
     private Integer tonKho;
 
+    @Column(name = "trangThai", nullable = false, length = 20)
+    private String trangThai = "ACTIVE";
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
+    @Transient
+    public boolean isActive() {
+        return trangThai == null || "ACTIVE".equalsIgnoreCase(trangThai);
+    }
+
     @OneToMany(mappedBy = "maSP", fetch = FetchType.LAZY)
     private Set<ChiTietSanPham> chiTietSanPhams = new LinkedHashSet<>();
 
     @Transient
     public String getHinhAnh() {
+        if (!Hibernate.isInitialized(chiTietSanPhams)) {
+            return null;
+        }
         String image = chiTietSanPhams.stream()
+                .sorted(Comparator.comparing(
+                        ChiTietSanPham::getId,
+                        Comparator.nullsLast(Integer::compareTo)
+                ))
                 .map(ChiTietSanPham::getHinhAnh)
                 .filter(value -> value != null && !value.isBlank())
                 .findFirst()

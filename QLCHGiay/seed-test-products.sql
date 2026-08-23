@@ -1,3 +1,4 @@
+/* DEVELOPMENT TEST CATALOG ONLY — never execute as an application startup script. */
 USE QuanLyBanHang;
 GO
 
@@ -9,7 +10,7 @@ BEGIN TRY
 
     /*
        Schema hien tai luu moi bien the (mau + size) thanh mot dong SanPham.
-       Script nay tao 5 san pham, moi san pham co 5 bien the de test.
+       Script này tạo các mẫu giày và biến thể đủ loại, màu, chất liệu, size để test.
        Co the chay lai script ma khong tao trung bien the.
     */
 
@@ -117,7 +118,13 @@ BEGIN TRY
         (N'Adidas Forum Low', N'Giày thời trang', N'Trắng', N'Da tổng hợp', N'39', 2690000,  6, N'Adidas', N'Indonesia', N'Adidas Forum Low trắng size 39.'),
         (N'Adidas Forum Low', N'Giày thời trang', N'Đỏ',   N'Da tổng hợp', N'40', 2790000,  5, N'Adidas', N'Indonesia', N'Adidas Forum Low đỏ size 40.'),
         (N'Adidas Forum Low', N'Giày thời trang', N'Trắng', N'Da tổng hợp', N'41', 2790000,  4, N'Adidas', N'Indonesia', N'Adidas Forum Low trắng size 41.'),
-        (N'Adidas Forum Low', N'Giày thời trang', N'Xám',   N'Da tổng hợp', N'41', 2790000,  3, N'Adidas', N'Indonesia', N'Adidas Forum Low xám size 41.');
+        (N'Adidas Forum Low', N'Giày thời trang', N'Xám',   N'Da tổng hợp', N'41', 2790000,  3, N'Adidas', N'Indonesia', N'Adidas Forum Low xám size 41.'),
+
+        /* Các thuộc tính có sẵn từ bootstrap: Dép, Boot, Xanh, Vải và Cao su. */
+        (N'Puma Slide Comfort', N'Dép', N'Xanh', N'Cao su', N'40', 890000, 14, N'Puma', N'Việt Nam', N'Dép Puma đế cao su mềm, màu xanh size 40.'),
+        (N'Puma Slide Comfort', N'Dép', N'Đen', N'Cao su', N'41', 890000, 9, N'Puma', N'Việt Nam', N'Dép Puma đế cao su mềm, màu đen size 41.'),
+        (N'Timberland Classic Boot', N'Giày Boot', N'Đen', N'Da', N'42', 4590000, 4, N'Timberland', N'Việt Nam', N'Giày boot da cổ điển màu đen size 42.'),
+        (N'Vans Authentic', N'Giày Thể Thao', N'Xanh', N'Vải', N'39', 1590000, 8, N'Vans', N'Việt Nam', N'Giày Vans vải canvas màu xanh size 39.');
 
     INSERT INTO SanPham (tenSP, maLoai, maMau, maChatLieu, maSize, gia, tonKho)
     SELECT v.tenSP, l.maLoai, m.maMau, c.maChatLieu, s.maSize, v.gia, v.tonKho
@@ -136,7 +143,13 @@ BEGIN TRY
     );
 
     DECLARE @MaNCC INT =
-        (SELECT TOP (1) maNCC FROM NhaCungCap WHERE tenNCC = N'Kicks Zone Test Supplier');
+        (SELECT TOP (1) maNCC
+         FROM NhaCungCap
+         WHERE tenNCC = N'Kicks Zone Test Supplier'
+           AND trangThai = N'Hoạt động');
+
+    IF @MaNCC IS NULL
+        THROW 51000, N'Nhà cung cấp kiểm thử không hoạt động.', 1;
 
     INSERT INTO ChiTietSanPham
         (maSP, maNCC, moTa, hinhAnh, xuatXu, thuongHieu, trangThai)
@@ -160,6 +173,8 @@ BEGIN TRY
         WHEN product.tenSP LIKE N'%Converse%' THEN N'/images/products/converse.svg'
         WHEN product.tenSP LIKE N'%New Balance%' THEN N'/images/products/new-balance.svg'
         WHEN product.tenSP LIKE N'%Puma%' THEN N'/images/products/puma.svg'
+        WHEN product.tenSP LIKE N'%Vans%' THEN N'/images/products/vans.svg'
+        WHEN product.tenSP LIKE N'%Timberland%' THEN N'/images/products/jordan.svg'
         ELSE N'/images/products/nike.svg'
     END
     FROM ChiTietSanPham detail
@@ -168,7 +183,8 @@ BEGIN TRY
       AND product.tenSP IN (
           N'Nike Air Max Pulse', N'Adidas Ultraboost Light',
           N'Converse Run Star Hike', N'New Balance 550', N'Puma All-Pro Nitro',
-          N'Nike Dunk Low', N'Adidas Forum Low'
+          N'Nike Dunk Low', N'Adidas Forum Low', N'Puma Slide Comfort',
+          N'Timberland Classic Boot', N'Vans Authentic'
       );
 
     COMMIT TRANSACTION;
@@ -187,7 +203,10 @@ BEGIN TRY
         N'New Balance 550',
         N'Puma All-Pro Nitro',
         N'Nike Dunk Low',
-        N'Adidas Forum Low'
+        N'Adidas Forum Low',
+        N'Puma Slide Comfort',
+        N'Timberland Classic Boot',
+        N'Vans Authentic'
     )
     GROUP BY p.tenSP
     ORDER BY p.tenSP;

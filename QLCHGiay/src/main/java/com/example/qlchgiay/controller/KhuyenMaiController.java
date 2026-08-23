@@ -86,7 +86,7 @@ public class KhuyenMaiController {
         List<KhuyenMai> promotions = promotionService.findAll();
         model.addAttribute("item", item);
         model.addAttribute("selectedProductIds", new LinkedHashSet<>(selectedIds));
-        model.addAttribute("products", productRepo.findAllByOrderByTenSPAsc());
+        model.addAttribute("products", productRepo.findByTrangThaiOrderByTenSPAsc("ACTIVE"));
         model.addAttribute("promotions", promotions);
         model.addAttribute("now", now);
         YearMonth currentMonth = YearMonth.from(now);

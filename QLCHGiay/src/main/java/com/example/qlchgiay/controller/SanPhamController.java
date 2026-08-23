@@ -30,6 +30,9 @@ import java.math.BigDecimal;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
@@ -37,7 +40,7 @@ import java.util.UUID;
 
 @Controller
 public class SanPhamController {
-    private static final BigDecimal MINIMUM_PRICE = BigDecimal.valueOf(1_000_000);
+    private static final BigDecimal PRICE_STEP = BigDecimal.valueOf(1_000);
     private static final long MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
     private final SanPhamRepo sanPhamRepo;
@@ -76,6 +79,7 @@ public class SanPhamController {
     @GetMapping("/sanpham/them")
     public String showCreate(HttpSession session, Model model) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) return "redirect:/sanpham";
         model.addAttribute("sanPham", new SanPham());
         model.addAttribute("imageUrl", null);
         model.addAttribute("pageTitle", "Thêm sản phẩm");
@@ -99,33 +103,142 @@ public class SanPhamController {
                          @RequestParam(required = false) MultipartFile hinhAnhFile,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền thêm sản phẩm hoặc thay đổi tồn kho."
+            );
+            return "redirect:/sanpham";
+        }
         validateImageFile(hinhAnhFile);
-        String imagePath = hinhAnhFile != null && !hinhAnhFile.isEmpty()
-                ? storeImage(hinhAnhFile)
-                : hinhAnh;
+        boolean hasUploadedImage = hinhAnhFile != null && !hinhAnhFile.isEmpty();
+        String imageForValidation = hasUploadedImage ? "/uploads/products/new-image" : hinhAnh;
         SanPham sanPham = new SanPham();
         applyForm(
                 sanPham, tenSP, maLoai, maMau, maChatLieu, maSize,
                 tenLoaiMoi, tenMauMoi, tenChatLieuMoi, tenSizeMoi,
-                gia, tonKho, imagePath
+                gia, tonKho, imageForValidation
         );
         SanPham existingVariant = findMatchingVariant(sanPham);
         if (existingVariant != null) {
-            int addedStock = sanPham.getTonKho();
-            existingVariant.setTonKho(safeStock(existingVariant) + addedStock);
-            existingVariant.setGia(sanPham.getGia());
-            sanPhamRepo.save(existingVariant);
-            saveProductImage(existingVariant, imagePath);
-            redirectAttributes.addFlashAttribute(
-                    "success",
-                    "Biến thể #SP-" + existingVariant.getId()
-                            + " đã tồn tại. Đã cộng " + addedStock + " sản phẩm vào tồn kho."
+            throw new IllegalArgumentException(
+                    "Biến thể đã tồn tại (#SP-" + existingVariant.getId()
+                            + "). Hãy chỉnh sửa biến thể hiện có thay vì tạo trùng."
             );
-        } else {
-            sanPhamRepo.save(sanPham);
-            saveProductImage(sanPham, imagePath);
-            redirectAttributes.addFlashAttribute("success", "Đã thêm sản phẩm thành công.");
         }
+        try {
+            sanPhamRepo.save(sanPham);
+            sanPhamRepo.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalArgumentException(
+                    "Biến thể vừa được tạo ở phiên khác. Hãy tải lại danh sách.",
+                    exception
+            );
+        }
+        String imagePath = hasUploadedImage ? storeImage(hinhAnhFile) : hinhAnh;
+        saveProductImage(sanPham, imagePath);
+        redirectAttributes.addFlashAttribute("success", "Đã thêm sản phẩm thành công.");
+        return "redirect:/sanpham";
+    }
+
+    @PostMapping("/sanpham/them-hang-loat")
+    @Transactional
+    public String createBatch(
+            HttpSession session,
+            @RequestParam String tenSP,
+            @RequestParam(required = false) Integer maLoai,
+            @RequestParam(required = false) List<Integer> maMaus,
+            @RequestParam(required = false) Integer maChatLieu,
+            @RequestParam(required = false) List<Integer> maSizes,
+            @RequestParam(required = false) String tenLoaiMoi,
+            @RequestParam(required = false) String tenMauMoi,
+            @RequestParam(required = false) String tenChatLieuMoi,
+            @RequestParam(required = false) String tenSizeMoi,
+            @RequestParam BigDecimal gia,
+            @RequestParam Integer tonKho,
+            @RequestParam(required = false) String hinhAnh,
+            @RequestParam(required = false) MultipartFile hinhAnhFile,
+            RedirectAttributes redirectAttributes
+    ) {
+        if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền tạo biến thể hoặc thay đổi tồn kho."
+            );
+            return "redirect:/sanpham";
+        }
+
+        validateImageFile(hinhAnhFile);
+        String productName = validateProductBasics(
+                tenSP,
+                gia,
+                tonKho,
+                hinhAnhFile != null && !hinhAnhFile.isEmpty() ? "/uploads/products/new-image" : hinhAnh
+        );
+        Loai category = resolveLoai(maLoai, tenLoaiMoi);
+        ChatLieu material = resolveChatLieu(maChatLieu, tenChatLieuMoi);
+        List<Mau> colors = resolveColors(maMaus, tenMauMoi);
+        List<Size> sizes = resolveSizes(maSizes, tenSizeMoi);
+        List<SanPham> existingVariants = sanPhamRepo.findByTenSPIgnoreCase(productName);
+
+        List<String> duplicates = new ArrayList<>();
+        for (Mau color : colors) {
+            for (Size size : sizes) {
+                existingVariants.stream()
+                        .filter(existing -> sameReference(existing.getMaLoai(), category))
+                        .filter(existing -> sameReference(existing.getMaMau(), color))
+                        .filter(existing -> sameReference(existing.getMaChatLieu(), material))
+                        .filter(existing -> sameReference(existing.getMaSize(), size))
+                        .findFirst()
+                        .ifPresent(existing -> duplicates.add(
+                                color.getTenMau() + " / " + size.getTenSize()
+                                        + " (#SP-" + existing.getId() + ")"
+                        ));
+            }
+        }
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Không thể tạo lô vì biến thể đã tồn tại: " + String.join(", ", duplicates) + "."
+            );
+        }
+
+        List<SanPham> variants = new ArrayList<>();
+        for (Mau color : colors) {
+            for (Size size : sizes) {
+                SanPham variant = new SanPham();
+                variant.setTenSP(productName);
+                variant.setMaLoai(category);
+                variant.setMaMau(color);
+                variant.setMaChatLieu(material);
+                variant.setMaSize(size);
+                variant.setGia(gia);
+                variant.setTonKho(tonKho);
+                variant.setTrangThai("ACTIVE");
+                variants.add(variant);
+            }
+        }
+
+        try {
+            variants = sanPhamRepo.saveAll(variants);
+            sanPhamRepo.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalArgumentException(
+                    "Một biến thể vừa được tạo ở phiên khác. Hãy tải lại và chọn lại.",
+                    exception
+            );
+        }
+
+        String imagePath = hinhAnhFile != null && !hinhAnhFile.isEmpty()
+                ? storeImage(hinhAnhFile)
+                : hinhAnh;
+        for (SanPham variant : variants) {
+            saveProductImage(variant, imagePath);
+        }
+        redirectAttributes.addFlashAttribute(
+                "success",
+                "Đã tạo " + variants.size() + " biến thể sản phẩm trong một giao dịch."
+        );
         return "redirect:/sanpham";
     }
 
@@ -138,7 +251,15 @@ public class SanPhamController {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
             return "redirect:/sanpham";
         }
+        if (SessionUserControllerAdvice.isEmployee(session) && !sanPham.isActive()) {
+            redirectAttributes.addFlashAttribute("error", "Sản phẩm này đã ngừng bán.");
+            return "redirect:/sanpham";
+        }
         model.addAttribute("sanPham", sanPham);
+        var variants = sanPhamRepo.findByTenSPIgnoreCase(sanPham.getTenSP()).stream()
+                .filter(item -> !SessionUserControllerAdvice.isEmployee(session) || item.isActive())
+                .toList();
+        model.addAttribute("variants", variants);
         model.addAttribute("imageUrl", imageUrl(sanPham.getHinhAnh()));
         return "sanpham-detail";
     }
@@ -147,6 +268,13 @@ public class SanPhamController {
     public String showUpdate(@PathVariable Integer id, HttpSession session, Model model,
                              RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền chỉnh sửa sản phẩm."
+            );
+            return "redirect:/sanpham";
+        }
         SanPham sanPham = sanPhamRepo.findById(id).orElse(null);
         if (sanPham == null) {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
@@ -174,29 +302,61 @@ public class SanPhamController {
                          @RequestParam BigDecimal gia, @RequestParam Integer tonKho,
                          @RequestParam(required = false) String hinhAnh,
                          @RequestParam(required = false) MultipartFile hinhAnhFile,
+                         @RequestParam("version") Long expectedVersion,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
+        if (!SessionUserControllerAdvice.isAdmin(session)) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Tài khoản nhân viên không có quyền chỉnh sửa sản phẩm."
+            );
+            return "redirect:/sanpham";
+        }
         validateImageFile(hinhAnhFile);
-        String imagePath = hinhAnhFile != null && !hinhAnhFile.isEmpty()
-                ? storeImage(hinhAnhFile)
-                : hinhAnh;
-        SanPham sanPham = sanPhamRepo.findById(id).orElse(null);
+        boolean hasUploadedImage = hinhAnhFile != null && !hinhAnhFile.isEmpty();
+        String imagePath = hasUploadedImage ? "/uploads/products/new-image" : hinhAnh;
+        SanPham sanPham = sanPhamRepo.findByIdForUpdate(id).orElse(null);
         if (sanPham == null) {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
             return "redirect:/sanpham";
+        }
+        if (!Objects.equals(sanPham.getVersion(), expectedVersion)) {
+            throw new IllegalArgumentException(
+                    "Sản phẩm đã thay đổi ở phiên khác. Vui lòng tải lại trước khi lưu."
+            );
+        }
+        if ((imagePath == null || imagePath.isBlank()) && sanPham.getHinhAnh() != null) {
+            imagePath = sanPham.getHinhAnh();
         }
         applyForm(
                 sanPham, tenSP, maLoai, maMau, maChatLieu, maSize,
                 tenLoaiMoi, tenMauMoi, tenChatLieuMoi, tenSizeMoi,
                 gia, tonKho, imagePath
         );
-        sanPhamRepo.save(sanPham);
+        SanPham duplicate = findMatchingVariant(sanPham, id);
+        if (duplicate != null) {
+            throw new IllegalArgumentException(
+                    "Không thể cập nhật vì tổ hợp loại, màu, chất liệu và size đã tồn tại ở #SP-"
+                            + duplicate.getId() + "."
+            );
+        }
+        try {
+            sanPhamRepo.save(sanPham);
+            sanPhamRepo.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalArgumentException(
+                    "Biến thể trùng với dữ liệu vừa được cập nhật ở phiên khác. Hãy tải lại.",
+                    exception
+            );
+        }
+        if (hasUploadedImage) imagePath = storeImage(hinhAnhFile);
         saveProductImage(sanPham, imagePath);
         redirectAttributes.addFlashAttribute("success", "Đã cập nhật sản phẩm thành công.");
         return "redirect:/sanpham";
     }
 
     @PostMapping("/sanpham/xoa/{id}")
+    @Transactional
     public String delete(@PathVariable Integer id, HttpSession session,
                          RedirectAttributes redirectAttributes) {
         if (!loggedIn(session)) return "redirect:/login";
@@ -207,18 +367,17 @@ public class SanPhamController {
             );
             return "redirect:/sanpham";
         }
-        if (!sanPhamRepo.existsById(id)) {
+        SanPham product = sanPhamRepo.findByIdForUpdate(id).orElse(null);
+        if (product == null) {
             redirectAttributes.addFlashAttribute("error", "Không tìm thấy sản phẩm.");
             return "redirect:/sanpham";
         }
-        try {
-            sanPhamRepo.deleteById(id);
-            sanPhamRepo.flush();
-            redirectAttributes.addFlashAttribute("success", "Đã xóa sản phẩm thành công.");
-        } catch (DataIntegrityViolationException ex) {
-            redirectAttributes.addFlashAttribute("error",
-                    "Không thể xóa sản phẩm đã phát sinh hóa đơn hoặc giỏ hàng.");
-        }
+        product.setTrangThai(product.isActive() ? "INACTIVE" : "ACTIVE");
+        sanPhamRepo.save(product);
+        redirectAttributes.addFlashAttribute(
+                "success",
+                product.isActive() ? "Đã kích hoạt lại sản phẩm." : "Đã ngừng bán sản phẩm."
+        );
         return "redirect:/sanpham";
     }
 
@@ -231,10 +390,8 @@ public class SanPhamController {
         if (normalizedName.isEmpty() || normalizedName.length() > 100) {
             throw new IllegalArgumentException("Tên sản phẩm phải có từ 1 đến 100 ký tự.");
         }
-        if (gia == null || gia.compareTo(MINIMUM_PRICE) < 0) {
-            throw new IllegalArgumentException(
-                    "Giá bán phải từ 1.000.000 VNĐ trở lên."
-            );
+        if (!isValidPrice(gia)) {
+            throw new IllegalArgumentException("Giá bán phải là số nguyên dương và chia hết cho 1.000 VNĐ.");
         }
         if (tonKho == null || tonKho <= 0) {
             throw new IllegalArgumentException("Số lượng tồn phải lớn hơn 0.");
@@ -242,11 +399,77 @@ public class SanPhamController {
         sanPham.setTenSP(normalizedName);
         sanPham.setGia(gia);
         sanPham.setTonKho(tonKho);
-        normalizeImage(hinhAnh);
+        requireImage(hinhAnh);
         sanPham.setMaLoai(resolveLoai(maLoai, tenLoaiMoi));
         sanPham.setMaMau(resolveMau(maMau, tenMauMoi));
         sanPham.setMaChatLieu(resolveChatLieu(maChatLieu, tenChatLieuMoi));
         sanPham.setMaSize(resolveSize(maSize, tenSizeMoi));
+    }
+
+    private String validateProductBasics(
+            String tenSP,
+            BigDecimal gia,
+            Integer tonKho,
+            String image
+    ) {
+        String normalizedName = tenSP == null ? "" : tenSP.trim().replaceAll("\\s+", " ");
+        if (normalizedName.isEmpty() || normalizedName.length() > 100) {
+            throw new IllegalArgumentException("Tên sản phẩm phải có từ 1 đến 100 ký tự.");
+        }
+        if (!isValidPrice(gia)) {
+            throw new IllegalArgumentException("Giá bán phải là số nguyên dương và chia hết cho 1.000 VNĐ.");
+        }
+        if (tonKho == null || tonKho <= 0) {
+            throw new IllegalArgumentException("Số lượng tồn phải lớn hơn 0.");
+        }
+        requireImage(image);
+        return normalizedName;
+    }
+
+    private boolean isValidPrice(BigDecimal price) {
+        return price != null
+                && price.signum() > 0
+                && price.stripTrailingZeros().scale() <= 0
+                && price.remainder(PRICE_STEP).signum() == 0;
+    }
+
+    private void requireImage(String image) {
+        if (normalizeImage(image) == null) {
+            throw new IllegalArgumentException("Sản phẩm đang kinh doanh bắt buộc phải có ảnh.");
+        }
+    }
+
+    private List<Mau> resolveColors(List<Integer> ids, String customName) {
+        LinkedHashSet<Mau> colors = new LinkedHashSet<>();
+        if (ids != null) {
+            ids.stream().filter(Objects::nonNull).distinct().forEach(id -> colors.add(
+                    mauRepo.findById(id)
+                            .orElseThrow(() -> new IllegalArgumentException("Màu không tồn tại."))
+            ));
+        }
+        if (normalizeOption(customName, 50, "Tên màu") != null) {
+            colors.add(resolveMau(null, customName));
+        }
+        if (colors.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm ít nhất một màu.");
+        }
+        return List.copyOf(colors);
+    }
+
+    private List<Size> resolveSizes(List<Integer> ids, String customName) {
+        LinkedHashSet<Size> sizes = new LinkedHashSet<>();
+        if (ids != null) {
+            ids.stream().filter(Objects::nonNull).distinct().forEach(id -> sizes.add(
+                    resolveSize(id, null)
+            ));
+        }
+        if (normalizeOption(customName, 20, "Tên size") != null) {
+            sizes.add(resolveSize(null, customName));
+        }
+        if (sizes.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn hoặc thêm ít nhất một size.");
+        }
+        return List.copyOf(sizes);
     }
 
     private void saveProductImage(SanPham product, String rawImage) {
@@ -353,7 +576,12 @@ public class SanPhamController {
     }
 
     private SanPham findMatchingVariant(SanPham candidate) {
+        return findMatchingVariant(candidate, null);
+    }
+
+    private SanPham findMatchingVariant(SanPham candidate, Integer excludedId) {
         return sanPhamRepo.findByTenSPIgnoreCase(candidate.getTenSP()).stream()
+                .filter(existing -> !Objects.equals(existing.getId(), excludedId))
                 .filter(existing -> sameReference(existing.getMaLoai(), candidate.getMaLoai()))
                 .filter(existing -> sameReference(existing.getMaMau(), candidate.getMaMau()))
                 .filter(existing -> sameReference(existing.getMaChatLieu(), candidate.getMaChatLieu()))
@@ -378,10 +606,6 @@ public class SanPhamController {
             return Objects.equals(leftItem.getId(), rightItem.getId());
         }
         return false;
-    }
-
-    private int safeStock(SanPham product) {
-        return product.getTonKho() == null ? 0 : product.getTonKho();
     }
 
     private Loai resolveLoai(Integer id, String customName) {
@@ -436,20 +660,39 @@ public class SanPhamController {
     }
 
     private Size resolveSize(Integer id, String customName) {
-        String name = normalizeOption(customName, 20, "Tên size");
+        String name = normalizeSize(customName);
         if (name != null) {
-            return sizeRepo.findFirstByTenSizeIgnoreCase(name).orElseGet(() -> {
-                Size item = new Size();
-                item.setTenSize(name);
-                item.setTonKho(0);
-                return sizeRepo.save(item);
-            });
+            var exact = sizeRepo.findFirstByTenSizeIgnoreCase(name);
+            if (exact.isPresent()) return exact.get();
+            var equivalent = sizeRepo.findAll().stream()
+                    .filter(item -> name.equals(normalizeSize(item.getTenSize())))
+                    .findFirst();
+            if (equivalent.isPresent()) return equivalent.get();
+            Size item = new Size();
+            item.setTenSize(name);
+            item.setTonKho(0);
+            return sizeRepo.save(item);
         }
         if (id == null) {
             throw new IllegalArgumentException("Vui lòng chọn hoặc thêm size.");
         }
-        return sizeRepo.findById(id)
+        Size selected = sizeRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Size không tồn tại."));
+        normalizeSize(selected.getTenSize());
+        return selected;
+    }
+
+    private String normalizeSize(String rawSize) {
+        String name = normalizeOption(rawSize, 20, "Tên size");
+        if (name == null) return null;
+        if (!name.matches("[1-9]\\d*")) {
+            throw new IllegalArgumentException("Size phải là số nguyên dương, không nhận số thập phân.");
+        }
+        try {
+            return Integer.toString(Integer.parseInt(name));
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Size không hợp lệ.", exception);
+        }
     }
 
     private String normalizeOption(String value, int maxLength, String label) {
@@ -472,6 +715,6 @@ public class SanPhamController {
     }
 
     private boolean loggedIn(HttpSession session) {
-        return session.getAttribute("user") instanceof TaiKhoan;
+        return SessionUserControllerAdvice.hasBusinessAccess(session);
     }
 }

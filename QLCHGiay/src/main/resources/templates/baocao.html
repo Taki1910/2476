@@ -640,7 +640,7 @@
                 <span>Báo cáo</span>
             </a>
 
-            <a th:href="@{/nhacungcap}">
+            <a th:if="${isAdmin}" th:href="@{/nhacungcap}">
                 <i class="fa-solid fa-truck"></i>
                 <span>Nhà cung cấp</span>
             </a>
@@ -652,6 +652,10 @@
             <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
                 <i class="fa-solid fa-tags"></i>
                 <span>Khuyến mại</span>
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/nhanvien}">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Nhân viên</span>
             </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
@@ -701,13 +705,10 @@
                 <article class="stat-card">
                     <div class="stat-head">
                         <div>
-                            <div class="stat-title">Tổng doanh thu</div>
-                            <div class="stat-value" th:text="${#numbers.formatDecimal(totalRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
+                            <div class="stat-title">Doanh thu theo kỳ</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(periodRevenue,0,'COMMA',0,'POINT') + ' đ'}">0 đ</div>
 
-                            <div class="stat-change">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                                15,2% so với tháng trước
-                            </div>
+                            <div class="stat-change" th:text="${reportPeriodLabel + ' · chỉ tính hóa đơn đã thanh toán'}">Chỉ tính hóa đơn đã thanh toán</div>
                         </div>
 
                         <div class="stat-icon">
@@ -720,12 +721,9 @@
                     <div class="stat-head">
                         <div>
                             <div class="stat-title">Sản phẩm đã bán</div>
-                            <div class="stat-value" th:text="${soldCount + ' đôi'}">0 đôi</div>
+                            <div class="stat-value" th:text="${periodSoldCount + ' đôi'}">0 đôi</div>
 
-                            <div class="stat-change">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                                8,2% tăng trưởng
-                            </div>
+                            <div class="stat-change" th:text="${'Trong ' + reportPeriodLabel}">Theo kỳ báo cáo</div>
                         </div>
 
                         <div class="stat-icon">
@@ -737,13 +735,10 @@
                 <article class="stat-card">
                     <div class="stat-head">
                         <div>
-                            <div class="stat-title">Tổng hóa đơn</div>
-                            <div class="stat-value" th:text="${invoiceCount + ' đơn'}">0 đơn</div>
+                            <div class="stat-title">Hóa đơn đã thanh toán</div>
+                            <div class="stat-value" th:text="${periodInvoiceCount + ' đơn'}">0 đơn</div>
 
-                            <div class="stat-change">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                                5% tăng trưởng
-                            </div>
+                            <div class="stat-change" th:text="${'Trong ' + reportPeriodLabel}">Theo kỳ báo cáo</div>
                         </div>
 
                         <div class="stat-icon">
@@ -755,13 +750,10 @@
                 <article class="stat-card">
                     <div class="stat-head">
                         <div>
-                            <div class="stat-title">Khách hàng mới</div>
+                            <div class="stat-title">Khách hàng đã lưu</div>
                             <div class="stat-value" th:text="${customerCount + ' khách'}">0 khách</div>
 
-                            <div class="stat-change">
-                                <i class="fa-solid fa-arrow-trend-up"></i>
-                                12,4% tăng trưởng
-                            </div>
+                            <div class="stat-change">Số khách hàng đã lưu</div>
                         </div>
 
                         <div class="stat-icon">
@@ -780,13 +772,13 @@
                     <div class="panel-header">
                         <h2 class="panel-title">
                             <i class="fa-solid fa-chart-column"></i>
-                            Doanh thu 6 tháng gần nhất
+                            Doanh thu <span th:text="${reportPeriodLabel}">6 tháng gần nhất</span>
                         </h2>
 
-                        <select class="period-select">
-                            <option>6 tháng gần nhất</option>
-                            <option>12 tháng gần nhất</option>
-                            <option>Năm nay</option>
+                        <select class="period-select" id="reportPeriod" aria-label="Chọn kỳ báo cáo">
+                            <option value="6" th:selected="${reportPeriod == '6'}">6 tháng gần nhất</option>
+                            <option value="12" th:selected="${reportPeriod == '12'}">12 tháng gần nhất</option>
+                            <option value="year" th:selected="${reportPeriod == 'year'}">Năm nay (01/01 đến hiện tại)</option>
                         </select>
                     </div>
 
@@ -882,7 +874,7 @@
                 <div class="panel-header">
                     <h2 class="panel-title">
                         <i class="fa-solid fa-file-invoice"></i>
-                        Báo cáo doanh thu gần đây
+                        Báo cáo doanh thu <span th:text="${reportPeriodLabel}">6 tháng gần nhất</span>
                     </h2>
                 </div>
 
@@ -947,4 +939,9 @@
 </div>
 
 </body>
+<script>
+    document.getElementById('reportPeriod')?.addEventListener('change', event => {
+        window.location.href = `/baocao?period=${encodeURIComponent(event.target.value)}`;
+    });
+</script>
 </html>

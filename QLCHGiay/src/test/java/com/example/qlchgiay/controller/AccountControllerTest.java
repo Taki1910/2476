@@ -32,6 +32,8 @@ class AccountControllerTest {
                 "true",
                 null,
                 null,
+                null,
+                null,
                 new MockHttpSession(),
                 model
         );
@@ -47,6 +49,8 @@ class AccountControllerTest {
         String view = controller.loginPage(
                 null,
                 "true",
+                null,
+                null,
                 null,
                 new MockHttpSession(),
                 model
@@ -65,6 +69,8 @@ class AccountControllerTest {
         session.setAttribute("user", new TaiKhoan());
 
         String view = controller.loginPage(
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -104,7 +110,7 @@ class AccountControllerTest {
                 new RedirectAttributesModelMap()
         );
 
-        assertEquals("redirect:/caidat", view);
+        assertEquals("redirect:/nhanvien", view);
         assertTrue(passwordEncoder.matches("mat-khau-moi", account.getMatKhau()));
         assertEquals(0, account.getSoLanDangNhapSai());
         assertFalse(account.getYeuCauDatLaiMatKhau());
@@ -134,7 +140,7 @@ class AccountControllerTest {
                 new RedirectAttributesModelMap()
         );
 
-        assertEquals("redirect:/caidat", view);
+        assertEquals("redirect:/nhanvien", view);
         assertEquals("unchanged-password", account.getMatKhau());
         assertEquals(0, account.getSoLanDangNhapSai());
         assertFalse(account.getYeuCauDatLaiMatKhau());
@@ -152,7 +158,7 @@ class AccountControllerTest {
 
         String view = controller.adminUnlockAccount(null, session, redirectAttributes);
 
-        assertEquals("redirect:/caidat", view);
+        assertEquals("redirect:/nhanvien", view);
         assertEquals(
                 "Vui lòng chọn tài khoản cần mở khóa",
                 redirectAttributes.getFlashAttributes().get("passwordError")
@@ -195,7 +201,7 @@ class AccountControllerTest {
                 redirectAttributes
         );
 
-        assertEquals("redirect:/caidat", view);
+        assertEquals("redirect:/nhanvien", view);
         assertEquals(
                 "Mật khẩu xác nhận không khớp",
                 redirectAttributes.getFlashAttributes().get("passwordError")

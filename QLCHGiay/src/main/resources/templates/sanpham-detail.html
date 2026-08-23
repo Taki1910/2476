@@ -7,7 +7,9 @@
     <title>Chi tiết sản phẩm - KICKS ZONE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
-        *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0d0c0b;color:#f5f5f5;font-family:Arial,sans-serif}.page{max-width:820px;margin:0 auto;padding:42px 20px}.back{color:#aaa5a1;text-decoration:none}.card{margin-top:22px;padding:28px;background:#151311;border:1px solid #2b2825;border-radius:16px}.title{display:flex;justify-content:space-between;gap:16px;align-items:start;padding-bottom:22px;border-bottom:1px solid #2b2825}.title h1{margin:0 0 8px;font-size:24px}.code{color:#ff7626;font-weight:700}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:12px}.item{padding:17px 8px;border-bottom:1px solid #27231f}.item span{display:block;color:#88827d;font-size:12px;margin-bottom:7px}.item strong{font-size:15px}.money{color:#ffad67}.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:25px}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border-radius:9px;text-decoration:none;font-weight:700}.secondary{background:#27231f;color:#d0cbc7}.primary{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}@media(max-width:600px){.grid{grid-template-columns:1fr}.page{padding:20px 14px}.title{flex-direction:column}}
+        :root{--detail-row:#11100f;--detail-line:#2b2825;--detail-row-text:#f5f5f5;--detail-row-muted:#aaa5a1}
+        :root.light-mode{--detail-row:#f8fafc;--detail-line:#cbd5e1;--detail-row-text:#0f172a;--detail-row-muted:#475569}
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0d0c0b;color:#f5f5f5;font-family:Arial,sans-serif}.page{max-width:820px;margin:0 auto;padding:42px 20px}.back{color:#aaa5a1;text-decoration:none}.card{margin-top:22px;padding:28px;background:#151311;border:1px solid #2b2825;border-radius:16px}.title{display:flex;justify-content:space-between;gap:16px;align-items:start;padding-bottom:22px;border-bottom:1px solid #2b2825}.title h1{margin:0 0 8px;font-size:24px}.code{color:#ff7626;font-weight:700}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:12px}.item{padding:17px 8px;border-bottom:1px solid #27231f}.item span{display:block;color:#88827d;font-size:12px;margin-bottom:7px}.item strong{font-size:15px}.money{color:#ffad67}.variant-section{margin-top:28px;padding-top:20px;border-top:1px solid var(--detail-line)}.variant-title{margin:0 0 12px;font-size:16px}.variant-list{display:grid;gap:8px}.variant-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--detail-line);border-radius:10px;background:var(--detail-row);color:var(--detail-row-text)}.variant-description{margin-left:8px;color:var(--detail-row-muted)}.variant-actions{display:flex;align-items:center;gap:10px}.variant-edit{height:34px;padding:0 10px}.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:25px}.btn{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 17px;border-radius:9px;text-decoration:none;font-weight:700}.secondary{background:#27231f;color:#d0cbc7}.primary{background:linear-gradient(135deg,#ff5722,#ff9800);color:#fff}@media(max-width:600px){.grid{grid-template-columns:1fr}.page{padding:20px 14px}.title{flex-direction:column}.variant-row{align-items:flex-start;flex-direction:column}.variant-actions{width:100%;justify-content:space-between}}
     </style>
     <link rel="stylesheet" th:href="@{/css/theme.css}" href="/css/theme.css">
 </head>
@@ -21,6 +23,22 @@
         <div class="item"><span>Giá bán</span><strong class="money" th:text="${sanPham.gia != null ? #numbers.formatDecimal(sanPham.gia,0,'COMMA',0,'POINT') + ' đ' : '0 đ'}">0 đ</strong></div>
         <div class="item"><span>Số lượng tồn</span><strong th:text="${sanPham.tonKho != null ? sanPham.tonKho : 0}">0</strong></div>
     </div>
-    <div class="actions"><a class="btn secondary" th:href="@{/sanpham}">Danh sách</a><a class="btn primary" th:href="@{/sanpham/sua/{id}(id=${sanPham.id})}"><i class="fa-solid fa-pen"></i> Cập nhật</a></div>
+    <div class="variant-section">
+        <h2 class="variant-title">Các biến thể cùng sản phẩm</h2>
+        <div class="variant-list">
+            <div class="variant-row" th:each="variant : ${variants}">
+                <div>
+                    <strong th:text="${'#SP-' + variant.id}">#SP-1</strong>
+                    <span class="variant-description" th:text="${(variant.maMau != null ? variant.maMau.tenMau : '-') + ' / size ' + (variant.maSize != null ? variant.maSize.tenSize : '-')}">Màu / size</span>
+                </div>
+                <div class="variant-actions">
+                    <span class="money" th:text="${#numbers.formatDecimal(variant.gia,0,'COMMA',0,'POINT') + ' đ'}">0 đ</span>
+                    <span th:text="${variant.trangThai == 'ACTIVE' ? 'Đang kinh doanh' : 'Ngừng kinh doanh'}" th:style="${variant.trangThai == 'ACTIVE' ? 'color:#2be0a0' : 'color:#ff6470'}">Trạng thái</span>
+                    <a th:if="${isAdmin}" class="btn secondary variant-edit" th:href="@{/sanpham/sua/{id}(id=${variant.id})}" title="Cập nhật biến thể"><i class="fa-solid fa-pen"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="actions"><a class="btn secondary" th:href="@{/sanpham}">Danh sách</a><a th:if="${isAdmin}" class="btn primary" th:href="@{/sanpham/sua/{id}(id=${sanPham.id})}"><i class="fa-solid fa-pen"></i> Cập nhật đại diện</a></div>
 </section></main></body>
 </html>

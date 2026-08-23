@@ -37,6 +37,34 @@ class KhachHangValidationTest {
     }
 
     @Test
+    void customerPhoneMustUseAVietnameseMobilePrefix() {
+        KhachHang customer = validCustomer();
+        for (String phone : Set.of(
+                "0412345678", "0112345678", "090123456", "09012345678",
+                "09012 3456", "09012a3456", "09012-3456"
+        )) {
+            customer.setSoDienThoai(phone);
+            var violation = validator.validate(customer).stream()
+                    .filter(item -> item.getPropertyPath().toString().equals("soDienThoai"))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(
+                    "Số điện thoại không đúng định dạng số di động Việt Nam.",
+                    violation.getMessage(),
+                    phone
+            );
+        }
+
+        for (String phone : Set.of(
+                "0321234567", "0521234567", "0701234567",
+                "0811234567", "0901234567"
+        )) {
+            customer.setSoDienThoai(phone);
+            assertTrue(validator.validate(customer).isEmpty(), phone);
+        }
+    }
+
+    @Test
     void customerPhoneAndAddressMayBeEmpty() {
         KhachHang customer = validCustomer();
         customer.setSoDienThoai(null);
@@ -55,7 +83,7 @@ class KhachHangValidationTest {
         KhachHang customer = new KhachHang();
         customer.setTenKH("Khách hàng kiểm thử");
         customer.setGioiTinh(true);
-        customer.setNamSinh(2000);
+        customer.setNgaySinh(java.time.LocalDate.of(2000, 6, 15));
         customer.setSoDienThoai("0901234567");
         customer.setDiaChi("Hà Nội");
         return customer;

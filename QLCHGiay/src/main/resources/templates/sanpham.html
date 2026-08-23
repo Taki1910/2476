@@ -405,7 +405,7 @@
 
         .advanced-filter {
             display: grid;
-            grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+            grid-template-columns: repeat(5, minmax(140px, 1fr)) auto;
             gap: 12px;
             max-height: 0;
             padding: 0 20px;
@@ -416,7 +416,7 @@
         }
 
         .advanced-filter.open {
-            max-height: 110px;
+            max-height: 130px;
             padding: 15px 20px;
             border-bottom-width: 1px;
             opacity: 1;
@@ -768,12 +768,12 @@
                 <span>Hóa đơn</span>
             </a>
 
-            <a th:href="@{/baocao}">
+            <a th:if="${isAdmin}" th:href="@{/baocao}">
                 <i class="fa-solid fa-chart-line"></i>
                 <span>Báo cáo</span>
             </a>
 
-            <a th:href="@{/nhacungcap}">
+            <a th:if="${isAdmin}" th:href="@{/nhacungcap}">
                 <i class="fa-solid fa-truck"></i>
                 <span>Nhà cung cấp</span>
             </a>
@@ -785,6 +785,10 @@
             <a th:if="${isAdmin}" th:href="@{/khuyenmai}">
                 <i class="fa-solid fa-tags"></i>
                 <span>Khuyến mại</span>
+            </a>
+            <a th:if="${isAdmin}" th:href="@{/nhanvien}">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Nhân viên</span>
             </a>
             <a th:href="@{/caidat}">
                 <i class="fa-solid fa-sliders"></i>
@@ -954,7 +958,7 @@
                             </button>
                         </div>
 
-                        <a th:href="@{/sanpham/them}" class="create-btn">
+                        <a th:if="${isAdmin}" th:href="@{/sanpham/them}" class="create-btn">
                             <i class="fa-solid fa-plus"></i>
                             Thêm sản phẩm
                         </a>
@@ -982,8 +986,20 @@
                         <option value="low">Sắp hết hàng</option>
                         <option value="out">Hết hàng</option>
                     </select>
+                    <select id="statusFilter" aria-label="Lọc theo trạng thái kinh doanh" onchange="filterProducts()">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="active">Đang kinh doanh</option>
+                        <option value="mixed">Có biến thể ngừng bán</option>
+                        <option value="inactive">Ngừng kinh doanh</option>
+                    </select>
                     <button class="reset-filter" type="button" onclick="resetFilters()">
                         <i class="fa-solid fa-rotate-left"></i> Xóa lọc
+                    </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 20px 14px">
+                    <div id="activeFilterChips" style="display:flex;gap:8px;flex-wrap:wrap" aria-live="polite"></div>
+                    <button id="clearAllFilters" class="reset-filter" type="button" onclick="resetFilters()" hidden>
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Xóa tất cả
                     </button>
                 </div>
 
@@ -993,13 +1009,13 @@
 
                         <thead>
                         <tr>
-                            <th>Mã</th>
+                            <th>Mã nhóm</th>
                             <th>Sản phẩm</th>
                             <th>Loại</th>
-                            <th>Màu</th>
-                            <th>Size</th>
+                            <th>Màu / Size</th>
                             <th>Giá</th>
                             <th>Tồn kho</th>
+                            <th>Trạng thái</th>
                             <th>Thao tác</th>
                         </tr>
                         </thead>
@@ -1007,36 +1023,43 @@
                         <tbody>
 
                         <tr th:each="x : ${items}"
-                            th:attr="data-search=${'#SP-' + x.id + ' ' + (x.tenSP ?: '') + ' ' + (x.maLoai != null ? x.maLoai.tenLoai : '') + ' ' + (x.maMau != null ? x.maMau.tenMau : '') + ' ' + (x.maSize != null ? x.maSize.tenSize : '')},
-                                     data-price=${x.gia != null ? x.gia : 0},
-                                     data-category=${x.maLoai != null ? x.maLoai.tenLoai : ''},
-                                     data-color=${x.maMau != null ? x.maMau.tenMau : ''},
-                                     data-size=${x.maSize != null ? x.maSize.tenSize : ''},
-                                     data-stock=${x.tonKho == null || x.tonKho == 0 ? 'out' : (x.tonKho <= 5 ? 'low' : 'available')}">
+                            th:attr="data-search=${x.searchText},
+                                      data-price=${x.sortPrice},
+                                      data-category=${x.categorySummary},
+                                      data-color=${x.colorSummary},
+                                      data-size=${x.sizeSummary},
+                                      data-stock=${x.stockStatus},
+                                      data-product-status=${x.businessStatus}">
 
-                            <td class="product-code"
-                                th:text="${x.id != null ? '#SP-' + x.id : '#SP'}">
-                                #SP-1
+                            <td class="product-code">
+                                <span th:text="${x.representativeId != null ? '#SP-' + x.representativeId : '#SP'}">#SP-1</span>
+                                <span class="variant-filter-data" hidden
+                                      th:each="variant : ${x.variants}"
+                                      th:attr="data-category=${variant.maLoai != null ? variant.maLoai.tenLoai : ''},
+                                               data-color=${variant.maMau != null ? variant.maMau.tenMau : ''},
+                                               data-size=${variant.maSize != null ? variant.maSize.tenSize : ''},
+                                               data-stock=${variant.tonKho == null || variant.tonKho == 0 ? 'out' : (variant.tonKho &lt;= 5 ? 'low' : 'available')},
+                                               data-product-status=${variant.active ? 'active' : 'inactive'}"></span>
                             </td>
 
                             <td>
                                 <div class="product-info">
 
                                     <div class="product-icon">
-                                        <img th:if="${x.hinhAnh != null}"
-                                             th:src="${x.hinhAnh.startsWith('/') ? x.hinhAnh : '/images/products/' + x.hinhAnh}"
-                                             th:alt="${'Ảnh ' + x.tenSP}">
-                                        <i th:unless="${x.hinhAnh != null}" class="fa-solid fa-shoe-prints" aria-hidden="true"></i>
+                                        <img th:if="${x.image != null}"
+                                             th:src="${x.image.startsWith('/') ? x.image : '/images/products/' + x.image}"
+                                             th:alt="${'Ảnh ' + x.name}">
+                                        <i th:unless="${x.image != null}" class="fa-solid fa-shoe-prints" aria-hidden="true"></i>
                                     </div>
 
                                     <div>
                                         <div class="product-name"
-                                             th:text="${x.tenSP != null ? x.tenSP : '-'}">
+                                             th:text="${x.name != null ? x.name : '-'}">
                                             Nike Air Force 1
                                         </div>
 
                                         <div class="product-sub">
-                                            Sản phẩm cửa hàng
+                                            <span th:text="${x.variantCount + ' biến thể'}">0 biến thể</span>
                                         </div>
                                     </div>
 
@@ -1045,57 +1068,43 @@
 
                             <td>
                                 <span class="attribute"
-                                      th:text="${x.maLoai != null && x.maLoai.tenLoai != null
-                                      ? x.maLoai.tenLoai
-                                      : '-'}">
+                                      th:text="${x.categorySummary != null && !x.categorySummary.isEmpty() ? x.categorySummary : '-'}">
                                     Sneaker
                                 </span>
                             </td>
 
                             <td>
                                 <span class="attribute"
-                                      th:text="${x.maMau != null && x.maMau.tenMau != null
-                                      ? x.maMau.tenMau
-                                      : '-'}">
-                                    Trắng
-                                </span>
-                            </td>
-
-                            <td>
-                                <span class="attribute"
-                                      th:text="${x.maSize != null && x.maSize.tenSize != null
-                                      ? x.maSize.tenSize
-                                      : '-'}">
-                                    41
+                                      th:text="${(x.colorSummary != null ? x.colorSummary : '-') + ' / size ' + (x.sizeSummary != null ? x.sizeSummary : '-')}"
+                                      th:title="${'Màu: ' + x.colorSummary + ' | Size: ' + x.sizeSummary}">
+                                    Trắng / size 41
                                 </span>
                             </td>
 
                             <td class="money"
-                                th:text="${x.gia != null
-                                ? #numbers.formatDecimal(x.gia, 0, 'COMMA', 0, 'POINT') + ' đ'
-                                : '0 đ'}">
+                                th:text="${x.priceRange}">
                                 0 đ
                             </td>
 
                             <td>
                                 <span class="stock-badge"
-                                      th:classappend="${x.tonKho == null || x.tonKho == 0
+                                      th:classappend="${x.totalStock == 0
                                       ? ' stock-danger'
-                                      : (x.tonKho <= 5
+                                      : (x.totalStock <= 5
                                           ? ' stock-warning'
                                           : ' stock-success')}">
 
-                                    <i th:class="${x.tonKho == null || x.tonKho == 0
+                                    <i th:class="${x.totalStock == 0
                                     ? 'fa-solid fa-circle-xmark'
-                                    : (x.tonKho <= 5
+                                    : (x.totalStock <= 5
                                         ? 'fa-solid fa-triangle-exclamation'
                                         : 'fa-solid fa-circle-check')}"></i>
 
-                                    <span th:text="${x.tonKho == null || x.tonKho == 0
+                                    <span th:text="${x.totalStock == 0
                                     ? 'Hết hàng'
-                                    : (x.tonKho <= 5
-                                        ? 'Sắp hết: ' + x.tonKho
-                                        : 'Còn ' + x.tonKho)}">
+                                    : (x.totalStock <= 5
+                                        ? 'Sắp hết: ' + x.totalStock
+                                        : 'Còn ' + x.totalStock)}">
                                         Còn hàng
                                     </span>
 
@@ -1103,27 +1112,25 @@
                             </td>
 
                             <td>
+                                <span class="stock-badge"
+                                      th:classappend="${x.businessStatus == 'inactive' ? ' stock-danger' : (x.businessStatus == 'mixed' ? ' stock-warning' : ' stock-success')}"
+                                      th:text="${x.businessStatusLabel}">Đang kinh doanh</span>
+                            </td>
+
+                            <td>
                                 <div class="action-group">
 
                                     <a class="action-btn"
-                                       th:href="@{/sanpham/{id}(id=${x.id})}"
+                                        th:href="@{/sanpham/{id}(id=${x.representativeId})}"
                                        title="Xem chi tiết">
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
 
-                                    <a class="action-btn"
-                                       th:href="@{/sanpham/sua/{id}(id=${x.id})}"
+                                    <a th:if="${isAdmin}" class="action-btn"
+                                        th:href="@{/sanpham/sua/{id}(id=${x.representativeId})}"
                                        title="Chỉnh sửa">
                                         <i class="fa-solid fa-pen"></i>
                                     </a>
-
-                                    <form th:if="${isAdmin}"
-                                          method="post" th:action="@{/sanpham/xoa/{id}(id=${x.id})}"
-                                          onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
-                                        <button class="action-btn delete-btn" type="submit" title="Xóa">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </button>
-                                    </form>
 
                                 </div>
                             </td>
@@ -1192,43 +1199,100 @@
         const selectedColor = normalizeText(document.getElementById("colorFilter").value);
         const selectedSize = normalizeText(document.getElementById("sizeFilter").value);
         const selectedStock = document.getElementById("stockFilter").value;
+        const selectedStatus = document.getElementById("statusFilter").value;
 
         return (row) => {
             const searchableText = normalizeText(row.dataset.search);
-            const category = normalizeText(row.dataset.category);
-            const color = normalizeText(row.dataset.color);
-            const size = normalizeText(row.dataset.size);
             const matchesKeyword = tokenMatches(searchableText, keyword);
-            const matchesCategory = selectedCategory === "" || category === selectedCategory;
-            const matchesColor = selectedColor === "" || color === selectedColor;
-            const matchesSize = selectedSize === "" || size === selectedSize;
-            const matchesStock = selectedStock === "" || row.dataset.stock === selectedStock;
+            const matchesMixedStatus = selectedStatus !== "mixed" || row.dataset.status === "mixed";
+            const variants = Array.from(row.querySelectorAll(".variant-filter-data"));
+            const matchesOneVariant = variants.some(variant =>
+                (selectedCategory === "" ||
+                    normalizeText(variant.dataset.category) === selectedCategory) &&
+                (selectedColor === "" ||
+                    normalizeText(variant.dataset.color) === selectedColor) &&
+                (selectedSize === "" ||
+                    normalizeText(variant.dataset.size) === selectedSize) &&
+                (selectedStock === "" ||
+                    variant.dataset.stock === selectedStock) &&
+                (selectedStatus === "" ||
+                    selectedStatus === "mixed" ||
+                    variant.dataset.productStatus === selectedStatus)
+            );
 
-            return matchesKeyword &&
-                matchesCategory &&
-                matchesColor &&
-                matchesSize &&
-                matchesStock;
+            return matchesKeyword && matchesMixedStatus && matchesOneVariant;
         };
+    }
+
+    function renderFilterChips() {
+        const container = document.getElementById("activeFilterChips");
+        const labels = {
+            categoryFilter: "Loại",
+            colorFilter: "Màu",
+            sizeFilter: "Size",
+            stockFilter: "Tồn kho",
+            statusFilter: "Trạng thái"
+        };
+        container.replaceChildren();
+        const appendChip = (text, title, remove) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "attribute";
+            chip.style.cursor = "pointer";
+            chip.title = title;
+            chip.textContent = text + " ×";
+            chip.addEventListener("click", remove);
+            container.appendChild(chip);
+        };
+        const keyword = document.getElementById("productSearch").value.trim();
+        if (keyword) {
+            appendChip(`Tìm kiếm: ${keyword}`, "Xóa từ khóa tìm kiếm", () => {
+                document.getElementById("productSearch").value = "";
+                filterProducts();
+            });
+        }
+        Object.entries(labels).forEach(([id, label]) => {
+            const select = document.getElementById(id);
+            if (!select.value) return;
+            appendChip(`${label}: ${select.options[select.selectedIndex].text}`, "Bỏ bộ lọc " + label, () => {
+                select.value = "";
+                filterProducts();
+            });
+        });
+        if (currentPriceSort) {
+            appendChip(
+                `Giá: ${currentPriceSort === "asc" ? "Thấp → cao" : "Cao → thấp"}`,
+                "Bỏ sắp xếp theo giá",
+                () => {
+                    setPriceSort(null);
+                    filterProducts();
+                }
+            );
+        }
+        document.getElementById("clearAllFilters").hidden = container.childElementCount === 0;
     }
 
     function filterProducts() {
         const activeCount = [
+            document.getElementById("productSearch").value.trim(),
             document.getElementById("categoryFilter").value,
             document.getElementById("colorFilter").value,
             document.getElementById("sizeFilter").value,
             document.getElementById("stockFilter").value,
+            document.getElementById("statusFilter").value,
             currentPriceSort
         ]
             .filter(Boolean).length;
         const badge = document.getElementById("filterCount");
         badge.textContent = activeCount;
         badge.classList.toggle("visible", activeCount > 0);
+        renderFilterChips();
         productPagination.refresh(createProductFilter());
     }
 
     function resetFilters() {
-        ["categoryFilter", "colorFilter", "sizeFilter", "stockFilter"]
+        document.getElementById("productSearch").value = "";
+        ["categoryFilter", "colorFilter", "sizeFilter", "stockFilter", "statusFilter"]
             .forEach(id => document.getElementById(id).value = "");
         setPriceSort(null);
         filterProducts();
@@ -1263,7 +1327,7 @@
     }
 
     function togglePriceSort() {
-        setPriceSort(currentPriceSort === "asc" ? "desc" : "asc");
+        setPriceSort(currentPriceSort === null ? "asc" : currentPriceSort === "asc" ? "desc" : null);
         filterProducts();
     }
 
@@ -1279,5 +1343,6 @@
     filterProducts();
 </script>
 
+<script th:src="@{/js/freshness.js(v='20260817')}" src="/js/freshness.js?v=20260817"></script>
 </body>
 </html>

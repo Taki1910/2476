@@ -5,14 +5,14 @@ Bảng lưu tóm tắt phiên làm việc được tạo idempotent từ `src/ma
 
 ## Chạy
 1. Chạy `QuanLyBanHang.sql` trong SSMS để tạo schema và dữ liệu mẫu cơ bản.
-2. Chạy `seed-dashboard-data.sql` để bổ sung dữ liệu bán hàng của 12 tháng gần
-   nhất, khách hàng mẫu và hai sản phẩm tồn kho thấp. Script này có thể chạy lại
-   an toàn, dữ liệu biểu đồ được tính theo ngày chạy hiện tại.
+2. Chạy `seed-test-products.sql` để tạo các mẫu giày với biến thể đủ
+   loại/màu/chất liệu/size, kèm ảnh minh họa theo thương hiệu.
+3. Chạy `seed-dashboard-data.sql` để bổ sung dữ liệu bán hàng của 12 tháng gần
+   nhất, khách hàng mẫu, hai sản phẩm tồn kho thấp và hai chương trình khuyến mại.
+   Các script seed có thể chạy lại mà không tạo trùng dữ liệu; ngày báo cáo và
+   thời gian khuyến mại được tính theo ngày chạy hiện tại.
    Nếu chạy bằng `sqlcmd`, dùng tùy chọn UTF-8:
-   `sqlcmd -S localhost -U sa -P <mật_khẩu> -C -f 65001 -i seed-dashboard-data.sql`.
-3. Nếu cần dữ liệu kiểm thử sản phẩm, chạy thêm `seed-test-products.sql` để tạo
-   7 mẫu giày với 33 biến thể khác size/màu, kèm ảnh minh họa theo thương hiệu.
-   Script seed có thể chạy lại mà không tạo trùng dữ liệu.
+   `sqlcmd -S localhost -U sa -P <mật_khẩu> -C -f 65001 -i seed-test-products.sql` rồi chạy tiếp `seed-dashboard-data.sql`.
 4. Khai báo mật khẩu SQL Server ngoài mã nguồn:
    PowerShell: `$env:DB_PASSWORD='<mật_khẩu>'`.
    Có thể ghi đè thêm `DB_URL`, `DB_USERNAME` và `SERVER_PORT` nếu cần.

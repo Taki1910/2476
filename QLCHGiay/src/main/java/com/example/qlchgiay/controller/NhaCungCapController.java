@@ -1,12 +1,10 @@
 package com.example.qlchgiay.controller;
 
 import com.example.qlchgiay.model.NhaCungCap;
-import com.example.qlchgiay.model.TaiKhoan;
 import com.example.qlchgiay.repo.NhaCungCapRepo;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -17,6 +15,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @Controller
 @RequestMapping("/nhacungcap")
 public class NhaCungCapController {
+    private static final String ACTIVE_STATUS = "Hoạt động";
+    private static final String INACTIVE_STATUS = "Ngừng hợp tác";
+
     private final NhaCungCapRepo repo;
 
     public NhaCungCapController(NhaCungCapRepo repo) { this.repo = repo; }
@@ -30,7 +31,7 @@ public class NhaCungCapController {
     public String createForm(HttpSession session, Model model) {
         if (!loggedIn(session)) return "redirect:/login";
         NhaCungCap item = new NhaCungCap();
-        item.setTrangThai("Hoạt động");
+        item.setTrangThai(ACTIVE_STATUS);
         model.addAttribute("item", item);
         return showForm(model, "Thêm nhà cung cấp");
     }
@@ -100,23 +101,29 @@ public class NhaCungCapController {
         return "redirect:/nhacungcap";
     }
 
-    @PostMapping("/xoa/{id}")
-    public String delete(@PathVariable Integer id, HttpSession session, RedirectAttributes redirect) {
+    @PostMapping("/ngung-hop-tac/{id}")
+    public String deactivate(
+            @PathVariable Integer id,
+            HttpSession session,
+            RedirectAttributes redirect
+    ) {
         if (!loggedIn(session)) return "redirect:/login";
         if (!SessionUserControllerAdvice.isAdmin(session)) {
             redirect.addFlashAttribute(
                     "error",
-                    "Tài khoản nhân viên không có quyền xóa nhà cung cấp."
+                    "Tài khoản nhân viên không có quyền ngừng hợp tác với nhà cung cấp."
             );
             return "redirect:/nhacungcap";
         }
-        try {
-            repo.deleteById(id);
-            repo.flush();
-            redirect.addFlashAttribute("success", "Đã xóa nhà cung cấp.");
-        } catch (DataIntegrityViolationException ex) {
-            redirect.addFlashAttribute("error", "Không thể xóa nhà cung cấp đang gắn với sản phẩm.");
+        NhaCungCap supplier = repo.findById(id).orElse(null);
+        if (supplier == null) return missing(redirect);
+        if (INACTIVE_STATUS.equals(supplier.getTrangThai())) {
+            redirect.addFlashAttribute("success", "Nhà cung cấp đã ngừng hợp tác trước đó.");
+            return "redirect:/nhacungcap";
         }
+        supplier.setTrangThai(INACTIVE_STATUS);
+        repo.save(supplier);
+        redirect.addFlashAttribute("success", "Đã ngừng hợp tác với nhà cung cấp.");
         return "redirect:/nhacungcap";
     }
 
@@ -131,6 +138,6 @@ public class NhaCungCapController {
     }
 
     private boolean loggedIn(HttpSession session) {
-        return session.getAttribute("user") instanceof TaiKhoan;
+        return SessionUserControllerAdvice.hasBusinessAccess(session);
     }
 }

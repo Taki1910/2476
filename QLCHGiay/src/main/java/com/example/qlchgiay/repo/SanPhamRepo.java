@@ -26,6 +26,11 @@ public interface SanPhamRepo extends JpaRepository<SanPham, Integer> {
 
     @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     List<SanPham> findAllByOrderByTenSPAsc();
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
+    List<SanPham> findByTrangThaiOrderByTenSPAsc(String trangThai);
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
+    List<SanPham> findByTrangThai(String trangThai, Sort sort);
+    @EntityGraph(attributePaths = {"maLoai", "maMau", "maChatLieu", "maSize", "chiTietSanPhams"})
     List<SanPham> findByTenSPIgnoreCase(String tenSP);
 
     @EntityGraph(attributePaths = {"maMau", "maSize"})

@@ -18,6 +18,7 @@ import java.util.List;
 public class WorkSessionService {
     public static final String SESSION_ID_ATTRIBUTE = "workSessionId";
     public static final String NOTIFICATIONS_ATTRIBUTE = "workNotifications";
+    public static final String TRANSITION_NOTICE_ATTRIBUTE = "workSessionTransition";
 
     private final PhienLamViecRepo workSessionRepo;
 
@@ -30,6 +31,10 @@ public class WorkSessionService {
         if (SessionUserControllerAdvice.isEmployee(account)) {
             NhanVien employee = account.getMaNhanVien();
             if (employee == null || employee.getId() == null) {
+                httpSession.setAttribute(
+                        TRANSITION_NOTICE_ATTRIBUTE,
+                        "Không thể tạo ca làm việc: tài khoản chưa liên kết nhân viên."
+                );
                 return List.of();
             }
 
@@ -38,6 +43,7 @@ public class WorkSessionService {
                     workSessionRepo.findByMaNhanVienIdAndKetThucIsNull(employee.getId());
             abandonedSessions.forEach(workSession -> workSession.setKetThuc(now));
             workSessionRepo.saveAll(abandonedSessions);
+            workSessionRepo.flush();
 
             List<PhienLamViec> unseenSessions = workSessionRepo
                     .findByMaNhanVienIdAndKetThucIsNotNullAndNhanVienDaXemFalseOrderByKetThucDesc(
@@ -52,6 +58,13 @@ public class WorkSessionService {
             currentSession.setBatDau(now);
             currentSession = workSessionRepo.save(currentSession);
             httpSession.setAttribute(SESSION_ID_ATTRIBUTE, currentSession.getId());
+            httpSession.setAttribute(
+                    TRANSITION_NOTICE_ATTRIBUTE,
+                    abandonedSessions.isEmpty()
+                            ? "Đã tạo ca làm việc mới #" + currentSession.getId() + "."
+                            : "Đã đóng " + abandonedSessions.size()
+                                    + " ca trước và tạo ca mới #" + currentSession.getId() + "."
+            );
             return notifications;
         }
 

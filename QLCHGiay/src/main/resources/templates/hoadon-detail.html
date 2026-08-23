@@ -166,13 +166,12 @@
     <section class="info">
         <div class="box">
             <small>KHÁCH HÀNG</small>
-            <strong th:text="${item.maDonHang != null && item.maDonHang.maKH != null ? item.maDonHang.maKH.tenKH : 'Khách lẻ'}"></strong>
-            <p th:if="${item.maDonHang != null && item.maDonHang.maKH != null}"
-               th:text="${item.maDonHang.maKH.soDienThoai ?: 'Không có số điện thoại'}"></p>
+            <strong th:text="${item.tenKhachHangHienThi}"></strong>
+            <p th:text="${item.soDienThoaiKhachHangHienThi ?: 'Không có số điện thoại'}"></p>
         </div>
         <div class="box">
             <small>NHÂN VIÊN PHỤ TRÁCH</small>
-            <strong th:text="${item.maNhanVien != null ? item.maNhanVien.tenNhanVien : 'Chưa phân công'}"></strong>
+            <strong th:text="${item.tenNhanVienHienThi}"></strong>
             <p th:text="${item.maDonHang != null ? '#DH-' + item.maDonHang.id : '-'}"></p>
         </div>
     </section>
@@ -189,9 +188,10 @@
         <tbody>
         <tr th:each="d:${details}">
             <td>
-                <strong th:text="${d.maChiTietSP != null && d.maChiTietSP.maSP != null ? d.maChiTietSP.maSP.tenSP : 'Sản phẩm'}"></strong>
+                <strong th:text="${d.tenSanPhamHienThi}"></strong>
+                <small th:if="${d.maSanPhamSnapshot != null}" th:text="${' · ' + d.maSanPhamSnapshot + (d.moTaBienTheSnapshot != null && !#strings.isEmpty(d.moTaBienTheSnapshot) ? ' · ' + d.moTaBienTheSnapshot : '')}"></small>
             </td>
-            <td><del th:if="${d.maKhuyenMai != null && d.giaGoc != null}" th:text="${#numbers.formatDecimal(d.giaGoc,0,'COMMA',0,'POINT') + ' đ'}"></del><br th:if="${d.maKhuyenMai != null}"><strong th:text="${#numbers.formatDecimal(d.donGia,0,'COMMA',0,'POINT') + ' đ'}"></strong><small th:if="${d.maKhuyenMai != null}" th:text="${' · ' + d.maKhuyenMai.tenKhuyenMai}"></small></td>
+            <td><del th:if="${d.giaGoc != null && d.donGia != null && d.giaGoc.compareTo(d.donGia) > 0}" th:text="${#numbers.formatDecimal(d.giaGoc,0,'COMMA',0,'POINT') + ' đ'}"></del><br th:if="${d.tenKhuyenMaiHienThi != null}"><strong th:text="${#numbers.formatDecimal(d.donGia,0,'COMMA',0,'POINT') + ' đ'}"></strong><small th:if="${d.tenKhuyenMaiHienThi != null}" th:text="${' · ' + d.tenKhuyenMaiHienThi}"></small></td>
             <td th:text="${d.soLuong}"></td>
             <td th:text="${#numbers.formatDecimal(d.donGia * d.soLuong,0,'COMMA',0,'POINT') + ' đ'}"></td>
         </tr>
@@ -221,7 +221,7 @@
     <a class="btn" th:href="@{/hoadon}">Quay lại</a>
     <a class="btn" th:href="@{/hoadon/{id}(id=${item.id},print=true)}">In hóa đơn</a>
     <form method="post"
-          th:if="${item.trangThaiHienThi == 'Chưa thanh toán'}"
+          th:if="${canEdit}"
           th:action="@{/hoadon/thanh-toan/{id}(id=${item.id})}"
           onsubmit="return confirm('Xác nhận đã nhận thanh toán? Tồn kho sẽ được trừ ngay.')">
         <button class="btn primary" type="submit">Xác nhận thanh toán</button>
@@ -230,9 +230,10 @@
        th:href="@{/hoadon/sua/{id}(id=${item.id})}">Chỉnh sửa</a>
     <form method="post"
           th:if="${canEdit}"
-          th:action="@{/hoadon/xoa/{id}(id=${item.id})}"
-          onsubmit="return confirm('Bạn có chắc muốn xóa hóa đơn này?')">
-        <button class="btn danger" type="submit">Xóa hóa đơn</button>
+          th:action="@{/hoadon/huy/{id}(id=${item.id})}"
+          onsubmit="return confirm('Xác nhận hủy hóa đơn này?')">
+        <input type="text" name="lyDo" required minlength="3" maxlength="500" placeholder="Lý do hủy">
+        <button class="btn danger" type="submit">Hủy hóa đơn</button>
     </form>
 </nav>
 
@@ -272,5 +273,6 @@
     </ol>
 </section>
 
+<script th:src="@{/js/freshness.js(v='20260817')}" src="/js/freshness.js?v=20260817"></script>
 </body>
 </html>

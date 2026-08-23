@@ -1,7 +1,17 @@
+/*
+   DEVELOPMENT BOOTSTRAP ONLY — run manually against a disposable/local database.
+   This file creates the database and sample rows; the application never executes it.
+   Production/runtime upgrades belong in src/main/resources/schema.sql and must not
+   contain demo invoices, payments, promotions, prices, or audit history.
+*/
 CREATE DATABASE QuanLyBanHang;
 GO
 
 USE QuanLyBanHang;
+GO
+
+/* Keep development restarts from abandoning 1,000-value IDENTITY cache blocks. */
+ALTER DATABASE SCOPED CONFIGURATION SET IDENTITY_CACHE = OFF;
 GO
 
 /* =========================
@@ -107,6 +117,10 @@ CREATE TABLE SanPham(
 
     tonKho INT DEFAULT 0,
 
+    trangThai VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+
+    version BIGINT NOT NULL DEFAULT 0,
+
     FOREIGN KEY(maLoai)
         REFERENCES Loai(maLoai),
 
@@ -180,6 +194,8 @@ CREATE TABLE NhanVien(
 
     namSinh INT,
 
+    ngaySinh DATE,
+
     queQuan NVARCHAR(100),
 
     maChucVu INT,
@@ -206,8 +222,12 @@ CREATE TABLE KhachHang(
 
     namSinh INT,
 
+    ngaySinh DATE,
+
     soDienThoai VARCHAR(15),
-diaChi NVARCHAR(200)
+    diaChi NVARCHAR(200),
+
+    trangThai VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
 
 );
 
@@ -243,6 +263,31 @@ CREATE TABLE TaiKhoan(
         REFERENCES NhanVien(maNhanVien)
 
 );
+
+
+/* =========================
+   THÔNG BÁO PERSISTENT
+========================= */
+
+CREATE TABLE ThongBao(
+    maThongBao INT IDENTITY(1,1) PRIMARY KEY,
+    loai VARCHAR(50) NOT NULL,
+    tieuDe NVARCHAR(150) NOT NULL,
+    noiDung NVARCHAR(500) NOT NULL,
+    thoiGianTao DATETIME2 NOT NULL
+        CONSTRAINT DF_ThongBao_ThoiGianTao DEFAULT SYSDATETIME(),
+    thoiGianDaDoc DATETIME2,
+    maNguoiNhan INT NOT NULL,
+    loaiDoiTuong VARCHAR(50),
+    maDoiTuong INT,
+    khoaChongTrung VARCHAR(200) NOT NULL,
+    CONSTRAINT FK_ThongBao_TaiKhoan FOREIGN KEY(maNguoiNhan)
+        REFERENCES TaiKhoan(maTaiKhoan),
+    CONSTRAINT UX_ThongBao_NguoiNhan_Khoa UNIQUE(maNguoiNhan, khoaChongTrung)
+);
+
+CREATE INDEX IX_ThongBao_NguoiNhan_DaDoc_Tao
+    ON ThongBao(maNguoiNhan, thoiGianDaDoc, thoiGianTao DESC);
 
 
 /* =========================
@@ -353,6 +398,12 @@ CREATE TABLE HoaDon(
 
     trangThai NVARCHAR(50),
 
+    tenKhachHangSnapshot NVARCHAR(100),
+
+    soDienThoaiKhachHangSnapshot VARCHAR(15),
+
+    tenNhanVienSnapshot NVARCHAR(100),
+
     FOREIGN KEY(maDonHang)
         REFERENCES DonHang(maDonHang),
 
@@ -386,7 +437,7 @@ CREATE TABLE LichSuChinhSuaHoaDon(
     duLieuSau NVARCHAR(MAX) NOT NULL,
 
     FOREIGN KEY(maHoaDon)
-        REFERENCES HoaDon(maHoaDon) ON DELETE CASCADE,
+        REFERENCES HoaDon(maHoaDon),
 
     FOREIGN KEY(maPhien)
         REFERENCES PhienLamViec(maPhien)
@@ -407,6 +458,11 @@ CREATE TABLE KhuyenMai(
     ketThuc DATETIME2 NOT NULL,
     trangThai BIT NOT NULL DEFAULT 1,
     CONSTRAINT CK_KhuyenMai_Loai CHECK (loaiGiam IN ('PHAN_TRAM', 'SO_TIEN')),
+    CONSTRAINT CK_KhuyenMai_GiaTri CHECK (
+        giaTri > 0
+        AND giaTri = FLOOR(giaTri)
+        AND (loaiGiam <> 'PHAN_TRAM' OR giaTri <= 100)
+    ),
     CONSTRAINT CK_KhuyenMai_ThoiGian CHECK (batDau < ketThuc)
 );
 
@@ -437,6 +493,14 @@ CREATE TABLE ChiTietHoaDon(
     giaGoc DECIMAL(18,2),
 
     maKhuyenMai INT,
+
+    tenSanPhamSnapshot NVARCHAR(100),
+
+    maSanPhamSnapshot VARCHAR(30),
+
+    moTaBienTheSnapshot NVARCHAR(200),
+
+    tenKhuyenMaiSnapshot NVARCHAR(120),
 
     thanhTien AS (soLuong * donGia),
 
@@ -547,11 +611,11 @@ VALUES
 INSERT INTO ChiTietSanPham
 (maSP,maNCC,moTa,hinhAnh,xuatXu,thuongHieu,trangThai)
 VALUES
-(1,1,N'Giày Nike Air Force 1 chính hãng','af1.jpg',N'Việt Nam',N'Nike',N'Còn hàng'),
-(2,2,N'Adidas Superstar','superstar.jpg',N'Việt Nam',N'Adidas',N'Còn hàng'),
-(3,3,N'Converse Chuck Taylor','converse.jpg',N'Việt Nam',N'Converse',N'Còn hàng'),
-(4,1,N'Nike Jordan Low','jordan.jpg',N'Indonesia',N'Nike',N'Còn hàng'),
-(5,3,N'Vans Old Skool','vans.jpg',N'Trung Quốc',N'Vans',N'Còn hàng');
+(1,1,N'Giày Nike Air Force 1 chính hãng',N'/images/products/nike.svg',N'Việt Nam',N'Nike',N'Còn hàng'),
+(2,2,N'Adidas Superstar',N'/images/products/adidas.svg',N'Việt Nam',N'Adidas',N'Còn hàng'),
+(3,3,N'Converse Chuck Taylor',N'/images/products/converse.svg',N'Việt Nam',N'Converse',N'Còn hàng'),
+(4,1,N'Nike Jordan Low',N'/images/products/jordan.svg',N'Indonesia',N'Nike',N'Còn hàng'),
+(5,3,N'Vans Old Skool',N'/images/products/vans.svg',N'Trung Quốc',N'Vans',N'Còn hàng');
 
 /* =========================
    CHỨC VỤ
@@ -567,22 +631,31 @@ VALUES
 ========================= */
 
 INSERT INTO NhanVien
-(tenNhanVien,gioiTinh,soDienThoai,namSinh,queQuan,maChucVu,trangThai)
+(tenNhanVien,gioiTinh,soDienThoai,namSinh,ngaySinh,queQuan,maChucVu,trangThai)
 VALUES
-(N'Nguyễn Văn A',1,'0911111111',1998,N'Hà Nội',1,N'Đang làm'),
-(N'Trần Thị B',0,'0922222222',2000,N'TP. Hồ Chí Minh',2,N'Đang làm'),
-(N'Lê Văn C',1,'0933333333',1999,N'Đà Nẵng',2,N'Đang làm');
+(N'Nguyễn Thành Đạt',1,'0911111111',1998,'1998-04-12',N'Hà Nội',1,N'Đang làm'),
+(N'Trần Ngọc Mai',0,'0922222222',2000,'2000-09-21',N'TP. Hồ Chí Minh',2,N'Đang làm'),
+(N'Lê Minh Quân',1,'0933333333',1999,'1999-02-17',N'Đà Nẵng',2,N'Đang làm');
+
+/* =========================
+   PHIÊN LÀM VIỆC MẪU
+========================= */
+
+INSERT INTO PhienLamViec
+(maNhanVien,batDau,ketThuc,soSanPhamBan,soKhachHangMoi,doanhThu,nhanVienDaXem,adminDaXem)
+VALUES
+(1,'2026-07-01T08:00:00','2026-07-01T17:30:00',1,1,2500000,1,1);
 
 /* =========================
    KHÁCH HÀNG
 ========================= */
 
 INSERT INTO KhachHang
-(tenKH,gioiTinh,namSinh,soDienThoai,diaChi)
+(tenKH,gioiTinh,namSinh,ngaySinh,soDienThoai,diaChi)
 VALUES
-(N'Phạm Kiên Trung',1,2004,'0988888888',N'Hà Nội'),
-(N'Nguyễn Thị D',0,2002,'0977777777',N'TP. Hồ Chí Minh'),
-(N'Hoàng Văn E',1,1999,'0966666666',N'Đà Nẵng');
+(N'Phạm Kiên Trung',1,2004,'2004-06-15','0988888888',N'Hà Nội'),
+(N'Nguyễn Thùy Dương',0,2002,'2002-11-03','0977777777',N'TP. Hồ Chí Minh'),
+(N'Hoàng Minh Đức',1,1999,'1999-01-25','0966666666',N'Đà Nẵng');
 
 /* =========================
    TÀI KHOẢN
@@ -594,6 +667,25 @@ VALUES
 ('admin','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Admin',1,N'Hoạt động'),
 ('nhanvien1','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Nhân viên',2,N'Hoạt động'),
 ('nhanvien2','$2a$10$cTQezFkcDVqQSolbd2ROWOog6tBV0E92.H86p.Hj4mupL2FZiJGN.',N'Nhân viên',3,N'Hoạt động');
+
+/* =========================
+   KHUYẾN MẠI MẪU
+========================= */
+
+INSERT INTO KhuyenMai
+(tenKhuyenMai,loaiGiam,giaTri,batDau,ketThuc,trangThai)
+VALUES
+(N'Ưu đãi thành viên mới','PHAN_TRAM',10,DATEADD(DAY,-7,SYSDATETIME()),DATEADD(DAY,23,SYSDATETIME()),1),
+(N'Giảm 200K giày Nike','SO_TIEN',200000,DATEADD(DAY,1,SYSDATETIME()),DATEADD(DAY,31,SYSDATETIME()),1),
+(N'Back to School','PHAN_TRAM',15,DATEADD(DAY,-60,SYSDATETIME()),DATEADD(DAY,-30,SYSDATETIME()),0);
+
+INSERT INTO KhuyenMaiSanPham(maKhuyenMai,maSP)
+VALUES
+(1,1),
+(1,2),
+(2,4),
+(3,3),
+(3,5);
 
 /* =========================
    CHI TIẾT GIỎ HÀNG
@@ -622,22 +714,31 @@ VALUES
 ========================= */
 
 INSERT INTO HoaDon
-(maDonHang,maNhanVien,ngayLap,tongTien,trangThai)
+(maDonHang,maNhanVien,ngayLap,tongTien,trangThai,
+ tenKhachHangSnapshot,soDienThoaiKhachHangSnapshot,tenNhanVienSnapshot,maPhien)
 VALUES
-(1,1,'2026-07-01',2500000,N'Đã thanh toán'),
-(2,2,'2026-07-02',4400000,N'Đã thanh toán'),
-(3,3,'2026-07-03',1800000,N'Đã thanh toán');
+(1,1,'2026-07-01',2500000,N'Đã thanh toán',N'Phạm Kiên Trung','0988888888',N'Nguyễn Thành Đạt',1),
+(2,2,'2026-07-02',4400000,N'Đã thanh toán',N'Nguyễn Thùy Dương','0977777777',N'Trần Ngọc Mai',NULL),
+(3,3,'2026-07-03',1800000,N'Đã thanh toán',N'Hoàng Minh Đức','0966666666',N'Lê Minh Quân',NULL);
+
+INSERT INTO LichSuChinhSuaHoaDon
+(maHoaDon,maPhien,nguoiChinhSua,thoiGian,duLieuTruoc,duLieuSau)
+VALUES
+(1,1,N'Nguyễn Thành Đạt','2026-07-01T10:30:00',
+ N'{"trangThai":"Chưa thanh toán","tongTien":2500000}',
+ N'{"trangThai":"Đã thanh toán","tongTien":2500000}');
 
 /* =========================
    CHI TIẾT HÓA ĐƠN
 ========================= */
 
 INSERT INTO ChiTietHoaDon
-(maHoaDon,maChiTietSP,soLuong,donGia,giaGoc)
+(maHoaDon,maChiTietSP,soLuong,donGia,giaGoc,
+ tenSanPhamSnapshot,maSanPhamSnapshot,moTaBienTheSnapshot)
 VALUES
-(1,1,1,2500000,2500000),
-(2,2,2,2200000,2200000),
-(3,3,1,1800000,1800000);
+(1,1,1,2500000,2500000,N'Nike Air Force 1','SP-1',N'Giày Sneaker / Trắng / Size 40'),
+(2,2,2,2200000,2200000,N'Adidas Superstar','SP-2',N'Giày Sneaker / Đen / Size 41'),
+(3,3,1,1800000,1800000,N'Converse Chuck Taylor','SP-3',N'Giày Thể Thao / Đen / Size 40');
 
 /* =========================
    THANH TOÁN

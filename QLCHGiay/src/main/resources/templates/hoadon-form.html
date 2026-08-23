@@ -13,7 +13,7 @@
         .shell{max-width:1080px;margin:34px auto;padding:0 20px}.top{display:flex;align-items:center;gap:16px;margin-bottom:24px}.back{width:42px;height:42px;display:grid;place-items:center;color:#fff;background:var(--panel);border:1px solid var(--line);border-radius:12px;text-decoration:none}.top h1{margin:0;font-size:28px}.top p{margin:6px 0 0;color:var(--muted)}
         .card{padding:25px;background:rgba(23,21,19,.96);border:1px solid var(--line);border-radius:18px;margin-bottom:18px}.section-title{display:flex;align-items:center;gap:10px;margin:0 0 20px;font-size:18px}.section-title i{color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.full{grid-column:1/-1}
         label{display:block;margin-bottom:8px;color:var(--muted);font-weight:600}input,select{width:100%;height:46px;padding:0 13px;background:var(--field);color:#fff;border:1px solid var(--line);border-radius:10px;outline:0;font:inherit}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,100,34,.12)}
-        .switcher{display:grid;grid-template-columns:1fr 1fr;padding:4px;background:var(--field);border-radius:11px;margin-bottom:18px}.switcher button{height:42px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}.switcher button.active{background:var(--accent);color:#fff}.hint{display:block;color:var(--muted);font-size:12px;margin-top:6px}.new-customer{display:none}.new-customer.show{display:grid}
+        .switcher{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:4px;background:var(--field);border-radius:11px;margin-bottom:18px}.switcher button{height:42px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:700;cursor:pointer}.switcher button.active{background:var(--accent);color:#fff}.hint{display:block;color:var(--muted);font-size:12px;margin-top:6px}.new-customer{display:none}.new-customer.show{display:grid}
         .product-intro{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-bottom:18px}.product-intro .section-title{margin-bottom:5px}.product-intro p{margin:0;color:var(--muted);font-size:13px}.catalog-toolbar{display:flex;align-items:center;gap:14px;margin-bottom:12px}.search-box{position:relative;flex:1}.search-box i{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted)}.search-box input{padding-left:42px}.result-count{color:var(--muted);font-size:13px;white-space:nowrap}
         .product-catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:370px;overflow:auto;padding:2px 5px 2px 2px}.product-card{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:96px;padding:14px;text-align:left;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:12px;cursor:pointer}.product-card:hover,.product-card:focus-visible{border-color:var(--accent);background:#2a211d;outline:0}.product-card.selected{border-color:var(--success);box-shadow:0 0 0 2px rgba(91,212,155,.12)}.product-card:disabled{cursor:not-allowed;opacity:.55}.product-thumb{width:54px;height:54px;object-fit:contain;border-radius:10px;background:#f8fafc;padding:4px}.product-code{color:#ff9a6e;font-size:11px;font-weight:800;letter-spacing:.04em}.product-name{display:block;margin:4px 0 7px;font-size:15px}.product-meta{display:flex;flex-wrap:wrap;gap:5px;color:var(--muted);font-size:12px}.product-meta span:not(:last-child)::after{content:"·";margin-left:5px;color:#665f5a}.product-card-side{text-align:right}.product-price{display:block;color:#ffd0bc;font-weight:800}.original-price{display:block;margin-bottom:3px;color:var(--muted);font-size:12px}.promotion-badge{display:inline-block;max-width:150px;margin-top:6px;padding:3px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;background:#49301f;color:#ffc2a5;font-size:10px;font-weight:800}.stock{display:block;margin-top:8px;color:var(--success);font-size:12px}.stock.out{color:var(--danger)}.product-card-side i{display:block;margin-top:9px;color:var(--accent)}
         .catalog-empty,.empty-cart{padding:18px;color:var(--muted);text-align:center;border:1px dashed var(--line);border-radius:10px}.catalog-empty[hidden],.empty-cart[hidden],.product-card[hidden]{display:none}.selected-heading{margin:24px 0 12px;font-size:15px}.product-head,.product-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 140px 42px;gap:12px;align-items:center}.product-head{padding:0 2px 9px;color:var(--muted);font-size:12px;font-weight:bold}.product-row{margin-bottom:12px;padding:10px;background:#1d1a18;border:1px solid var(--line);border-radius:12px}.product-row.invalid{border-color:var(--danger)}.selected-product strong{display:block}.selected-product small{display:block;margin-top:5px;color:var(--muted)}.selected-product .selected-stock{color:#d9b5a5}.line-total{text-align:right;font-weight:bold;color:#ffd0bc}.remove{height:42px;border:1px solid #573135;background:#2a1c1e;color:var(--danger);border-radius:10px;cursor:pointer}.summary{display:flex;justify-content:flex-end;align-items:end;gap:14px;padding-top:20px;border-top:1px solid var(--line);margin-top:18px}.summary span{color:var(--muted)}.summary strong{font-size:28px;color:#ff8a57}
@@ -26,10 +26,11 @@
     <header class="top"><a class="back" th:href="@{/hoadon}"><i class="fa-solid fa-arrow-left"></i></a><div><h1 th:text="${pageTitle}">Tạo hóa đơn</h1><p>Chọn khách hàng và sản phẩm — đơn hàng sẽ được tạo tự động.</p></div></header>
     <form id="invoiceForm" method="post" th:action="${item.id == null} ? @{/hoadon/them} : @{/hoadon/sua/{id}(id=${item.id})}">
         <section class="card"><h2 class="section-title"><i class="fa-solid fa-user"></i> Khách hàng</h2>
-            <div class="switcher"><button type="button" class="active" data-mode="existing">Khách hàng đã có</button><button type="button" data-mode="new">Tạo nhanh khách mới</button></div>
+            <div class="switcher"><button type="button" class="active" data-mode="existing">Khách hàng đã có</button><button type="button" data-mode="new">Tạo nhanh khách mới</button><button type="button" data-mode="walkin">Khách lẻ</button></div>
+            <input type="hidden" name="khachLe" id="khachLe" th:value="${item.maDonHang != null && item.maDonHang.maKH == null ? 'true' : 'false'}">
             <input type="hidden" name="taoKhachMoi" id="taoKhachMoi" value="false">
             <div id="existingCustomer"><label for="maKhachHang">Chọn khách hàng *</label><select name="maKhachHang" id="maKhachHang"><option value="">Chọn khách hàng...</option><option th:each="x:${khachHangList}" th:value="${x.id}" th:text="${x.tenKH + (x.soDienThoai != null ? ' · ' + x.soDienThoai : '')}" th:selected="${item.maDonHang != null && item.maDonHang.maKH != null && item.maDonHang.maKH.id == x.id}"></option></select></div>
-            <div class="grid new-customer" id="newCustomer"><div><label for="tenKhachMoi">Họ tên *</label><input id="tenKhachMoi" name="tenKhachMoi" maxlength="100" autocomplete="name" placeholder="Nguyễn Văn An"></div><div><label for="soDienThoaiMoi">Số điện thoại *</label><input id="soDienThoaiMoi" name="soDienThoaiMoi" maxlength="10" inputmode="numeric" autocomplete="tel" pattern="0[0-9]{9}" placeholder="0xxxxxxxxx"><small class="hint">Đúng 10 chữ số, bắt đầu bằng 0</small></div><div class="full"><label for="diaChiMoi">Địa chỉ</label><input id="diaChiMoi" name="diaChiMoi" maxlength="200" autocomplete="street-address" placeholder="Địa chỉ giao hàng (không bắt buộc)"></div></div>
+            <div class="grid new-customer" id="newCustomer"><div><label for="tenKhachMoi">Họ tên *</label><input id="tenKhachMoi" name="tenKhachMoi" maxlength="100" autocomplete="name" placeholder="Nguyễn Văn An"></div><div><label for="soDienThoaiMoi">Số điện thoại *</label><input id="soDienThoaiMoi" name="soDienThoaiMoi" maxlength="10" inputmode="numeric" autocomplete="tel" pattern="(03|05|07|08|09)[0-9]{8}" title="Số điện thoại không đúng định dạng số di động Việt Nam." placeholder="09xxxxxxxx"><small class="hint">10 chữ số, đầu số 03, 05, 07, 08 hoặc 09</small></div><div><label for="ngaySinhKhachMoi">Ngày sinh *</label><input id="ngaySinhKhachMoi" name="ngaySinhKhachMoi" type="date" min="1900-01-01" th:max="${T(java.time.LocalDate).now().minusYears(15)}" title="Khách hàng phải đủ 15 tuổi trở lên để mua hàng."><small class="hint">Khách hàng phải đủ 15 tuổi trở lên để mua hàng.</small></div><div><label for="diaChiMoi">Địa chỉ</label><input id="diaChiMoi" name="diaChiMoi" maxlength="200" autocomplete="street-address" placeholder="Địa chỉ giao hàng (không bắt buộc)"></div></div>
         </section>
         <section class="card"><h2 class="section-title"><i class="fa-solid fa-receipt"></i> Thông tin hóa đơn</h2><div class="grid">
             <div><label for="ngayLapHienThi">Ngày lập</label><input id="ngayLapHienThi" type="text" readonly th:value="${item.ngayLap != null ? #temporals.format(item.ngayLap, 'dd/MM/yyyy') : #temporals.format(today, 'dd/MM/yyyy')}"><small class="hint">Ngày lập được hệ thống tự động ghi nhận và không thể chỉnh sửa.</small></div>
@@ -48,7 +49,7 @@
                             th:selected="${item.maNhanVien != null && item.maNhanVien.id == x.id}"></option>
                 </select>
             </div>
-            <div><label for="trangThai">Trạng thái</label><input id="trangThai" type="text" name="trangThai" required pattern="Chưa thanh toán|Đã hủy" th:value="${item.id == null ? 'Chưa thanh toán' : item.trangThaiHienThi}" th:readonly="${item.id == null}"><small class="hint" th:text="${item.id == null ? 'Hóa đơn mới luôn ở trạng thái Chưa thanh toán.' : 'Nhập Chưa thanh toán hoặc Đã hủy.'}">Nhập Chưa thanh toán hoặc Đã hủy.</small></div>
+            <div><label for="trangThai">Trạng thái</label><input id="trangThai" type="text" readonly th:value="${item.trangThaiHienThi}"><small class="hint">Trạng thái chỉ thay đổi qua thao tác thanh toán hoặc hủy hóa đơn.</small></div>
         </div></section>
         <section class="card">
             <div class="product-intro">
@@ -175,10 +176,15 @@ document.getElementById('productSearch').addEventListener('input',event=>{
 document.querySelectorAll('.switcher button').forEach(btn=>btn.onclick=()=>{
     document.querySelectorAll('.switcher button').forEach(x=>x.classList.toggle('active',x===btn));
     const fresh=btn.dataset.mode==='new';
+    const walkin=btn.dataset.mode==='walkin';
+    document.getElementById('khachLe').value=walkin;
     document.getElementById('taoKhachMoi').value=fresh;
-    document.getElementById('existingCustomer').style.display=fresh?'none':'block';
+    document.getElementById('existingCustomer').style.display=fresh||walkin?'none':'block';
     document.getElementById('newCustomer').classList.toggle('show',fresh);
-    document.getElementById('maKhachHang').required=!fresh;
+    document.getElementById('maKhachHang').required=!fresh&&!walkin;
+    ['tenKhachMoi','soDienThoaiMoi','ngaySinhKhachMoi'].forEach(id=>{
+        document.getElementById(id).required=fresh;
+    });
 });
 document.getElementById('invoiceForm').addEventListener('submit',event=>{
     if(!rows.children.length){
@@ -188,7 +194,13 @@ document.getElementById('invoiceForm').addEventListener('submit',event=>{
         document.getElementById('productSearch').focus();
     }
 });
-document.querySelectorAll('#savedLines div').forEach(item=>addProduct(item.dataset.product,item.dataset.quantity));
-document.getElementById('maKhachHang').required=true;
-syncCatalogState();
+ document.querySelectorAll('#savedLines div').forEach(item=>addProduct(item.dataset.product,item.dataset.quantity));
+ document.getElementById('maKhachHang').required=true;
+ ['tenKhachMoi','soDienThoaiMoi','ngaySinhKhachMoi'].forEach(id=>{
+     document.getElementById(id).required=false;
+ });
+ if(document.getElementById('khachLe').value==='true'){
+     document.querySelector('.switcher button[data-mode="walkin"]').click();
+ }
+ syncCatalogState();
 </script></body></html>

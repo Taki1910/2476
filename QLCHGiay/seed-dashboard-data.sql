@@ -1,3 +1,4 @@
+/* DEVELOPMENT DEMO DATA ONLY — never execute as an application startup script. */
 USE QuanLyBanHang;
 GO
 
@@ -16,8 +17,18 @@ BEGIN TRY
     DECLARE @MauId INT = (SELECT TOP 1 maMau FROM Mau ORDER BY maMau);
     DECLARE @ChatLieuId INT = (SELECT TOP 1 maChatLieu FROM ChatLieu ORDER BY maChatLieu);
     DECLARE @SizeId INT = (SELECT TOP 1 maSize FROM Size ORDER BY maSize);
-    DECLARE @NhaCungCapId INT = (SELECT TOP 1 maNCC FROM NhaCungCap ORDER BY maNCC);
+    DECLARE @NhaCungCapId INT = (
+        SELECT TOP 1 maNCC
+        FROM NhaCungCap
+        WHERE trangThai = N'Hoạt động'
+        ORDER BY maNCC
+    );
     DECLARE @NhanVienId INT = (SELECT TOP 1 maNhanVien FROM NhanVien ORDER BY maNhanVien);
+    DECLARE @NhanVienName NVARCHAR(100) =
+        (SELECT tenNhanVien FROM NhanVien WHERE maNhanVien = @NhanVienId);
+
+    IF @NhaCungCapId IS NULL
+        THROW 51000, N'Không có nhà cung cấp đang hoạt động để tạo dữ liệu Dashboard.', 1;
 
     IF NOT EXISTS (SELECT 1 FROM SanPham WHERE tenSP = N'New Balance 550 Demo')
     BEGIN
@@ -59,6 +70,10 @@ BEGIN TRY
     UPDATE detail
     SET
         detail.moTa = N'Sản phẩm mẫu dùng cho cảnh báo tồn kho và biểu đồ',
+        detail.hinhAnh = CASE
+            WHEN product.tenSP LIKE N'New Balance%' THEN N'/images/products/new-balance.svg'
+            ELSE N'/images/products/puma.svg'
+        END,
         detail.xuatXu = N'Việt Nam',
         detail.thuongHieu = CASE
             WHEN product.tenSP LIKE N'New Balance%' THEN N'New Balance'
@@ -68,6 +83,48 @@ BEGIN TRY
     FROM ChiTietSanPham detail
     INNER JOIN SanPham product ON product.maSP = detail.maSP
     WHERE product.tenSP IN (N'New Balance 550 Demo', N'Puma Suede Classic Demo');
+
+    IF NOT EXISTS (SELECT 1 FROM KhuyenMai WHERE tenKhuyenMai = N'Demo - Thành viên mới')
+        INSERT INTO KhuyenMai
+            (tenKhuyenMai, loaiGiam, giaTri, batDau, ketThuc, trangThai)
+        VALUES
+            (N'Demo - Thành viên mới', 'PHAN_TRAM', 10,
+             DATEADD(DAY, -7, SYSDATETIME()), DATEADD(DAY, 23, SYSDATETIME()), 1);
+
+    IF NOT EXISTS (SELECT 1 FROM KhuyenMai WHERE tenKhuyenMai = N'Demo - Giảm 200K')
+        INSERT INTO KhuyenMai
+            (tenKhuyenMai, loaiGiam, giaTri, batDau, ketThuc, trangThai)
+        VALUES
+            (N'Demo - Giảm 200K', 'SO_TIEN', 200000,
+             DATEADD(DAY, 1, SYSDATETIME()), DATEADD(DAY, 31, SYSDATETIME()), 1);
+
+    UPDATE KhuyenMai
+    SET batDau = DATEADD(DAY, -7, SYSDATETIME()),
+        ketThuc = DATEADD(DAY, 23, SYSDATETIME()),
+        trangThai = 1
+    WHERE tenKhuyenMai = N'Demo - Thành viên mới';
+
+    UPDATE KhuyenMai
+    SET batDau = DATEADD(DAY, 1, SYSDATETIME()),
+        ketThuc = DATEADD(DAY, 31, SYSDATETIME()),
+        trangThai = 1
+    WHERE tenKhuyenMai = N'Demo - Giảm 200K';
+
+    INSERT INTO KhuyenMaiSanPham(maKhuyenMai, maSP)
+    SELECT promotion.maKhuyenMai, product.maSP
+    FROM KhuyenMai promotion
+    INNER JOIN SanPham product ON
+        (promotion.tenKhuyenMai = N'Demo - Thành viên mới'
+         AND product.tenSP = N'New Balance 550 Demo')
+        OR
+        (promotion.tenKhuyenMai = N'Demo - Giảm 200K'
+         AND product.tenSP = N'Puma Suede Classic Demo')
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM KhuyenMaiSanPham linked
+        WHERE linked.maKhuyenMai = promotion.maKhuyenMai
+          AND linked.maSP = product.maSP
+    );
 
     DECLARE @DemoSales TABLE (
         monthOffset INT PRIMARY KEY,
@@ -82,25 +139,26 @@ BEGIN TRY
     INSERT INTO @DemoSales
         (monthOffset, customerName, phone, address, quantity, productRank, paymentMethod)
     VALUES
-        (11, N'Khách mẫu An',   '0950000011', N'Hà Nội',            1, 1, N'Tiền mặt'),
-        (10, N'Khách mẫu Bình', '0950000010', N'Hải Phòng',         2, 2, N'Chuyển khoản'),
-        (9,  N'Khách mẫu Châu', '0950000009', N'Đà Nẵng',           2, 3, N'Ví điện tử'),
-        (8,  N'Khách mẫu Dũng', '0950000008', N'Cần Thơ',           3, 4, N'Chuyển khoản'),
-        (7,  N'Khách mẫu Giang','0950000007', N'Nghệ An',           1, 5, N'Tiền mặt'),
-        (6,  N'Khách mẫu Hạnh', '0950000006', N'TP. Hồ Chí Minh',   3, 6, N'Ví điện tử'),
-        (5,  N'Khách mẫu Khang','0950000005', N'Bình Dương',        2, 7, N'Chuyển khoản'),
-        (4,  N'Khách mẫu Lan',  '0950000004', N'Bắc Ninh',          4, 1, N'Tiền mặt'),
-        (3,  N'Khách mẫu Minh', '0950000003', N'Quảng Ninh',        2, 2, N'Ví điện tử'),
-        (2,  N'Khách mẫu Ngân', '0950000002', N'Thừa Thiên Huế',    3, 3, N'Chuyển khoản'),
-        (1,  N'Khách mẫu Phúc', '0950000001', N'Đồng Nai',          4, 4, N'Tiền mặt'),
-        (0,  N'Khách mẫu Trang','0950000000', N'TP. Hồ Chí Minh',   2, 5, N'Ví điện tử');
+        (11, N'Nguyễn Hoàng Nam', '0950000011', N'Hà Nội',            1, 1, N'Tiền mặt'),
+        (10, N'Lê Minh Anh',      '0950000010', N'Hải Phòng',         2, 2, N'Chuyển khoản'),
+        (9,  N'Trần Gia Hân',     '0950000009', N'Đà Nẵng',           2, 3, N'Ví điện tử'),
+        (8,  N'Phạm Quang Huy',   '0950000008', N'Cần Thơ',           3, 4, N'Chuyển khoản'),
+        (7,  N'Võ Ngọc Mai',      '0950000007', N'Nghệ An',           1, 5, N'Tiền mặt'),
+        (6,  N'Đặng Quốc Bảo',    '0950000006', N'TP. Hồ Chí Minh',   3, 6, N'Ví điện tử'),
+        (5,  N'Bùi Khánh Linh',   '0950000005', N'Bình Dương',        2, 7, N'Chuyển khoản'),
+        (4,  N'Nguyễn Tuấn Kiệt', '0950000004', N'Bắc Ninh',          4, 1, N'Tiền mặt'),
+        (3,  N'Hoàng Thùy Dương', '0950000003', N'Quảng Ninh',        2, 2, N'Ví điện tử'),
+        (2,  N'Phan Đức Long',    '0950000002', N'Thừa Thiên Huế',    3, 3, N'Chuyển khoản'),
+        (1,  N'Đỗ Thanh Vân',     '0950000001', N'Đồng Nai',          4, 4, N'Tiền mặt'),
+        (0,  N'Trần Nhật Minh',   '0950000000', N'TP. Hồ Chí Minh',   2, 5, N'Ví điện tử');
 
     INSERT INTO KhachHang
-        (tenKH, gioiTinh, namSinh, soDienThoai, diaChi)
+        (tenKH, gioiTinh, namSinh, ngaySinh, soDienThoai, diaChi)
     SELECT
         demo.customerName,
         CASE WHEN demo.monthOffset % 2 = 0 THEN 0 ELSE 1 END,
         1995 + (demo.monthOffset % 8),
+        DATEFROMPARTS(1995 + (demo.monthOffset % 8), 6, 15),
         demo.phone,
         demo.address
     FROM @DemoSales demo
@@ -115,6 +173,7 @@ BEGIN TRY
         customer.tenKH = demo.customerName,
         customer.gioiTinh = CASE WHEN demo.monthOffset % 2 = 0 THEN 0 ELSE 1 END,
         customer.namSinh = 1995 + (demo.monthOffset % 8),
+        customer.ngaySinh = DATEFROMPARTS(1995 + (demo.monthOffset % 8), 6, 15),
         customer.diaChi = demo.address
     FROM KhachHang customer
     INNER JOIN @DemoSales demo ON demo.phone = customer.soDienThoai;
@@ -126,7 +185,11 @@ BEGIN TRY
         @ProductRank INT,
         @PaymentMethod NVARCHAR(50),
         @CustomerId INT,
+        @CustomerName NVARCHAR(100),
         @ProductDetailId INT,
+        @ProductName NVARCHAR(100),
+        @ProductCode VARCHAR(30),
+        @VariantDescription NVARCHAR(200),
         @UnitPrice DECIMAL(18, 2),
         @Total DECIMAL(18, 2),
         @SaleDate DATE,
@@ -144,7 +207,8 @@ BEGIN TRY
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SELECT @CustomerId = maKH
+        SELECT @CustomerId = maKH,
+               @CustomerName = tenKH
         FROM KhachHang
         WHERE soDienThoai = @Phone;
 
@@ -179,6 +243,19 @@ BEGIN TRY
 
         IF @ProductDetailId IS NULL
             THROW 51000, N'Không có chi tiết sản phẩm để tạo dữ liệu Dashboard.', 1;
+
+        SELECT
+            @ProductName = product.tenSP,
+            @ProductCode = CONCAT('SP-', product.maSP),
+            @VariantDescription = CONCAT(
+                category.tenLoai, N' / ', color.tenMau, N' / Size ', productSize.tenSize
+            )
+        FROM ChiTietSanPham detail
+        INNER JOIN SanPham product ON product.maSP = detail.maSP
+        INNER JOIN Loai category ON category.maLoai = product.maLoai
+        INNER JOIN Mau color ON color.maMau = product.maMau
+        INNER JOIN Size productSize ON productSize.maSize = product.maSize
+        WHERE detail.maChiTietSP = @ProductDetailId;
 
         SET @SaleDate = CASE
             WHEN @MonthOffset = 0 THEN CONVERT(DATE, GETDATE())
@@ -221,9 +298,12 @@ BEGIN TRY
         IF @InvoiceId IS NULL
         BEGIN
             INSERT INTO HoaDon
-                (maDonHang, maNhanVien, ngayLap, tongTien, trangThai)
+                (maDonHang, maNhanVien, ngayLap, tongTien, trangThai,
+                 tenKhachHangSnapshot, soDienThoaiKhachHangSnapshot,
+                 tenNhanVienSnapshot)
             VALUES
-                (@OrderId, @NhanVienId, @SaleDate, @Total, N'Đã thanh toán');
+                (@OrderId, @NhanVienId, @SaleDate, @Total, N'Đã thanh toán',
+                 @CustomerName, @Phone, @NhanVienName);
 
             SET @InvoiceId = CONVERT(INT, SCOPE_IDENTITY());
         END;
@@ -233,7 +313,10 @@ BEGIN TRY
             maNhanVien = @NhanVienId,
             ngayLap = @SaleDate,
             tongTien = @Total,
-            trangThai = N'Đã thanh toán'
+            trangThai = N'Đã thanh toán',
+            tenKhachHangSnapshot = @CustomerName,
+            soDienThoaiKhachHangSnapshot = @Phone,
+            tenNhanVienSnapshot = @NhanVienName
         WHERE maHoaDon = @InvoiceId;
 
         IF NOT EXISTS (
@@ -244,15 +327,21 @@ BEGIN TRY
         )
         BEGIN
             INSERT INTO ChiTietHoaDon
-                (maHoaDon, maChiTietSP, soLuong, donGia)
+                (maHoaDon, maChiTietSP, soLuong, donGia, giaGoc,
+                 tenSanPhamSnapshot, maSanPhamSnapshot, moTaBienTheSnapshot)
             VALUES
-                (@InvoiceId, @ProductDetailId, @Quantity, @UnitPrice);
+                (@InvoiceId, @ProductDetailId, @Quantity, @UnitPrice, @UnitPrice,
+                 @ProductName, @ProductCode, @VariantDescription);
         END;
 
         UPDATE ChiTietHoaDon
         SET
             soLuong = @Quantity,
-            donGia = @UnitPrice
+            donGia = @UnitPrice,
+            giaGoc = @UnitPrice,
+            tenSanPhamSnapshot = @ProductName,
+            maSanPhamSnapshot = @ProductCode,
+            moTaBienTheSnapshot = @VariantDescription
         WHERE maHoaDon = @InvoiceId
           AND maChiTietSP = @ProductDetailId;
 
@@ -282,6 +371,21 @@ BEGIN TRY
 
     CLOSE demo_cursor;
     DEALLOCATE demo_cursor;
+
+    IF @InvoiceId IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM LichSuChinhSuaHoaDon
+           WHERE maHoaDon = @InvoiceId
+       )
+    BEGIN
+        INSERT INTO LichSuChinhSuaHoaDon
+            (maHoaDon, maPhien, nguoiChinhSua, thoiGian, duLieuTruoc, duLieuSau)
+        VALUES
+            (@InvoiceId, NULL, @NhanVienName, SYSDATETIME(),
+             N'{"trangThai":"Chưa thanh toán"}',
+             N'{"trangThai":"Đã thanh toán"}');
+    END;
 
     COMMIT TRANSACTION;
     PRINT N'Đã bổ sung dữ liệu mẫu Dashboard thành công.';

@@ -341,13 +341,20 @@
 
         .badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 7px;
-            height: 7px;
+            top: 4px;
+            right: 3px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            display: grid;
+            place-items: center;
             background-color: var(--accent-danger);
-            border-radius: 50%;
+            border-radius: 9px;
             border: 2px solid var(--surface-color);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
         }
 
         .user-profile {
@@ -533,6 +540,10 @@
             outline: 3px solid var(--primary-light);
             outline-offset: 2px;
         }
+
+        .notification-read-form { margin: 0; }
+        .notification-read-button { border: 0; cursor: pointer; font: inherit; }
+        .notification-read-state { color: var(--text-sub); font-size: 12px; font-weight: 700; }
 
         @media (max-width: 620px) {
             .password-reset-item {
@@ -1799,13 +1810,13 @@
                 <span data-i18n="nav.invoices">Hóa đơn</span>
             </a>
         </li>
-        <li class="menu-item">
+        <li class="menu-item" th:if="${isAdmin}">
             <a th:href="@{/baocao}" class="menu-link">
                 <i class="fa-solid fa-chart-line"></i>
                 <span data-i18n="nav.reports">Báo cáo</span>
             </a>
         </li>
-        <li class="menu-item">
+        <li class="menu-item" th:if="${isAdmin}">
             <a th:href="@{/nhacungcap}" class="menu-link">
                 <i class="fa-solid fa-truck"></i>
                 <span data-i18n="nav.suppliers">Nhà cung cấp</span>
@@ -1821,6 +1832,12 @@
             <a th:href="@{/khuyenmai}" class="menu-link">
                 <i class="fa-solid fa-tags"></i>
                 <span data-i18n="nav.promotions">Khuyến mại</span>
+            </a>
+        </li>
+        <li class="menu-item" th:if="${isAdmin}">
+            <a th:href="@{/nhanvien}" class="menu-link">
+                <i class="fa-solid fa-user-tie"></i>
+                <span>Nhân viên</span>
             </a>
         </li>
         <li class="menu-item">
@@ -1867,16 +1884,21 @@
 
             <!-- Notifications -->
             <a class="header-action-btn"
-               th:href="${passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests)
-                    ? '#passwordResetRequests' : '#workSessionNotifications'}"
+               th:href="${persistentUnreadCount != null && persistentUnreadCount > 0
+                    ? '#persistentNotifications'
+                    : (passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests)
+                        ? '#passwordResetRequests' : '#workSessionNotifications')}"
                href="#workSessionNotifications"
                title="Thông báo"
                aria-label="Mở danh sách thông báo"
                data-i18n-title="notification.title">
                 <i class="fa-regular fa-bell"></i>
                 <span class="badge"
-                      th:if="${(workNotifications != null && !#lists.isEmpty(workNotifications))
-                        || (passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests))}"></span>
+                      th:if="${(persistentUnreadCount != null && persistentUnreadCount > 0)
+                        || (workNotifications != null && !#lists.isEmpty(workNotifications))
+                        || (passwordResetRequests != null && !#lists.isEmpty(passwordResetRequests))}"
+                      th:text="${persistentUnreadCount != null && persistentUnreadCount > 0
+                        ? (persistentUnreadCount > 99 ? '99+' : persistentUnreadCount) : ''}"></span>
             </a>
 
             <!-- User Profile Info -->
@@ -1893,6 +1915,53 @@
 
     <!-- Content Body -->
     <main class="content-body">
+        <div class="flash-message flash-success" role="status"
+             th:if="${workSessionTransition != null}"
+             th:text="${workSessionTransition}">
+            Đã tạo ca làm việc mới.
+        </div>
+        <section class="work-notifications" id="persistentNotifications"
+                 aria-labelledby="persistentNotificationTitle"
+                 th:if="${persistentNotifications != null && !#lists.isEmpty(persistentNotifications)}">
+            <div class="work-notification-header">
+                <div>
+                    <h2 class="work-notification-title" id="persistentNotificationTitle">
+                        <i class="fa-solid fa-bell"></i>
+                        Thông báo hệ thống
+                    </h2>
+                    <p class="work-notification-note">
+                        Được lưu theo tài khoản và vẫn còn sau khi đăng xuất hoặc mở phiên mới.
+                    </p>
+                </div>
+            </div>
+            <div class="work-notification-list">
+                <article class="work-notification-item password-reset-item"
+                         th:each="notification : ${persistentNotifications}">
+                    <div class="work-notification-employee">
+                        <strong th:text="${notification.title}">Tiêu đề</strong>
+                        <small th:text="${#temporals.format(notification.createdAt, 'dd/MM/yyyy HH:mm')}">
+                            19/08/2026 10:00
+                        </small>
+                    </div>
+                    <div class="work-notification-metric">
+                        <strong th:text="${notification.message}">Nội dung thông báo</strong>
+                        <span th:text="${notification.type == 'OUT_OF_STOCK' ? 'Hết hàng' : 'Cảnh báo tồn kho'}">
+                            Cảnh báo
+                        </span>
+                    </div>
+                    <form class="notification-read-form" method="post"
+                          th:if="${notification.readAt == null}"
+                          th:action="@{/notifications/{id}/read(id=${notification.id})}">
+                        <button class="password-reset-action notification-read-button" type="submit">
+                            <i class="fa-solid fa-check"></i> Đánh dấu đã đọc
+                        </button>
+                    </form>
+                    <span class="notification-read-state" th:if="${notification.readAt != null}">
+                        <i class="fa-solid fa-check-double"></i> Đã đọc
+                    </span>
+                </article>
+            </div>
+        </section>
         <section class="work-notifications password-reset-notifications"
                  id="passwordResetRequests"
                  aria-labelledby="passwordResetTitle"
@@ -1928,7 +1997,7 @@
                         </span>
                     </div>
                     <a class="password-reset-action"
-                       th:href="@{/caidat(accountId=${account.id})}">
+                       th:href="@{/nhanvien(accountId=${account.id})}">
                         <i class="fa-solid fa-key"></i>
                         Xác minh và xử lý
                     </a>
@@ -1982,18 +2051,18 @@
                 <i class="fa-solid fa-file-circle-plus"></i>
                 <span data-i18n="quick.invoice">Tạo hóa đơn</span>
             </a>
-            <a th:href="@{/sanpham}" class="action-card">
+            <a th:if="${isAdmin}" th:href="@{/sanpham}" class="action-card">
                 <i class="fa-solid fa-shoe-prints"></i>
                 <span data-i18n="quick.product">Thêm giày mới</span>
             </a>
-            <a th:href="@{/baocao}" class="action-card">
+            <a th:if="${isAdmin}" th:href="@{/baocao}" class="action-card">
                 <i class="fa-solid fa-file-export"></i>
                 <span data-i18n="quick.report">Xuất báo cáo</span>
             </a>
         </div>
 
         <!-- KPI Row Grid -->
-        <section class="kpi-grid">
+        <section class="kpi-grid" th:if="${isAdmin}">
             <!-- KPI 1 -->
             <div class="kpi-card">
                 <div class="kpi-header">
@@ -2080,7 +2149,7 @@
         </section>
 
         <!-- Charts Row Grid -->
-        <section class="charts-grid">
+        <section class="charts-grid" th:if="${isAdmin}">
             <!-- Line Chart Card -->
             <div class="chart-card">
                 <div class="chart-header">
@@ -2117,7 +2186,7 @@
         </section>
 
         <!-- Bottom Row Grid: Tables and Inventory Warnings -->
-        <section class="bottom-grid">
+        <section class="bottom-grid" th:if="${isAdmin}">
             <!-- Recent Invoices Table -->
             <div class="table-card">
                 <div class="table-header">
@@ -2155,7 +2224,7 @@
                             </td>
                         </tr>
                         <tr th:remove="all">
-                            <td><a href="#" class="invoice-id">#HD-0947</a></td>
+                            <td><a href="#" class="invoice-id">#HD</a></td>
                             <td>Trần Thị Hồng</td>
                             <td>Adidas UltraBoost Light (Size 42)</td>
                             <td>4.500.000 đ</td>
@@ -2166,7 +2235,7 @@
                             </td>
                         </tr>
                         <tr th:remove="all">
-                            <td><a href="#" class="invoice-id">#HD-0946</a></td>
+                            <td><a href="#" class="invoice-id">#HD</a></td>
                             <td>Lê Hoàng Nam</td>
                             <td>Air Jordan 1 Retro High (Size 40)</td>
                             <td>5.490.000 đ</td>
@@ -2177,7 +2246,7 @@
                             </td>
                         </tr>
                         <tr th:remove="all">
-                            <td><a href="#" class="invoice-id">#HD-0945</a></td>
+                            <td><a href="#" class="invoice-id">#HD</a></td>
                             <td>Phạm Minh Tuấn</td>
                             <td>Puma Slipstream Lo (Size 43)</td>
                             <td>2.190.000 đ</td>
@@ -2188,7 +2257,7 @@
                             </td>
                         </tr>
                         <tr th:remove="all">
-                            <td><a href="#" class="invoice-id">#HD-0944</a></td>
+                            <td><a href="#" class="invoice-id">#HD</a></td>
                             <td>Vũ Ngọc Linh</td>
                             <td>Bình xịt chống nước Crep Protect</td>
                             <td>150.000 đ</td>
@@ -2309,7 +2378,9 @@
         const initialGridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : '#f0edea';
 
         // Doanh thu Line Chart
-        const revCtx = document.getElementById('revenueChart').getContext('2d');
+        const revenueCanvas = document.getElementById('revenueChart');
+        if (!revenueCanvas) return;
+        const revCtx = revenueCanvas.getContext('2d');
 
         // Create gradient color for line chart background
         const orangeGradient = revCtx.createLinearGradient(0, 0, 0, 400);
@@ -2492,5 +2563,6 @@
         categoryChart.update();
     }
 </script>
+<script th:src="@{/js/freshness.js(v='20260817')}" src="/js/freshness.js?v=20260817"></script>
 </body>
 </html>

@@ -41,9 +41,15 @@ public class KhuyenMaiService {
     public KhuyenMai save(KhuyenMai submitted, Collection<Integer> productIds) {
         validate(submitted, productIds);
         Set<Integer> ids = new LinkedHashSet<>(productIds);
-        List<SanPham> products = productRepo.findAllById(ids);
-        if (products.size() != ids.size()) {
-            throw new IllegalArgumentException("Có sản phẩm khuyến mại không còn tồn tại.");
+        List<SanPham> products = ids.stream().sorted()
+                .map(id -> productRepo.findByIdForUpdate(id).orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "Có sản phẩm khuyến mại không còn tồn tại."
+                        )
+                ))
+                .toList();
+        if (products.stream().anyMatch(product -> !product.isActive())) {
+            throw new IllegalArgumentException("Không thể áp dụng khuyến mại cho sản phẩm ngừng bán.");
         }
         if (Boolean.TRUE.equals(submitted.getTrangThai())
                 && promotionRepo.existsOverlapping(
@@ -113,8 +119,14 @@ public class KhuyenMaiService {
         if (!Set.of(PERCENT, FIXED).contains(promotion.getLoaiGiam())) {
             throw new IllegalArgumentException("Loại giảm giá không hợp lệ.");
         }
-        if (promotion.getGiaTri() == null || promotion.getGiaTri().signum() <= 0) {
-            throw new IllegalArgumentException("Giá trị giảm phải lớn hơn 0.");
+        if (promotion.getGiaTri() == null
+                || promotion.getGiaTri().signum() <= 0
+                || promotion.getGiaTri().stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Giá trị giảm phải là số nguyên dương.");
+        }
+        if (PERCENT.equals(promotion.getLoaiGiam())
+                && promotion.getGiaTri().compareTo(BigDecimal.ONE) < 0) {
+            throw new IllegalArgumentException("Mức giảm phần trăm phải từ 1% đến 100%.");
         }
         if (PERCENT.equals(promotion.getLoaiGiam())
                 && promotion.getGiaTri().compareTo(BigDecimal.valueOf(100)) > 0) {
