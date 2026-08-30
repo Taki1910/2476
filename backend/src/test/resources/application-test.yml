@@ -1,0 +1,24 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  jpa:
+    show-sql: false
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+logging:
+  level:
+    org.testcontainers: INFO
+
+payment:
+  vnpay:
+    tmn-code: TESTTMNCODE
+    hash-secret: test-only-vnpay-hash-secret
+    pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    return-url: http://localhost/api/v1/payments/vnpay/return
+    frontend-result-url: http://localhost/payment/result

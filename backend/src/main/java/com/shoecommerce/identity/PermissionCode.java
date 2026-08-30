@@ -1,0 +1,19 @@
+package com.shoecommerce.identity;
+
+public enum PermissionCode {
+    IDENTITY_MANAGE,
+    CATALOG_BROWSE,
+    CATALOG_MANAGE,
+    PRICE_MANAGE,
+    INVENTORY_VIEW,
+    INVENTORY_ADJUST,
+    CHECKOUT_RESERVE,
+    ORDER_PLACE,
+    PAYMENT_INITIATE,
+    POS_SELL,
+    FULFILL_PICKUP,
+    ORDER_VIEW_SCOPED,
+    ORDER_CANCEL,
+    REPORT_VIEW,
+    PAYMENT_EVENT_APPLY
+}

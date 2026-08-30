@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: demo
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false

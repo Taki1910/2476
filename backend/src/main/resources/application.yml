@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: shoe-commerce
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        type:
+          preferred_instant_jdbc_type: TIMESTAMP
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
+
+security:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:10}
+  session:
+    absolute-timeout: PT8H
+
+commerce:
+  checkout:
+    reservation-ttl: ${CHECKOUT_RESERVATION_TTL:PT15M}
+
+payment:
+  vnpay:
+    tmn-code: ${VNPAY_TMN_CODE:}
+    hash-secret: ${VNPAY_HASH_SECRET:}
+    pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+    api-url: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
+    refund-create-by: ${VNPAY_REFUND_CREATE_BY:shoe-commerce}
+    server-ip: ${VNPAY_SERVER_IP:127.0.0.1}
+    return-url: ${VNPAY_RETURN_URL:}
+    frontend-result-url: ${VNPAY_FRONTEND_RESULT_URL:http://localhost:5173/payment/result}
+
+logging:
+  pattern:
+    level: "%5p [correlationId:%X{correlationId:-}]"
