@@ -14,7 +14,14 @@ public interface InventoryBalanceRepository extends JpaRepository<InventoryBalan
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select balance from InventoryBalance balance where balance.variant = :variant and balance.location = :location")
     Optional<InventoryBalance> findLockedByVariantAndLocation(@Param("variant") ProductVariant variant, @Param("location") Location location);
-    boolean existsByVariantAndOnHandGreaterThan(ProductVariant variant, long onHand);
+    @Query("""
+            select count(balance) > 0 from InventoryBalance balance
+            where balance.variant = :variant
+              and balance.location.enabled = true
+              and balance.location.branch.enabled = true
+              and balance.onHand > balance.reserved
+            """)
+    boolean existsPublishableStock(@Param("variant") ProductVariant variant);
     @Query("""
             select count(balance) from InventoryBalance balance
             where balance.variant.publicId = :variantId

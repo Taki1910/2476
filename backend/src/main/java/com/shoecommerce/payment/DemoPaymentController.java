@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.Clock;
 
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +23,13 @@ final class DemoPaymentController {
     private final OwnershipPolicy ownership;
     private final VerifiedPaymentResultService results;
     private final Clock clock;
+    private final String frontendResultUrl;
 
     DemoPaymentController(PaymentAttemptRepository attempts, OwnershipPolicy ownership,
-            VerifiedPaymentResultService results, Clock clock) {
+            VerifiedPaymentResultService results, Clock clock,
+            @Value("${payment.vnpay.frontend-result-url:http://localhost:5173/payment/result}") String frontendResultUrl) {
         this.attempts = attempts; this.ownership = ownership; this.results = results; this.clock = clock;
+        this.frontendResultUrl = frontendResultUrl;
     }
 
     @GetMapping("/api/v1/payments/demo/complete")
@@ -33,8 +37,8 @@ final class DemoPaymentController {
         PaymentAttempt attempt = attempts.findByMerchantTransactionReference(reference).orElseThrow();
         ownership.requireOwnership(actor, attempt.ownerAccountPublicId());
         results.apply(new PaymentProvider.VerifiedResult(reference, attempt.amount().longValueExact(),
-                "DEMO-" + reference, "00", "00", clock.instant(), "demo"));
+                "D" + reference.substring(Math.max(0, reference.length() - 31)), "00", "00", clock.instant(), "demo"));
         return ResponseEntity.status(HttpStatus.SEE_OTHER).header(HttpHeaders.LOCATION,
-                URI.create("http://localhost:5173/payment/result?attemptId=" + attempt.publicId()).toASCIIString()).build();
+                URI.create(frontendResultUrl + "?attemptId=" + attempt.publicId()).toASCIIString()).build();
     }
 }

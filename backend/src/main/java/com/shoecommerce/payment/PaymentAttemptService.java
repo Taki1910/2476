@@ -16,6 +16,7 @@ import com.shoecommerce.identity.AuthorizationPolicy;
 import com.shoecommerce.identity.OwnershipPolicy;
 import com.shoecommerce.identity.PermissionCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.identity.UserAccountRepository;
 import com.shoecommerce.inventory.InventoryReservationService;
 import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.order.CustomerOrderRepository;
@@ -33,14 +34,16 @@ public class PaymentAttemptService {
     private final AuditWriter audit;
     private final PaymentProvider provider;
     private final Clock clock;
+    private final UserAccountRepository accounts;
 
     public PaymentAttemptService(PaymentRepository payments, PaymentAttemptRepository attempts,
             CustomerOrderRepository orders, InventoryReservationService reservations, LocationRepository locations,
             AuthorizationPolicy authorization, OwnershipPolicy ownership, AuditWriter audit,
-            PaymentProvider provider, Clock clock) {
+            PaymentProvider provider, Clock clock, UserAccountRepository accounts) {
         this.payments = payments; this.attempts = attempts; this.orders = orders; this.reservations = reservations;
         this.locations = locations; this.authorization = authorization; this.ownership = ownership; this.audit = audit;
         this.provider = provider; this.clock = clock;
+        this.accounts = accounts;
     }
 
     @Transactional
@@ -52,18 +55,20 @@ public class PaymentAttemptService {
     public InitiationResult initiate(SessionPrincipal actor, UUID orderId, String idempotencyKey, String clientIp) {
         authorization.requirePermission(actor, PermissionCode.PAYMENT_INITIATE);
         validateKey(idempotencyKey);
-        PaymentAttempt replay = attempts.findScopedForUpdate(actor.publicId(), idempotencyKey).orElse(null);
-        if (replay != null) {
-            if (!replay.orderPublicId().equals(orderId)) {
-                throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key is already used for another Order.");
-            }
-            return result(replay, false);
+        // ponytail: reuse the per-account command fence; separate key rows only if contention warrants it.
+        accounts.findByPublicIdForUpdate(actor.publicId()).orElseThrow();
+        UUID replayOrderId = attempts.findScopedOrderId(actor.publicId(), idempotencyKey).orElse(null);
+        if (replayOrderId != null && !replayOrderId.equals(orderId)) {
+            throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key is already used for another Order.");
         }
 
         CustomerOrder order = orders.findLockedByPublicId(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
         CustomerOrder.PaymentFacts facts = order.paymentFacts();
         ownership.requireOwnership(actor, facts.ownerAccountId());
+        Payment payment = payments.findLockedByOrderId(orderId).orElse(null);
+        PaymentAttempt replay = attempts.findByOwnerAccountPublicIdAndIdempotencyKey(actor.publicId(), idempotencyKey).orElse(null);
+        if (replay != null) return result(attempts.findLockedByPublicId(replay.publicId()).orElseThrow(), false);
         if (!facts.pendingPayment()) {
             throw new BusinessConflictException("ORDER_NOT_PAYABLE", "Order is not eligible for payment.");
         }
@@ -72,12 +77,11 @@ public class PaymentAttemptService {
         }
 
         Instant now = clock.instant();
-        Payment payment = payments.findLockedByOrderId(orderId)
-                .orElseGet(() -> payments.save(Payment.create(order, facts.currency(), now)));
+        if (payment == null) payment = payments.save(Payment.create(order, facts.currency(), now));
         if (attempts.findByPaymentAndStatus(payment, PaymentAttempt.Status.PENDING).isPresent()) {
             throw new BusinessConflictException("PAYMENT_ALREADY_PENDING", "Order already has an active payment attempt.");
         }
-        Instant expiresAt = reservations.requireAdoptedForPayment(actor, facts.reservationId(), now);
+        Instant expiresAt = reservations.requireAdoptedForPayment(actor, facts.reservationIds(), now);
         String merchantReference = UUID.randomUUID().toString().replace("-", "");
         PaymentAttempt attempt = PaymentAttempt.create(payment, actor.publicId(), idempotencyKey,
                 BigDecimal.valueOf(facts.totalAmount()), merchantReference, normalizeIp(clientIp), now, expiresAt);

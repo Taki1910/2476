@@ -75,7 +75,7 @@ public class PaymentProviderEventService {
         }
 
         if (outcome == PaymentProviderEvent.Outcome.SUCCESS) {
-            InventoryReservationService.Consumption consumption = reservations.consumeForSuccessfulPayment(actor, facts.reservationId());
+            var consumed = reservations.consumeForSuccessfulPayment(actor, facts.reservationIds());
             attempt.succeed(now);
             order.markPaid(now);
             PaymentProviderEvent event = events.save(PaymentProviderEvent.applied(actor.publicId(), providerEventId,
@@ -84,9 +84,7 @@ public class PaymentProviderEventService {
                     location.branchId(), location.id(), Map.of(
                             "orderId", orderId, "providerEventId", providerEventId,
                             "amount", attempt.amount(), "currency", attempt.currency(),
-                            "quantity", consumption.quantity(),
-                            "beforeOnHand", consumption.beforeOnHand(), "beforeReserved", consumption.beforeReserved(),
-                            "afterOnHand", consumption.afterOnHand(), "afterReserved", consumption.afterReserved()));
+                            "items", consumed));
             return ApplicationResult.created(view(event, orderId));
         }
 

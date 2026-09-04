@@ -286,22 +286,21 @@ appends `CANCELLATION_RESTORE`.
 ### Delivery
 
 ```text
-PENDING -> PICKING -> PACKED -> SHIPPED -> DELIVERED
-                                    |    -> DELIVERY_FAILED -> SHIPPED
-                                    +----> RETURN_TO_SENDER -> CLOSED
-PENDING/PICKING/PACKED -> CANCELLED (guarded)
+PENDING -> PICKING -> PREPARED -> OUT_FOR_DELIVERY -> DELIVERED
+PENDING/PICKING/PREPARED -> CANCELLED (guarded)
 ```
 
-- Fulfillment starts only for confirmed/eligible Order.
-- Quantity transitions are per OrderItem and versioned.
-- Handover/delivery establishes returnable physical quantity.
+- Checkout creates the delivery intent and immutable receiver/address snapshot;
+  employee transitions become actionable only after successful payment.
+- Dispatch consumes every committed Reservation and writes exactly one
+  `DELIVERY_DISPATCH` movement per OrderItem. Delivered records evidence only.
 - Cancellation racing dispatch locks/version-checks the Fulfillment aggregate;
-  the losing command gets conflict or starts return-to-sender policy.
+  the losing command gets conflict and cannot bypass the future Return policy.
 - Dispatch follows Order -> Fulfillment lock order. An allowed confirmed
   cancellation uses the same fences; only its winning pre-dispatch path may
   issue `CANCELLATION_RESTORE`.
-- Carrier callback replay uses unique provider event identity.
-- Terminal: `HANDED_OVER`, `DELIVERED`, `CANCELLED`, `CLOSED`.
+- Dispatch and delivery commands use actor-scoped idempotency keys.
+- Terminal: `DELIVERED`, `CANCELLED`.
 - POS immediate handover uses Order/stock/tender transaction and does not create
   an unnecessary Shipment.
 
@@ -508,20 +507,26 @@ VALID (quotedAt <= now < expiresAt)
 
 # Quote checkout Order
 
+Phase 15B applies these same approved states to the complete multi-item order;
+it introduces no partial-order or per-line payment lifecycle. See ADR-0026.
+
 ```text
 PENDING_PAYMENT -> PAID       (implemented by the later payment-result slice)
 PENDING_PAYMENT -> CANCELLED  (owner cancellation or checkout-hold expiry)
 ```
 
 - Actor: authenticated owner with `ORDER_PLACE` and `CHECKOUT_RESERVE`.
-- Preconditions: owned unexpired unused PriceQuote, published variant, and one
-  unit available at an enabled deterministic Location.
-- Success: one `ADOPTED` Reservation and one immutable unpaid Order are created
-  atomically; no Payment is initiated.
+- Preconditions: owned unexpired unused quote, published variants, and every
+  requested quantity available at one enabled deterministic Location.
+- Success: one `ADOPTED` Reservation per line and one immutable unpaid Order
+  are created atomically; no Payment is initiated. Single-line PriceQuote
+  checkout remains supported alongside CartQuote checkout.
 - Quote validity is checked with server time before reservation creation. The
   hold then receives a fresh, independently configured Reservation TTL from its
   server creation instant. Lazy expiry makes the Reservation `EXPIRED`, releases
-  reserved stock, and cancels only the still `PENDING_PAYMENT` Order.
+  reserved stock for every line, and cancels only the still `PENDING_PAYMENT`
+  Order. Verified payment commits every hold together; pickup handover and
+  confirmed cancellation respectively consume or restore every committed hold.
 - Customer catalog/quote/checkout availability paths select only relevant
   expired adopted checkout holds and normalize them per variant before reading
   or reserving stock. Repeated evaluation ignores terminal holds.

@@ -23,12 +23,18 @@ public interface PickupFulfillmentRepository extends JpaRepository<PickupFulfill
     Optional<PickupFulfillment> findLockedByOrder(CustomerOrder order);
 
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
-    @Query(value = "SELECT orders.public_id FROM pickup_fulfillment fulfillments JOIN commerce_order orders ON orders.id = fulfillments.order_id WHERE fulfillments.public_id = :fulfillmentId", nativeQuery = true)
-    Optional<UUID> findOrderPublicId(@Param("fulfillmentId") UUID fulfillmentId);
+    @Query(value = "SELECT order_id FROM pickup_fulfillment WHERE public_id = :fulfillmentId", nativeQuery = true)
+    Optional<Long> findOrderId(@Param("fulfillmentId") UUID fulfillmentId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PickupFulfillment> findLockedByPublicId(UUID publicId);
 
-    @Query(value = "SELECT fulfillments.* FROM pickup_fulfillment fulfillments WITH (UPDLOCK, HOLDLOCK) WHERE fulfillments.handed_over_by_account_public_id = :actorId AND fulfillments.handover_idempotency_key = :key", nativeQuery = true)
-    Optional<PickupFulfillment> findHandoverReplayForUpdate(@Param("actorId") UUID actorId, @Param("key") String key);
+    @Query(value = "SELECT fulfillments.public_id FROM pickup_fulfillment fulfillments WHERE fulfillments.handed_over_by_account_public_id = :actorId AND fulfillments.handover_idempotency_key = :key", nativeQuery = true)
+    Optional<UUID> findHandoverReplayId(@Param("actorId") UUID actorId, @Param("key") String key);
+
+    @Query(value = "SELECT public_id FROM pickup_fulfillment WHERE dispatched_by_account_public_id = :actorId AND dispatch_idempotency_key = :key", nativeQuery = true)
+    Optional<UUID> findDispatchReplayId(@Param("actorId") UUID actorId, @Param("key") String key);
+
+    @Query(value = "SELECT public_id FROM pickup_fulfillment WHERE delivered_by_account_public_id = :actorId AND delivery_idempotency_key = :key", nativeQuery = true)
+    Optional<UUID> findDeliveryReplayId(@Param("actorId") UUID actorId, @Param("key") String key);
 }

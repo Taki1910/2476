@@ -100,7 +100,10 @@ permissions. Location is the inventory key; Branch is not a stock balance.
 
 ## Product and ProductVariant
 
-- Product owns common name, description, brand/category association and media.
+- Product owns common name, description, brand/category association, merchandising
+  metadata (`category`, `collection`, `featured`, `newArrival`,
+  `campaignEligible`, `merchandisingRank`) and optional `heroImage`/
+  `primaryImage` media references.
 - ProductVariant owns immutable SKU, Product link, sellable size/color/material
   combination, barcode if confirmed, and lifecycle status.
 - A variant with inventory/order history is archived, never repurposed to a new
@@ -320,18 +323,21 @@ the online checkout/payment slice.
 
 ## Fulfillment and Return
 
-- The current bounded `PickupFulfillment` is a separate aggregate linked one-to-one
-  to Order. It snapshots the Order responsible Branch and exact committed-reservation
-  Location, begins in `PENDING`, and has its own version. Creation leaves the paid
-  Order, committed Reservation, and InventoryBalance unchanged.
+- The current bounded `PickupFulfillment` persistence type is the one-to-one
+  Order Fulfillment aggregate; its historical name is retained for migration
+  compatibility. It owns `PICKUP`/`DELIVERY`, Location, receiver/address snapshot,
+  lifecycle, actor/time evidence and idempotency keys.
+- Atomic cart checkout creates the `PENDING` intent. Payment does not recreate it;
+  paid state only makes employee preparation actionable.
 - Starting pickup preparation moves only `PickupFulfillment` from `PENDING` to
   `PICKING` and records immutable `pickingStartedAt`; the audit actor identifies
   who performed the transition without creating picker ownership domain state.
 - POS immediate handover creates the same Fulfillment aggregate directly in
   `HANDED_OVER`, attributed to the Register Location. It does not require a
   Reservation or Shipment aggregate and does not mutate inventory a second time.
-- Online Fulfillment owns allocated/picked/packed/handed-over/delivered
-  quantities per OrderItem.
+- Pickup handover or delivery dispatch consumes all committed Order reservations
+  exactly once. Delivery completion records terminal evidence without a second
+  inventory movement.
 - Return eligibility uses authoritative delivered/handed-over quantity minus
   prior accepted/received return quantities under a versioned transaction.
 - Inspection determines restock/quarantine/damaged disposition. Only an
@@ -418,6 +424,7 @@ StorefrontProduct (read model)
   -> published ProductVariant
   -> effective VariantPrice version
   -> customer-safe Inventory availability
+  -> optional merchandising metadata and 7/30-day sales signals for hero selection
 
 VariantPrice (versioned)
   - publicId
@@ -436,6 +443,16 @@ PriceQuote (immutable evidence)
 
 Catalog, Inventory, and Pricing retain ownership. The storefront projection joins their read data but is not a new source of truth. PriceQuote belongs to Pricing and carries no Inventory Reservation, Order, or Payment state.
 
+## Product fit profile
+
+Product may own one optional `ShoeFitProfile` with `sizeSystem`, `fitTendency`
+(`RUNS_SMALL`, `TRUE_TO_SIZE`, `RUNS_LARGE`) and `widthProfile` (`NARROW`,
+`REGULAR`, `WIDE`). The profile owns multiple `ShoeFitSizeRange` rows keyed by
+the existing variant size label and carrying foot length/width millimetre
+ranges. It is model-level metadata, not inventory-row data. A fitting response
+recommends a size; the customer still selects the sellable ProductVariant.
+Inventory availability is reported separately and cannot rewrite the fit result.
+
 ## Implemented quote checkout evidence
 
 Vertical Slice 3 coordinates existing owners without moving their data:
@@ -451,8 +468,13 @@ checkout creates the Reservation at authoritative server time and assigns
 `InventoryReservation.expiresAt = reservationCreatedAt + configured
 Reservation TTL`; later quote expiry does not expire that hold.
 
-The single OrderItem snapshots variant public identity, SKU, canonical size,
-quantity one, exact quoted VND unit price and total. Order also records the
-PriceQuote and price-version public identities, owning customer, responsible
-Branch, reservation, creation time, and scoped idempotency key. Catalog and
-current Pricing facts never recalculate the historical Order.
+The legacy single-line route snapshots variant, SKU, size, quantity and quoted
+VND price. Phase 15B extends the aggregate under [ADR-0026](ADR/0026-multi-item-online-commerce.md):
+one Order owns N immutable OrderItems, each with its own Reservation and
+price-version identity, variant/SKU/size/color/location/quantity/amount evidence.
+One immutable CartQuote owns N quote lines. All items share a pickup location
+and hold deadline; checkout either creates all items/reservations or none.
+The Order owns customer, branch, cart-quote identity, canonical request
+fingerprint and scoped idempotency key. Its total is the checked sum of line
+subtotals. Legacy header quote/reservation fields remain for old provenance only.
+Catalog and current Pricing facts never recalculate the historical Order.

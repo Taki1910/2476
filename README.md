@@ -28,7 +28,7 @@ Key decisions: [pricing and checkout](docs/ADR/0020-quote-checkout-atomic-reserv
 
 ## Run locally
 
-Requirements: **Java 25** (a lower JDK fails with `release version 25 not supported`), a reachable SQL Server database, and Node.js/npm for the Vue app.
+Requirements: **Java 25** (a lower JDK fails with `release version 25 not supported`), a reachable SQL Server database, and Node.js/pnpm for the Vue app.
 
 ```powershell
 $env:SPRING_DATASOURCE_URL = 'jdbc:sqlserver://localhost:1433;databaseName=shoe_commerce;encrypt=true;trustServerCertificate=true'
@@ -38,10 +38,10 @@ cd backend; mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 ```powershell
-cd frontend; npm install; npm run dev
+cd frontend; pnpm install; pnpm dev
 ```
 
-Flyway owns the schema. `V1`–`V15` are the current frozen baseline; Hibernate validates rather than creates tables.
+Flyway owns the schema. `V1`–`V20` remain append-only: `V18` adds multi-item online commerce under [ADR-0026](docs/ADR/0026-multi-item-online-commerce.md), `V19` adds Pickup/Delivery fulfillment under [ADR-0027](docs/ADR/0027-pickup-and-delivery-fulfillment.md), and `V20` adds the optional private fitting profile/range data under [ADR-0028](docs/ADR/0028-ai-assisted-shoe-fitting.md). Hibernate validates rather than creates tables.
 
 ### Disposable local demo
 
@@ -52,22 +52,33 @@ $env:SPRING_PROFILES_ACTIVE = 'demo'
 cd backend; mvn spring-boot:run
 ```
 
-The bootstrap is idempotent and creates one branch/location/register, two published `Court Classic` variants (`DEMO-CC-BLK-40`, `DEMO-CC-BLK-41`) at 125000 VND with three units each, and the demo identities documented in [docs/DEMO.md](docs/DEMO.md). It never creates orders, quotes, payments, voids, POS sales, or report totals.
+The idempotent bootstrap creates one branch, a sales floor and stockroom, three registers, 18 products / 73 published variants, mixed inventory, five demo identities, and deterministic historical online/POS/payment/pickup/reconciliation evidence documented in [docs/DEMO.md](docs/DEMO.md). The storefront hero read model is available at `/api/v1/storefront/hero`.
 
 Optional VNPAY configuration: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAY_URL`, `VNPAY_API_URL`, `VNPAY_RETURN_URL`, `VNPAY_FRONTEND_RESULT_URL`, `VNPAY_REFUND_CREATE_BY`, and `VNPAY_SERVER_IP`. `CHECKOUT_RESERVATION_TTL`, `SESSION_COOKIE_SECURE`, and `BCRYPT_STRENGTH` are also configurable. Do not commit their values.
 
 ## Verify
 
+Fast/default verification runs unit tests only and does not claim SQL Server concurrency evidence:
+
 ```powershell
-cd backend; mvn verify
-cd frontend; npm run typecheck; npm test; npm run build
+cd backend; .\mvnw.cmd test
+cd ..\frontend; pnpm typecheck; pnpm test; pnpm build
 ```
 
-The backend acceptance suite requires SQL Server/Testcontainers support. See [docs/DEMO.md](docs/DEMO.md) for the evidence-based demo and external-payment limits.
+Mandatory release acceptance uses a fresh isolated SQL Server database. The profile fails during Maven validation when `SPRING_DATASOURCE_URL` is absent, so mandatory integration tests cannot silently skip:
+
+```powershell
+$env:SPRING_DATASOURCE_URL = 'jdbc:sqlserver://localhost:1433;databaseName=shoe_commerce_acceptance;encrypt=true;trustServerCertificate=true'
+$env:SPRING_DATASOURCE_USERNAME = '<sql-user>'
+$env:SPRING_DATASOURCE_PASSWORD = '<sql-password>'
+cd backend; .\mvnw.cmd verify -Pacceptance
+```
+
+The optional Testcontainers migration smoke test is separate: `.\mvnw.cmd -Dit.test=SqlServerContainerIT failsafe:integration-test failsafe:verify`. See [docs/DEMO.md](docs/DEMO.md) for the evidence-based demo and external-payment limits.
 
 ## Intentional non-goals
 
-Voucher workflows, shipping/delivery, returns/refunds, multiple payment providers, multi-line POS, inventory valuation, Redis, Kafka, microservices, and Kubernetes are outside this Core MVP.
+Voucher workflows, carrier/driver integration, returns/refunds, multiple payment providers, multi-line POS, inventory valuation, Redis, Kafka, microservices, and Kubernetes are outside this Core MVP.
 
 ## External-payment evidence
 

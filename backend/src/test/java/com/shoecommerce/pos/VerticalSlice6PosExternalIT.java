@@ -49,6 +49,7 @@ import com.shoecommerce.identity.AccountUserDetailsService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.order.CustomerOrderService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
@@ -71,6 +72,7 @@ class VerticalSlice6PosExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired LocationRepository locations;
     @Autowired PosRegisterRepository registers;
     @Autowired PosService pos;
@@ -329,6 +331,8 @@ class VerticalSlice6PosExternalIT {
         Fixture fixture = fixture("api", 1);
         Browser browser = new Browser();
         login(browser, fixture.cashierLogin());
+        assertThat(browser.client.send(HttpRequest.newBuilder(uri("/api/v1/operations/pos/shifts/current")).GET().build(),
+                HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(204);
         HttpResponse<String> csrfDenied = browser.client.send(HttpRequest.newBuilder(uri("/api/v1/operations/pos/shifts"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("{\"registerId\":\"" + fixture.registerId() + "\"}"))
@@ -381,7 +385,7 @@ class VerticalSlice6PosExternalIT {
         String sku = "V12-" + suffix + "-" + shortId();
         UUID variant = catalog.createVariant(operations, product, sku, "42", "Black");
         catalog.setPrice(operations, variant, 125_000);
-        catalog.setStock(operations, variant, location, stock);
+        adjustments.adjust(operations, variant, location, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variant);
         Location locationEntity = locations.findByPublicId(location).orElseThrow();
         PosRegister register = registers.save(PosRegister.create("REG-" + shortId(), locationEntity, clock.instant()));
@@ -393,7 +397,8 @@ class VerticalSlice6PosExternalIT {
         String sku = "V12-" + suffix + "-" + shortId();
         UUID variant = catalog.createVariant(fixture.operations(), fixture.productId(), sku, "43", "White");
         catalog.setPrice(fixture.operations(), variant, 130_000);
-        catalog.setStock(fixture.operations(), variant, fixture.locationId(), stock);
+        adjustments.adjust(fixture.operations(), variant, fixture.locationId(), stock,
+                "Test fixture", UUID.randomUUID().toString());
         catalog.publish(fixture.operations(), variant);
         return new Fixture(fixture.admin(), fixture.operations(), fixture.cashier(), fixture.customer(),
                 fixture.cashierId(), fixture.cashierLogin(), fixture.branchId(), fixture.locationId(),

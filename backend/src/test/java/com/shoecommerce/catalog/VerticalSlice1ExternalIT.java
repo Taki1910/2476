@@ -35,7 +35,10 @@ import com.shoecommerce.identity.AccountUserDetailsService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.platform.api.CorrelationIdFilter;
+import com.shoecommerce.platform.api.InvalidRequestException;
+import com.shoecommerce.pricing.VariantPrice;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -48,6 +51,7 @@ class VerticalSlice1ExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired ObjectMapper json;
     @LocalServerPort int port;
 
@@ -71,16 +75,20 @@ class VerticalSlice1ExternalIT {
 
         UUID variant = catalog.createVariant(operations, product, "RUN-42-BLK", "42", "Black");
         catalog.setPrice(operations, variant, 120_000);
-        assertThatThrownBy(() -> catalog.setStock(operations, variant, location, 4)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> adjustments.adjust(operations, variant, location, 4, "Initial receipt", "denied-branch"))
+                .isInstanceOf(AccessDeniedException.class);
         scopes.setAssignment(admin, operationsId, branch, location, true);
         scopes.setAssignment(admin, cashierId, branch, location, true);
         SessionPrincipal locationOperations = principal("ops@example.com");
         SessionPrincipal cashier = principal("vs1-cashier@example.com");
-        assertThatThrownBy(() -> catalog.setStock(cashier, variant, location, 4)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> catalog.setStock(locationOperations, variant, otherLocation, 4)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> catalog.setStock(locationOperations, variant, location, -1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adjustments.adjust(cashier, variant, location, 4, "Initial receipt", "denied-role"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> adjustments.adjust(locationOperations, variant, otherLocation, 4, "Initial receipt", "denied-location"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> adjustments.adjust(locationOperations, variant, location, -1, "Initial receipt", "negative"))
+                .isInstanceOf(InvalidRequestException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_balance balances JOIN catalog_product_variant variants ON variants.id = balances.variant_id JOIN org_location locations ON locations.id = balances.location_id WHERE variants.public_id = ? AND locations.public_id = ?", Integer.class, variant, location)).isZero();
-        catalog.setStock(locationOperations, variant, location, 4);
+        adjustments.adjust(locationOperations, variant, location, 4, "Initial receipt", "stock-main");
         assertThatThrownBy(() -> catalog.readPublished(locationOperations, variant)).isInstanceOf(IllegalArgumentException.class);
         MDC.put(CorrelationIdFilter.MDC_KEY, "x".repeat(65));
         try {
@@ -89,6 +97,16 @@ class VerticalSlice1ExternalIT {
         assertThatThrownBy(() -> catalog.readPublished(locationOperations, variant)).isInstanceOf(IllegalArgumentException.class);
         catalog.publish(locationOperations, variant);
         assertThat(catalog.readPublished(locationOperations, variant).sku()).isEqualTo("RUN-42-BLK");
+        UUID priceBoundary = catalog.createVariant(locationOperations, product, "RUN-PRICE-MAX", "45", "Green");
+        catalog.setPrice(locationOperations, priceBoundary, 1);
+        catalog.setPrice(locationOperations, priceBoundary, VariantPrice.MAX_AMOUNT);
+        assertThatThrownBy(() -> catalog.setPrice(locationOperations, priceBoundary, VariantPrice.MAX_AMOUNT + 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        UUID disabledStock = catalog.createVariant(locationOperations, product, "RUN-DISABLED-STOCK", "46", "Grey");
+        catalog.setPrice(locationOperations, disabledStock, 100_000);
+        adjustments.adjust(locationOperations, disabledStock, location, 1, "Initial receipt", "disabled-stock");
+        jdbc.update("UPDATE org_location SET enabled = 0 WHERE public_id = ?", location);
+        assertThatThrownBy(() -> catalog.publish(locationOperations, disabledStock)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> catalog.createVariant(locationOperations, product, "RUN-42-BLK", "43", "Blue"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         Long variantDbId = jdbc.queryForObject("SELECT id FROM catalog_product_variant WHERE public_id = ?", Long.class, variant);
@@ -96,6 +114,8 @@ class VerticalSlice1ExternalIT {
         Long constraintVariantDbId = jdbc.queryForObject("SELECT id FROM catalog_product_variant WHERE public_id = ?", Long.class, constraintVariant);
         Long locationDbId = jdbc.queryForObject("SELECT id FROM org_location WHERE public_id = ?", Long.class, location);
         assertThatThrownBy(() -> jdbc.update("INSERT INTO pricing_variant_price(variant_id, amount, entity_version, updated_at) VALUES (?, 0, 0, ?)", constraintVariantDbId, Timestamp.from(Instant.now())))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO pricing_variant_price(variant_id, amount, entity_version, updated_at) VALUES (?, ?, 0, ?)", constraintVariantDbId, VariantPrice.MAX_AMOUNT + 1, Timestamp.from(Instant.now())))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThatThrownBy(() -> jdbc.update("INSERT INTO inventory_balance(variant_id, location_id, on_hand, entity_version, updated_at) VALUES (?, ?, -1, 0, ?)", variantDbId, locationDbId, Timestamp.from(Instant.now())))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -117,7 +137,8 @@ class VerticalSlice1ExternalIT {
         assertThat(draft.statusCode()).isEqualTo(400);
         assertThat(request(browser, "POST", "/api/v1/catalog/variants/" + variant + "/publish", "{}", 400).statusCode()).isEqualTo(400);
         request(browser, "PUT", "/api/v1/pricing/variants/" + variant, "{\"amount\":125000}", 204);
-        request(browser, "PUT", "/api/v1/inventory/variants/" + variant + "/locations/" + location, "{\"onHand\":3}", 204);
+        request(browser, "PUT", "/api/v1/inventory/variants/" + variant + "/locations/" + location,
+                "{\"onHand\":3,\"reason\":\"Initial receipt\"}", 200);
         request(browser, "POST", "/api/v1/catalog/variants/" + variant + "/publish", "{}", 204);
         HttpResponse<String> read = browser.client.send(HttpRequest.newBuilder(uri("/api/v1/catalog/sellable/variants/" + variant)).GET().build(), HttpResponse.BodyHandlers.ofString());
         assertThat(read.statusCode()).isEqualTo(200);
@@ -135,7 +156,9 @@ class VerticalSlice1ExternalIT {
     private HttpResponse<String> request(Browser browser, String method, String path, String body, int expected) throws Exception { return request(browser, method, path, body, expected, "application/json"); }
     private HttpResponse<String> request(Browser browser, String method, String path, String body, int expected, String type) throws Exception {
         Csrf csrf = csrf(browser);
-        HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path)).header("Content-Type", type).header(csrf.header(), csrf.token()).method(method, HttpRequest.BodyPublishers.ofString(body));
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path)).header("Content-Type", type)
+                .header("Idempotency-Key", UUID.randomUUID().toString()).header(csrf.header(), csrf.token())
+                .method(method, HttpRequest.BodyPublishers.ofString(body));
         HttpResponse<String> response = browser.client.send(builder.build(), HttpResponse.BodyHandlers.ofString()); assertThat(response.statusCode()).isEqualTo(expected); return response;
     }
     private Csrf csrf(Browser browser) throws Exception { HttpResponse<String> response = browser.client.send(HttpRequest.newBuilder(uri("/api/v1/auth/csrf")).GET().build(), HttpResponse.BodyHandlers.ofString()); JsonNode node = json.readTree(response.body()); return new Csrf(node.get("headerName").asString(), node.get("token").asString()); }

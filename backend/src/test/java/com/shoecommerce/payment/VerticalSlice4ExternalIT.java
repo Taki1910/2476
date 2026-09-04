@@ -46,6 +46,7 @@ import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.order.CustomerOrderService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.CorrelationIdFilter;
@@ -68,6 +69,7 @@ class VerticalSlice4ExternalIT {
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
     @Autowired InventoryReservationService reservations;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired CustomerOrderService orders;
     @Autowired PaymentAttemptService payments;
     @LocalServerPort int port;
@@ -133,10 +135,12 @@ class VerticalSlice4ExternalIT {
 
         assertThat(paymentRequest(owner, order.orderId(), null, 400).statusCode()).isEqualTo(400);
         HttpResponse<String> created = paymentRequest(owner, order.orderId(), "http-key", 201);
-        UUID attemptId = UUID.fromString(json.readTree(created.body()).get("id").asString());
+        UUID attemptId = UUID.fromString(json.readTree(created.body()).get("attempt").get("id").asString());
         assertThat(created.body()).contains("PENDING").contains("120000").contains("VND");
-        assertThat(UUID.fromString(json.readTree(paymentRequest(owner, order.orderId(), "http-key", 200).body()).get("id").asString())).isEqualTo(attemptId);
+        assertThat(UUID.fromString(json.readTree(paymentRequest(owner, order.orderId(), "http-key", 200).body()).get("attempt").get("id").asString())).isEqualTo(attemptId);
         assertThat(paymentRequest(owner, order.orderId(), "other-http-key", 409).statusCode()).isEqualTo(409);
+        request(owner, "POST", "/api/v1/orders/" + order.orderId() + "/payment-attempts", "", 404,
+                "application/json", "legacy-payment");
         assertThat(get(owner, "/api/v1/payment-attempts/" + attemptId).statusCode()).isEqualTo(200);
         assertThat(get(other, "/api/v1/payment-attempts/" + attemptId).statusCode()).isEqualTo(403);
         assertThat(paymentRequest(other, order.orderId(), "cross-owner", 403).statusCode()).isEqualTo(403);
@@ -314,7 +318,7 @@ class VerticalSlice4ExternalIT {
         UUID productId = catalog.createProduct(operations, "Payment Runner");
         UUID variantId = catalog.createVariant(operations, productId, prefix + "-SKU", "42", "Black");
         catalog.setPrice(operations, variantId, 120_000);
-        catalog.setStock(operations, variantId, locationId, stock);
+        adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
         return new Fixture(variantId, branchId, locationId, ownerLogin, otherLogin, operations, principal(ownerLogin), principal(otherLogin));
     }
@@ -344,7 +348,7 @@ class VerticalSlice4ExternalIT {
     private Balance balance(Fixture fixture) { return jdbc.queryForObject("SELECT on_hand, reserved, on_hand - reserved AS available FROM inventory_balance WHERE variant_id = (SELECT id FROM catalog_product_variant WHERE public_id = ?) AND location_id = (SELECT id FROM org_location WHERE public_id = ?)", (result, row) -> new Balance(result.getLong("on_hand"), result.getLong("reserved"), result.getLong("available")), fixture.variantId(), fixture.locationId()); }
     private HttpResponse<String> login(Browser browser, String username) throws Exception { return request(browser, "POST", "/api/v1/auth/login", "username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + PASSWORD, 200, "application/x-www-form-urlencoded", null); }
     private HttpResponse<String> get(Browser browser, String path) throws Exception { return browser.client.send(HttpRequest.newBuilder(uri(path)).GET().build(), HttpResponse.BodyHandlers.ofString()); }
-    private HttpResponse<String> paymentRequest(Browser browser, UUID orderId, String key, int expected) throws Exception { return request(browser, "POST", "/api/v1/orders/" + orderId + "/payment-attempts", "", expected, "application/json", key); }
+    private HttpResponse<String> paymentRequest(Browser browser, UUID orderId, String key, int expected) throws Exception { return request(browser, "POST", "/api/v1/orders/" + orderId + "/payments", "", expected, "application/json", key); }
     private HttpResponse<String> request(Browser browser, String method, String path, String body, int expected, String type, String key) throws Exception { Csrf csrf = csrf(browser); HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path)).header("Content-Type", type).header(csrf.header(), csrf.token()); if (key != null) builder.header("Idempotency-Key", key); HttpResponse<String> response = browser.client.send(builder.method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString()); assertThat(response.statusCode()).isEqualTo(expected); return response; }
     private Csrf csrf(Browser browser) throws Exception { JsonNode node = json.readTree(get(browser, "/api/v1/auth/csrf").body()); return new Csrf(node.get("headerName").asString(), node.get("token").asString()); }
     private URI uri(String path) { return URI.create("http://localhost:" + port + path); }

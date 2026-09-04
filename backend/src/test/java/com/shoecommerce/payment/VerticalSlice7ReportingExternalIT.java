@@ -19,6 +19,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.List;
+import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -43,10 +45,12 @@ import com.shoecommerce.identity.AccountUserDetailsService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.order.CheckoutHoldExpiryService;
 import com.shoecommerce.order.CustomerOrderService;
 import com.shoecommerce.pos.PosService;
 import com.shoecommerce.pricing.PriceQuoteService;
+import com.shoecommerce.pricing.CartQuoteService;
 import com.shoecommerce.reporting.ReportingService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -65,7 +69,9 @@ class VerticalSlice7ReportingExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired PriceQuoteService pricing;
+    @Autowired CartQuoteService cartPricing;
     @Autowired CustomerOrderService orders;
     @Autowired PaymentAttemptService attempts;
     @Autowired VerifiedPaymentResultService paymentResults;
@@ -129,6 +135,7 @@ class VerticalSlice7ReportingExternalIT {
                 .containsExactly(1L, 0L, 1L);
         assertThat(inventory.movements()).extracting(ReportingService.MovementRow::type)
                 .contains("CANCELLATION_RESTORE", "POS_CASH_SALE");
+        assertThat(inventory.movements()).allMatch(row -> TEST_NOW.equals(row.occurredAt()));
         assertThat(inventory.reservations()).anyMatch(row -> row.variantId().equals(fixture.variantA())
                 && "COMMITTED".equals(row.status()) && row.quantity() == 1);
 
@@ -138,6 +145,7 @@ class VerticalSlice7ReportingExternalIT {
         assertThat(reconciliation.entries()).filteredOn(entry -> "POS_CASH".equals(entry.category())).hasSize(1);
         assertThat(reconciliation.entries()).filteredOn(entry -> "VOID".equals(entry.category())).hasSize(1);
         assertThat(reconciliation.entries()).noneMatch(ReportingService.ReconciliationEntry::exception);
+        assertThat(reconciliation.entries()).allMatch(entry -> TEST_NOW.equals(entry.occurredAt()));
         assertThat(posSale.orderId()).isNotNull();
         assertThat(onlineA.orderId()).isNotNull();
     }
@@ -251,6 +259,98 @@ class VerticalSlice7ReportingExternalIT {
         assertThat(empty.netSales()).isEqualTo("0");
     }
 
+    @Test
+    void multiItemCaptureAndFullVoidReconcileWithoutMultiplyingOrderTotals() {
+        Fixture fixture = fixture("cart-core", 8, 8);
+        // Repricing at the frozen fixture instant would become effective one microsecond later.
+        clock.advance(Duration.ofSeconds(1));
+        catalog.setPrice(fixture.manager(), fixture.variantA(), 1_490_000);
+        catalog.setPrice(fixture.manager(), fixture.variantB(), 900_000);
+        PendingSale sale = pendingCartSale(fixture, "cart-core", 1);
+        clock.advance(Duration.ofSeconds(1));
+        catalog.setPrice(fixture.manager(), fixture.variantA(), 1_590_000);
+        paymentResults.apply(success(sale, digits()));
+
+        var net = reports.netSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        var products = reports.productSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(net.onlineGross()).isEqualTo("2390000");
+        assertThat(net.netSales()).isEqualTo(products.netSales()).isEqualTo("2390000");
+        assertThat(products.rows()).filteredOn(row -> row.variantId().equals(fixture.variantA()))
+                .extracting(ReportingService.ProductSalesRow::onlineGross).containsExactly("1490000");
+        assertThat(products.rows()).filteredOn(row -> row.variantId().equals(fixture.variantB()))
+                .extracting(ReportingService.ProductSalesRow::onlineGross).containsExactly("900000");
+        var captured = reports.reconciliation(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(captured.entries()).filteredOn(row -> row.category().equals("ONLINE_CAPTURE")).hasSize(1);
+
+        cancellations.cancel(fixture.manager(), sale.orderId(), "cart-core-void");
+        cancellations.cancel(fixture.manager(), sale.orderId(), "cart-core-void");
+        net = reports.netSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        products = reports.productSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(net.onlineGross()).isEqualTo("2390000");
+        assertThat(net.successfulVoids()).isEqualTo("2390000");
+        assertThat(net.netSales()).isEqualTo(products.netSales()).isEqualTo("0");
+        assertThat(products.rows()).allMatch(row -> row.netSales().equals("0"));
+        var reversed = reports.reconciliation(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(reversed.entries()).filteredOn(row -> row.category().equals("VOID")).hasSize(2);
+        assertThat(reversed.entries().stream().map(row -> new BigDecimal(row.netEffect())).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo("0");
+    }
+
+    @Test
+    void multiItemExceptionsKeepOperationAndAllocationGranularityAndZeroReviewNetEffect() {
+        Fixture fixture = fixture("cart-exceptions", 8, 12);
+        for (var outcome : List.of(VoidProvider.Outcome.UNKNOWN, VoidProvider.Outcome.REVIEW_REQUIRED)) {
+            PendingSale sale = pendingCartSale(fixture, "cart-" + outcome, 2);
+            paymentResults.apply(success(sale, digits()));
+            voidProvider.next(outcome);
+            cancellations.cancel(fixture.manager(), sale.orderId(), "void-" + outcome);
+        }
+        PendingSale released = pendingCartSale(fixture, "cart-released", 2);
+        paymentResults.apply(success(released, digits()));
+        voidProvider.next(VoidProvider.Outcome.DEFINITIVE_FAILED);
+        cancellations.cancel(fixture.manager(), released.orderId(), "void-released");
+        PendingSale late = pendingCartSale(fixture, "cart-late", 2);
+        clock.advance(Duration.ofMinutes(16));
+        expiry.expireForVariant(fixture.variantB());
+        paymentResults.apply(success(late, digits()));
+
+        var net = reports.netSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(net.onlineGross()).isEqualTo("1125000");
+        assertThat(net.successfulVoids()).isEqualTo("0");
+        assertThat(net.exceptionCount()).isEqualTo(5);
+        assertThat(net.exceptionAmount()).isEqualTo("1500000");
+        var entries = reports.reconciliation(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(entries.entries()).filteredOn(row -> row.category().equals("ONLINE_CAPTURE")).hasSize(3);
+        assertThat(entries.entries()).filteredOn(row -> row.status().equals("UNKNOWN")).hasSize(1);
+        assertThat(entries.entries()).filteredOn(row -> row.category().equals("VOID_RECONCILIATION")
+                && row.status().equals("REVIEW_REQUIRED")).hasSize(1);
+        assertThat(entries.entries()).filteredOn(row -> row.status().equals("RELEASED")).hasSize(2);
+        assertThat(entries.entries()).filteredOn(row -> row.category().equals("PAYMENT_REVIEW"))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.amount()).isEqualTo("375000");
+                    assertThat(row.netEffect()).isEqualTo("0");
+                });
+        assertThat(entries.entries()).filteredOn(ReportingService.ReconciliationEntry::exception)
+                .allMatch(row -> row.netEffect().equals("0"));
+
+        cancellations.retry(fixture.manager(), released.orderId(), "cart-successful-retry");
+        cancellations.retry(fixture.manager(), released.orderId(), "cart-successful-retry");
+        net = reports.netSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        var products = reports.productSales(fixture.manager(), REPORT_FROM, REPORT_TO, fixture.locationId());
+        assertThat(net.successfulVoids()).isEqualTo("375000");
+        assertThat(net.netSales()).isEqualTo(products.netSales()).isEqualTo("750000");
+        assertThat(net.exceptionCount()).isEqualTo(5);
+    }
+
+    private PendingSale pendingCartSale(Fixture fixture, String key, long quantityB) {
+        var lines = List.of(new CartQuoteService.LineRequest(fixture.variantA(), 1),
+                new CartQuoteService.LineRequest(fixture.variantB(), quantityB));
+        var quote = cartPricing.quote(fixture.customer(), lines);
+        var order = orders.checkoutCart(fixture.customer(), quote.id(), lines, "checkout-" + key);
+        var attempt = attempts.initiate(fixture.customer(), order.id(), "payment-" + key).attempt();
+        return new PendingSale(order.id(), attempt.id(), attempt.merchantTransactionReference(), attempt.amount().longValueExact());
+    }
+
     private OnlineSale onlineSale(Fixture fixture, UUID variantId, String key) {
         PendingSale pending = pendingSale(fixture, variantId, key);
         assertThat(paymentResults.apply(success(pending, digits())))
@@ -289,8 +389,8 @@ class VerticalSlice7ReportingExternalIT {
         UUID variantA = catalog.createVariant(manager, productId, skuA, "42", "Black");
         UUID variantB = catalog.createVariant(manager, productId, skuB, "43", "White");
         for (UUID variant : new UUID[] { variantA, variantB }) catalog.setPrice(manager, variant, 125_000);
-        catalog.setStock(manager, variantA, locationId, stockA);
-        catalog.setStock(manager, variantB, locationId, stockB);
+        adjustments.adjust(manager, variantA, locationId, stockA, "Test fixture", UUID.randomUUID().toString());
+        adjustments.adjust(manager, variantB, locationId, stockB, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(manager, variantA);
         catalog.publish(manager, variantB);
         UUID registerId = UUID.randomUUID();

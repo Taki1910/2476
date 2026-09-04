@@ -8,10 +8,12 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoecommerce.audit.AuditWriter;
+import com.shoecommerce.platform.api.BusinessConflictException;
 
 @Service
 public class IdentityAdministrationService {
@@ -57,6 +59,23 @@ public class IdentityAdministrationService {
         auditWriter.append(actor, "ACCOUNT_CREATED", "USER_ACCOUNT", account.publicId(), null, null,
                 Map.of("role", role.name()));
         return account.publicId();
+    }
+
+    @Transactional
+    public AuthController.RegisteredAccountResponse registerCustomer(String login, String plaintextPassword) {
+        String normalizedLogin = UserAccount.normalizeLogin(login);
+        validateLogin(normalizedLogin);
+        validatePassword(plaintextPassword);
+        try {
+            UserAccount account = accounts.saveAndFlush(
+                    UserAccount.create(normalizedLogin, passwordEncoder.encode(plaintextPassword), clock.instant()));
+            authorities.addRole(account.id(), RoleCode.CUSTOMER);
+            auditWriter.appendSystem("CUSTOMER_SELF_REGISTERED", "USER_ACCOUNT", account.publicId(),
+                    Map.of("role", RoleCode.CUSTOMER.name()));
+            return new AuthController.RegisteredAccountResponse(account.publicId(), account.loginNormalized());
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessConflictException("IDENTITY_ALREADY_EXISTS", "An account with this login already exists.");
+        }
     }
 
     @Transactional

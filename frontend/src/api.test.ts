@@ -34,6 +34,50 @@ describe('API session handling', () => {
     expect(JSON.parse(init.body)).toEqual({ quoteId: 'quote-1' })
   })
 
+  it('encodes backend-authoritative storefront search terms', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.products('Metro Runner / 42')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/storefront/products?q=Metro%20Runner%20%2F%2042', expect.anything())
+  })
+
+  it('uploads fitting photos as multipart without inventing a content type', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'SUCCESS', availableColors: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const image = new File(['controlled'], 'fit.png', { type: 'image/png' })
+
+    await api.fitAnalysis('product-1', image, 'White')
+
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/storefront/products/product-1/fit-analysis?selectedColor=White')
+    expect(fetchMock.mock.calls[1][1].headers).toEqual({ 'X-CSRF-TOKEN': 'csrf' })
+    expect(fetchMock.mock.calls[1][1].body).toBeInstanceOf(FormData)
+    expect(fetchMock.mock.calls[1][1].body.get('image')).toBe(image)
+  })
+
+  it('sends quantity only when the cart contains more than one unit', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'order-1', quantity: 3 }), { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.checkout('quote-1', 'checkout-key', 3)
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ quoteId: 'quote-1', quantity: 3 })
+  })
+
+  it('loads a bounded owned-orders page', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], page: 1, size: 20, hasNext: false }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.orders(1)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/orders?page=1&size=20', expect.objectContaining({ credentials: 'include' }))
+  })
+
   it('cancels an owned pending order with CSRF protection', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }), { status: 200 }))
@@ -115,5 +159,56 @@ describe('API session handling', () => {
       expect.objectContaining({ credentials: 'include' }),
     )
     expect(fetchMock.mock.calls[0][1].method).toBeUndefined()
+  })
+
+  it('loads the data-driven hero read model', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.hero()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/storefront/hero', expect.objectContaining({ credentials: 'include' }))
+  })
+
+  it('bounds API waiting time without changing checkout identity', async () => {
+    const signal = new AbortController().signal
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(signal)
+    const fetchMock = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await api.products()
+    expect(timeout).toHaveBeenCalledWith(20_000)
+    expect(fetchMock.mock.calls[0][1].signal).toBe(signal)
+  })
+
+  it('quotes all normalized lines with CSRF and no cached prices', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'cart-quote' })))
+    vi.stubGlobal('fetch', fetchMock)
+    const variantId = 'aaaaaaaa-0000-0000-0000-000000000001'
+    await api.cartQuote([{ variantId, quantity: 1 }, { variantId, quantity: 2 }])
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/storefront/cart-quotes')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ items: [{ variantId, quantity: 3 }] })
+    expect(fetchMock.mock.calls[1][1].headers['X-CSRF-TOKEN']).toBe('csrf')
+  })
+
+  it('submits one whole-cart command with stable ordering and the supplied key', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'one-order' })))
+    vi.stubGlobal('fetch', fetchMock)
+    const a = { variantId: 'aaaaaaaa-0000-0000-0000-000000000001', quantity: 3 }
+    const b = { variantId: 'bbbbbbbb-0000-0000-0000-000000000002', quantity: 1 }
+    const fulfillment = { type: 'PICKUP' as const, pickupLocationId: 'location' }
+    await api.cartCheckout('quote', [b, a], 'same-key', fulfillment)
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/orders/cart-checkout')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ quoteId: 'quote', items: [a, b], fulfillment })
+    expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe('same-key')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves a line-specific ProblemDetail without exposing it as raw UI copy', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'INSUFFICIENT_STOCK', variantId: 'variant-b', detail: 'internal detail' }), { status: 409 })))
+    await expect(api.product('p')).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK', variantId: 'variant-b' })
   })
 })

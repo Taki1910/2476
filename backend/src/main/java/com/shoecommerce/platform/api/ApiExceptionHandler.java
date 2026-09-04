@@ -12,8 +12,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import com.shoecommerce.fitting.ShoeFitService.FitCapacityException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -39,6 +42,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.FORBIDDEN, request);
     }
 
+    @ExceptionHandler(FitCapacityException.class)
+    ResponseEntity<Object> handleFitCapacity(FitCapacityException exception, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage());
+        problem.setProperty("code", "FIT_ANALYSIS_BUSY");
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.TOO_MANY_REQUESTS, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "The image must be 5 MB or smaller.");
+        problem.setProperty("code", "FIT_IMAGE_TOO_LARGE");
+        return createResponseEntity(problem, headers, HttpStatus.BAD_REQUEST, request);
+    }
+
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     ResponseEntity<Object> handleBusinessRule(RuntimeException exception, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
@@ -49,6 +70,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<Object> handleConflict(BusinessConflictException exception, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setProperty("code", exception.code());
+        if (exception.variantId() != null) problem.setProperty("variantId", exception.variantId());
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.CONFLICT, request);
     }
 

@@ -46,9 +46,12 @@ import com.shoecommerce.identity.AccountUserDetailsService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
+import com.shoecommerce.fulfillment.PickupFulfillment;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
 import com.shoecommerce.pricing.PriceQuoteService;
+import com.shoecommerce.pricing.CartQuoteService;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -66,8 +69,10 @@ class VerticalSlice3CheckoutExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired StorefrontCatalogService storefront;
     @Autowired PriceQuoteService pricing;
+    @Autowired CartQuoteService cartPricing;
     @Autowired CustomerOrderService orders;
     @Autowired MutableClock clock;
     @Autowired ObjectMapper json;
@@ -118,6 +123,22 @@ class VerticalSlice3CheckoutExternalIT {
         var customerBOrder = orders.checkout(fixture.customerB(), customerBQuote.id(), "checkout-success");
         assertThat(customerBOrder.id()).isNotEqualTo(created.id());
         assertThat(customerBOrder.ownerAccountId()).isEqualTo(fixture.customerB().publicId());
+    }
+
+    @Test
+    void checkoutSnapshotsQuantityAndOrdersAreOwnerScoped() {
+        Fixture fixture = fixture("quantity", 5);
+        var quote = pricing.quote(fixture.customerA(), fixture.variant());
+
+        var order = orders.checkout(fixture.customerA(), quote.id(), 3, "checkout-quantity");
+
+        assertThat(order.quantity()).isEqualTo(3);
+        assertThat(order.totalAmount()).isEqualTo(447_000);
+        assertThat(orders.readOwnOrders(fixture.customerA(), 0, 20).items())
+                .extracting(CustomerOrderService.OrderView::id).containsExactly(order.id());
+        assertThat(orders.readOwnOrders(fixture.customerB(), 0, 20).items()).isEmpty();
+        assertThatThrownBy(() -> orders.checkout(fixture.customerA(), quote.id(), 2, "checkout-quantity"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("idempotency key");
     }
 
     @Test
@@ -217,7 +238,7 @@ class VerticalSlice3CheckoutExternalIT {
         assertThat(orderA.reservationExpiresAt()).isAfter(quoteA.expiresAt());
 
         clock.set(quoteA.expiresAt());
-        var detail = storefront.detail(fixture.customerB(), fixture.product());
+        var detail = storefront.detail(fixture.product());
 
         assertThat(detail.variants()).singleElement().extracting(StorefrontCatalogService.VariantView::availability)
                 .isEqualTo("UNAVAILABLE");
@@ -233,7 +254,7 @@ class VerticalSlice3CheckoutExternalIT {
         var orderA = orders.checkout(fixture.customerA(), quoteA.id(), "expiry-a");
         clock.set(orderA.reservationExpiresAt());
 
-        var available = storefront.detail(fixture.customerB(), fixture.product());
+        var available = storefront.detail(fixture.product());
 
         assertThat(available.variants()).singleElement().extracting(StorefrontCatalogService.VariantView::availability)
                 .isEqualTo("AVAILABLE");
@@ -243,7 +264,7 @@ class VerticalSlice3CheckoutExternalIT {
 
         var quoteB = pricing.quote(fixture.customerB(), fixture.variant());
         var orderB = orders.checkout(fixture.customerB(), quoteB.id(), "expiry-b");
-        storefront.detail(fixture.customerA(), fixture.product());
+        storefront.detail(fixture.product());
 
         assertThat(orderB.status()).isEqualTo("PENDING_PAYMENT");
         assertThat(jdbc.queryForObject("SELECT status FROM inventory_reservation WHERE public_id = ?", String.class, orderA.reservationId())).isEqualTo("EXPIRED");
@@ -259,7 +280,7 @@ class VerticalSlice3CheckoutExternalIT {
         assertThat(orders.cancelOwn(fixture.customerA(), order.id()).status()).isEqualTo("CANCELLED");
         assertThat(balance(fixture)).isEqualTo(new Balance(1, 0, 1));
         clock.set(order.reservationExpiresAt());
-        storefront.detail(fixture.customerB(), fixture.product());
+        storefront.detail(fixture.product());
 
         assertThat(jdbc.queryForObject("SELECT status FROM inventory_reservation WHERE public_id = ?", String.class, order.reservationId())).isEqualTo("RELEASED");
         assertThat(balance(fixture)).isEqualTo(new Balance(1, 0, 1));
@@ -273,6 +294,9 @@ class VerticalSlice3CheckoutExternalIT {
         Browser b = new Browser();
         login(a, fixture.customerALogin());
         login(b, fixture.customerBLogin());
+
+        HttpResponse<String> legacy = request(a, "/api/v1/orders", "{\"reservationId\":\"" + UUID.randomUUID() + "\"}", "legacy-order");
+        assertThat(legacy.statusCode()).isEqualTo(405); // GET /orders now exists; direct POST is still forbidden.
 
         HttpResponse<String> missingKey = request(a, "/api/v1/orders/checkout", "{\"quoteId\":\"" + quote.id() + "\"}", null);
         assertThat(missingKey.statusCode()).isEqualTo(400);
@@ -302,6 +326,255 @@ class VerticalSlice3CheckoutExternalIT {
         catch (BusinessConflictException exception) { return exception; }
     }
 
+    @Test
+    void twoLineCheckoutSnapshotsEveryPriceAndOwnerHistory() {
+        Fixture f = fixture("multi-two", 5);
+        UUID second = extraVariant(f, "41", 900_000, 5);
+        var demand = List.of(line(f.variant(), 1), line(second, 2));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        catalog.setPrice(f.operations(), f.variant(), 200_000);
+        catalog.setPrice(f.operations(), second, 950_000);
+        var order = orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-two");
+        assertThat(order.itemCount()).isEqualTo(2);
+        assertThat(order.quantity()).isEqualTo(3);
+        assertThat(order.totalAmount()).isEqualTo(1_949_000);
+        assertThat(order.variantId()).isNull();
+        assertThat(order.unitPriceAmount()).isNull();
+        assertThat(order.items()).extracting(CustomerOrderService.OrderLine::totalAmount).containsExactlyInAnyOrder(149_000L, 1_800_000L);
+        assertThat(order.items()).extracting(CustomerOrderService.OrderLine::reservationId).doesNotHaveDuplicates().doesNotContainNull();
+        assertThat(order.items()).extracting(CustomerOrderService.OrderLine::priceVersionId).containsExactlyInAnyOrderElementsOf(
+                quote.items().stream().map(CartQuoteService.LineView::priceVersionId).toList());
+        assertThat(order.items()).extracting(CustomerOrderService.OrderLine::locationId).containsOnly(location(f));
+        assertThat(orders.readOwnOrders(f.customerA(), 0, 20).items()).singleElement().extracting(CustomerOrderService.OrderView::itemCount).isEqualTo(2);
+        assertThat(orders.readOwnOrders(f.customerB(), 0, 20).items()).isEmpty();
+        assertThatThrownBy(() -> orders.readOwn(f.customerB(), order.id())).isInstanceOf(AccessDeniedException.class);
+        assertThat(balance(f).reserved()).isOne();
+        assertThat(reserved(second)).isEqualTo(2);
+    }
+
+    @Test
+    void threeLineCheckoutMergesDuplicatesAndRejectsOverLimit() {
+        Fixture f = fixture("multi-three", 5);
+        UUID second = extraVariant(f, "41", 900_000, 5);
+        UUID third = extraVariant(f, "40", 1_490_000, 5);
+        var demand = List.of(line(third, 1), line(second, 1), line(f.variant(), 1), line(second, 1));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        var order = orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-three");
+        assertThat(order.items()).hasSize(3);
+        assertThat(order.totalAmount()).isEqualTo(3_439_000);
+        assertThat(order.items().stream().filter(item -> item.variantId().equals(second)).findFirst().orElseThrow().quantity()).isEqualTo(2);
+        assertThatThrownBy(() -> cartPricing.quote(f.customerA(), List.of(line(third, 6), line(third, 5))))
+                .isInstanceOf(com.shoecommerce.platform.api.InvalidRequestException.class);
+    }
+
+    @Test
+    void unavailableSecondLineRollsBackTheWholeCheckout() {
+        Fixture f = fixture("multi-stock", 3);
+        UUID second = extraVariant(f, "41", 900_000, 3);
+        var demand = List.of(line(f.variant(), 2), line(second, 2));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        adjustments.adjust(f.operations(), second, location(f), 1, "Competing stock change", "multi-stock-reduce");
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-stock"))
+                .isInstanceOf(BusinessConflictException.class);
+        assertThat(balance(f)).isEqualTo(new Balance(3, 0, 3));
+        assertThat(reserved(second)).isZero();
+        assertNoCartEffects(f);
+    }
+
+    @Test
+    void checkoutRejectsItemsThatNoLongerShareAPickupLocation() {
+        Fixture f = fixture("multi-location", 3);
+        UUID second = extraVariant(f, "41", 900_000, 3);
+        var demand = List.of(line(f.variant(), 1), line(second, 1));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        var admin = bootstrapAdmin();
+        UUID branch = scopes.createBranch(admin, "CART-B-" + shortId(), "Other pickup branch");
+        UUID otherLocation = scopes.createLocation(admin, branch, "CART-L-" + shortId(), "Other pickup floor");
+        scopes.setAssignment(admin, f.operations().publicId(), branch, otherLocation, true);
+        var reassignedOperations = principal(f.operations().getUsername());
+        adjustments.adjust(reassignedOperations, second, otherLocation, 3, "Other location stock", UUID.randomUUID().toString());
+        adjustments.adjust(reassignedOperations, second, location(f), 0, "Original location unavailable", UUID.randomUUID().toString());
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "different-locations"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("pickup location");
+        assertNoCartEffects(f);
+        assertThat(balance(f).reserved()).isZero(); assertThat(reserved(second)).isZero();
+    }
+
+    @Test
+    void cartCannotExceedIntegerOrSupportedFullPaymentAmount() {
+        Fixture f = fixture("multi-money", 3);
+        catalog.setPrice(f.operations(), f.variant(), com.shoecommerce.pricing.VariantPrice.MAX_AMOUNT);
+        clock.advance(Duration.ofSeconds(1));
+        assertThatThrownBy(() -> cartPricing.quote(f.customerA(), List.of(line(f.variant(), 2))))
+                .isInstanceOf(com.shoecommerce.platform.api.InvalidRequestException.class).hasMessageContaining("payment limit");
+        assertNoCartEffects(f);
+    }
+
+    @Test
+    void cartAuditFailureRollsBackEveryReservationAndOrderItem() {
+        Fixture f = fixture("multi-audit", 3);
+        UUID second = extraVariant(f, "41", 900_000, 3);
+        var demand = List.of(line(f.variant(), 1), line(second, 2));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        org.slf4j.MDC.put(com.shoecommerce.platform.api.CorrelationIdFilter.MDC_KEY, "x".repeat(65));
+        try {
+            assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-audit"))
+                    .isInstanceOf(DataAccessException.class);
+        } finally { org.slf4j.MDC.remove(com.shoecommerce.platform.api.CorrelationIdFilter.MDC_KEY); }
+        assertNoCartEffects(f);
+        assertThat(balance(f).reserved()).isZero();
+        assertThat(reserved(second)).isZero();
+    }
+
+    @Test
+    void cartQuoteExpiryAndChangedDemandNeverReserve() {
+        Fixture f = fixture("multi-expired", 3);
+        UUID second = extraVariant(f, "41", 900_000, 3);
+        var demand = List.of(line(f.variant(), 1), line(second, 1));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), List.of(line(f.variant(), 2), line(second, 1)), "mismatch"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("cart changed");
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerB(), quote.id(), demand, "foreign-cart"))
+                .isInstanceOf(ResourceNotFoundException.class);
+        clock.set(quote.expiresAt());
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "expired-cart"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("expired");
+        assertNoCartEffects(f);
+    }
+
+    @Test
+    void cartKeyCanonicalizesAllLinesAndReplaysAfterQuoteExpiry() {
+        Fixture f = fixture("multi-replay", 5);
+        UUID second = extraVariant(f, "41", 900_000, 5);
+        var demand = List.of(line(f.variant(), 1), line(second, 2));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        var order = orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-replay");
+        var reversed = List.of(line(second, 1), line(f.variant(), 1), line(second, 1));
+        assertThat(orders.checkoutCart(f.customerA(), quote.id(), reversed, "multi-replay").id()).isEqualTo(order.id());
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), List.of(line(f.variant(), 1), line(second, 1)), "multi-replay"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("idempotency key");
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "new-key"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("already created");
+        clock.set(quote.expiresAt());
+        assertThat(orders.checkoutCart(f.customerA(), quote.id(), reversed, "multi-replay").id()).isEqualTo(order.id());
+        assertThat(orders.readOwnOrders(f.customerA(), 0, 20).items()).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isEqualTo(2);
+    }
+
+    @Test
+    void anyExpiredLineReleasesAllHoldsAndUnpaidCancellationIsIdempotent() {
+        Fixture f = fixture("multi-holds", 5);
+        UUID second = extraVariant(f, "41", 900_000, 5);
+        var demand = List.of(line(f.variant(), 1), line(second, 2));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        clock.set(quote.expiresAt().minusSeconds(1));
+        var order = orders.checkoutCart(f.customerA(), quote.id(), demand, "multi-holds");
+        assertThat(order.reservationExpiresAt()).isAfter(quote.expiresAt());
+        clock.set(order.reservationExpiresAt());
+        storefront.detail(f.product());
+        assertThat(orders.readOwn(f.customerA(), order.id()).status()).isEqualTo("CANCELLED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ? AND status = 'EXPIRED'", Integer.class, f.customerA().publicId())).isEqualTo(2);
+        assertThat(balance(f).reserved()).isZero(); assertThat(reserved(second)).isZero();
+        var fresh = cartPricing.quote(f.customerA(), demand);
+        var next = orders.checkoutCart(f.customerA(), fresh.id(), demand, "multi-cancel");
+        orders.cancelOwn(f.customerA(), next.id()); orders.cancelOwn(f.customerA(), next.id());
+        assertThat(balance(f).reserved()).isZero(); assertThat(reserved(second)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ? AND status = 'RELEASED'", Integer.class, f.customerA().publicId())).isEqualTo(2);
+    }
+
+    @Test
+    void oppositeCartOrderingBothSucceedWithSufficientStock() throws Exception { cartRace(2, 2); }
+
+    @Test
+    void oppositeCartOrderingHasExactlyOneWinnerForLastUnits() throws Exception { cartRace(1, 1); }
+
+    private void cartRace(long stock, int expectedWinners) throws Exception {
+        Fixture f = fixture("multi-race-" + stock, stock);
+        UUID second = extraVariant(f, "41", 900_000, stock);
+        var a = List.of(line(f.variant(), 1), line(second, 1));
+        var b = List.of(line(second, 1), line(f.variant(), 1));
+        var qa = cartPricing.quote(f.customerA(), a); var qb = cartPricing.quote(f.customerB(), b);
+        CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+        List<Object> results;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> cartAfterBarrier(f.customerA(), qa.id(), a, ready, start));
+            var other = executor.submit(() -> cartAfterBarrier(f.customerB(), qb.id(), b, ready, start));
+            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue(); start.countDown();
+            results = List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS), other.get(20, java.util.concurrent.TimeUnit.SECONDS));
+        } finally { start.countDown(); }
+        assertThat(results).filteredOn(CustomerOrderService.OrderView.class::isInstance).hasSize(expectedWinners);
+        assertThat(results).filteredOn(BusinessConflictException.class::isInstance).hasSize(2 - expectedWinners);
+        assertThat(balance(f).reserved()).isEqualTo(expectedWinners);
+        assertThat(reserved(second)).isEqualTo(expectedWinners);
+    }
+
+    private Object cartAfterBarrier(SessionPrincipal actor, UUID quote, List<CartQuoteService.LineRequest> demand,
+            CountDownLatch ready, CountDownLatch start) throws Exception {
+        ready.countDown(); if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Race did not start");
+        try { return orders.checkoutCart(actor, quote, demand, "multi-race"); }
+        catch (BusinessConflictException conflict) { return conflict; }
+    }
+
+    @Test
+    void cartHttpContractUsesOneOrderAndEnforcesBackendOwnership() throws Exception {
+        Fixture f = fixture("multi-api", 3); UUID second = extraVariant(f, "41", 900_000, 3);
+        Browser a = new Browser(), b = new Browser(); login(a, f.customerALogin()); login(b, f.customerBLogin());
+        String items = "[{\"variantId\":\"" + f.variant() + "\",\"quantity\":1},{\"variantId\":\"" + second + "\",\"quantity\":2}]";
+        var quoted = request(a, "/api/v1/storefront/cart-quotes", "{\"items\":" + items + "}", null);
+        assertThat(quoted.statusCode()).isEqualTo(201);
+        JsonNode quote = json.readTree(quoted.body());
+        String quoteId = quote.get("id").asString();
+        String locationId = quote.get("pickupLocations").get(0).get("id").asString();
+        var created = request(a, "/api/v1/orders/cart-checkout", "{\"quoteId\":\"" + quoteId + "\",\"items\":" + items
+                + ",\"fulfillment\":{\"type\":\"PICKUP\",\"pickupLocationId\":\"" + locationId + "\"}}", "cart-api");
+        assertThat(created.statusCode()).isEqualTo(201);
+        JsonNode order = json.readTree(created.body()); assertThat(order.get("items").size()).isEqualTo(2);
+        assertThat(order.get("totalAmount").asLong()).isEqualTo(1_949_000);
+        assertThat(order.get("fulfillmentType").asString()).isEqualTo("PICKUP");
+        assertThat(order.get("fulfillmentStatus").asString()).isEqualTo("PENDING");
+        assertThat(b.client.send(HttpRequest.newBuilder(uri("/api/v1/orders/" + order.get("id").asString())).GET().build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
+        var history = b.client.send(HttpRequest.newBuilder(uri("/api/v1/orders")).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(history.statusCode()).isEqualTo(200); assertThat(json.readTree(history.body()).get("items").size()).isZero();
+    }
+
+    @Test
+    void cartCheckoutSnapshotsDeliveryAndIncludesIntentInIdempotency() {
+        Fixture f = fixture("delivery-intent", 3);
+        var demand = List.of(line(f.variant(), 1));
+        var quote = cartPricing.quote(f.customerA(), demand);
+        var delivery = new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "12 Nguyen Hue, Quan 1", "Giao gio hanh chinh"));
+
+        var created = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
+        var replay = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
+
+        assertThat(replay.id()).isEqualTo(created.id());
+        assertThat(created.fulfillmentType()).isEqualTo("DELIVERY");
+        assertThat(created.fulfillmentStatus()).isEqualTo("PENDING");
+        assertThat(created.receiverName()).isEqualTo("Nguyen Van A");
+        assertThat(created.receiverPhone()).isEqualTo("+84 912 345 678");
+        assertThat(created.deliveryAddress()).isEqualTo("12 Nguyen Hue, Quan 1");
+        assertThat(created.deliveryNote()).isEqualTo("Giao gio hanh chinh");
+        assertThat(created.deliveryFeeAmount()).isZero();
+        assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand,
+                new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.PICKUP, location(f), null), "delivery-intent"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("idempotency key");
+    }
+
+    private static CartQuoteService.LineRequest line(UUID id, long quantity) { return new CartQuoteService.LineRequest(id, quantity); }
+    private UUID extraVariant(Fixture f, String size, long price, long stock) {
+        UUID id = catalog.createVariant(f.operations(), f.product(), "CART-" + shortId(), size, "Black");
+        catalog.setPrice(f.operations(), id, price);
+        adjustments.adjust(f.operations(), id, location(f), stock, "Multi-item fixture", UUID.randomUUID().toString());
+        catalog.publish(f.operations(), id); return id;
+    }
+    private UUID location(Fixture f) { return jdbc.queryForObject("SELECT locations.public_id FROM org_location locations JOIN inventory_balance balances ON balances.location_id = locations.id JOIN catalog_product_variant variants ON variants.id = balances.variant_id WHERE variants.public_id = ?", UUID.class, f.variant()); }
+    private long reserved(UUID variant) { return jdbc.queryForObject("SELECT SUM(balances.reserved) FROM inventory_balance balances JOIN catalog_product_variant variants ON variants.id = balances.variant_id WHERE variants.public_id = ?", Long.class, variant); }
+    private void assertNoCartEffects(Fixture f) {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isZero();
+    }
+
     private Fixture fixture(String suffix, long stock) {
         SessionPrincipal admin = bootstrapAdmin();
         String operationsLogin = "vs3c-" + suffix + "-ops-" + UUID.randomUUID() + "@example.com";
@@ -317,7 +590,7 @@ class VerticalSlice3CheckoutExternalIT {
         UUID product = catalog.createProduct(operations, "Checkout Runner " + suffix);
         UUID variant = catalog.createVariant(operations, product, "VS3C-" + suffix + "-" + shortId(), "42", "Ink");
         catalog.setPrice(operations, variant, 149_000);
-        catalog.setStock(operations, variant, location, stock);
+        adjustments.adjust(operations, variant, location, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variant);
         return new Fixture(product, variant, operations, principal(customerALogin), principal(customerBLogin), customerALogin, customerBLogin);
     }

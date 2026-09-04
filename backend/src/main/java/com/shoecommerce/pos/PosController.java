@@ -34,7 +34,8 @@ public class PosController {
 
     @GetMapping("/shifts/current")
     ResponseEntity<PosService.ShiftView> current(@AuthenticationPrincipal SessionPrincipal actor) {
-        return ResponseEntity.ofNullable(pos.currentShift(actor));
+        PosService.ShiftView shift = pos.currentShift(actor);
+        return shift == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(shift);
     }
 
     @PostMapping("/shifts/{shiftId}/close")

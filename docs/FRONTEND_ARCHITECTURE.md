@@ -23,9 +23,9 @@
 
 | Area | Primary actors | Responsibilities | Must not inherit blindly |
 |---|---|---|---|
-| Customer Web | Registered Customer | Browse, variant/size, availability, base quote, online pickup checkout/payment recovery, pickup/cancellation visibility | Guest, delivery, Return/Refund, Voucher, AI, staff controls |
+| Customer Web | Registered Customer | Browse, cart quote, Pickup/Delivery choice, payment recovery, fulfillment/cancellation timeline | Guest, Return/Refund, Voucher, AI, staff controls |
 | POS | Cashier | Assigned Register/Shift, authoritative quote, cash sale, immediate handover, receipt/recovery | Electronic/split tender, offline/device integration, online flow |
-| Admin/Back Office | Operations/Administrator | Identity grants, Branch/Location, catalog/base price, inventory, pickup, cancellation, basic reporting | Implicit broad permissions or separate apps per staff specialty |
+| Admin/Back Office | Operations/Administrator | Identity grants, Branch/Location, catalog/base price, inventory, pickup/delivery queue, cancellation, basic reporting | Implicit broad permissions or separate apps per staff specialty |
 
 Future mobile/native clients may consume the same use cases only through an
 explicit API/authentication contract; no mobile framework is selected.
@@ -152,16 +152,41 @@ slice, not during backend Foundation 0 merely for completeness.
 The first Vue surface uses Vue 3, TypeScript, Vite, and Vue Router in `frontend/`.
 It consumes authenticated `/api/v1/storefront/products`, product-detail, and
 price-quote contracts with same-origin session cookies and CSRF on quote
-creation. It renders server-provided availability text and exact VND quote
+creation. The storefront also exposes a public `/api/v1/storefront/hero`
+read model with merchandising flags and 7/30-day sales signals so a future
+carousel can choose Top Seller, Trending, New Arrival, and Featured Collection
+from data. It renders server-provided availability text and exact VND quote
 amounts; it does not calculate or cache an authoritative price beyond the
 quote's returned expiry.
 
-The product detail now submits only `quoteId` plus an opaque `Idempotency-Key`
-to customer checkout. One key is retained across recoverable retries for that
-quote, the action is disabled while in flight, and server error codes drive
-expiry/stock/session recovery copy. Confirmation repeats the immutable item and
-amount evidence and explicitly states `PENDING_PAYMENT`; it does not imply or
-initiate payment. Before checkout, quote timing uses the PriceQuote
+Phase 15B product detail adds variants to a browser-persisted multi-line cart.
+The cart requests one server CartQuote, displays each confirmed subtotal and
+the full total, then submits only `quoteId`, normalized variant/quantity demands
+and an opaque `Idempotency-Key` to `/orders/cart-checkout` (ADR-0026).
+The command identity is persisted per account before the HTTP request; uncertain
+retries, navigation and refresh retain the same payload/key. Server-confirmed
+rejections allow editing/requoting. Display metadata and added-price estimates
+are never submitted as authority. Controls are disabled while in flight and
+server codes drive line-specific stock/price/session recovery copy.
+Confirmation repeats every immutable item and explicitly states `PENDING_PAYMENT`;
+payment requires a separate action and remains resumable from My Orders/detail.
+Before checkout, quote timing uses the CartQuote
 `expiresAt`. After checkout, hold messaging uses only the Order response's
 server-authoritative `reservationExpiresAt`; the browser never derives a hold
 deadline from the quote or its own clock.
+
+Phase 16 extends the same durable checkout command with a required fulfillment
+choice. Pickup submits a server-advertised common Location ID; Delivery submits
+validated receiver/address fields. Customer order detail renders the persisted
+snapshot and actual timestamps. The location-scoped employee queue exposes
+Accept, Ready, Handover or Dispatch, then Delivered; confirmation dialogs guard
+physical terminal actions and UI visibility never replaces `FULFILL_ORDER`.
+
+Phase 17 adds `FitAssistant.vue` to Product Detail as a mobile-first advisory
+flow: prepare, photo, check, analyze and recommendation. It uses the standard
+PNG/JPEG file input with camera capture support, keeps the preview in browser
+memory, and sends one multipart request with the existing CSRF token. Success
+selects only the matching size/color variant; it never adds to cart or silently
+changes color. Retake, unsupported-profile, unavailable-stock and retry states
+remain explicit in English and Vietnamese, with live status/error announcements
+and keyboard-accessible controls.

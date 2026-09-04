@@ -21,13 +21,15 @@ public class PickupFulfillmentController {
         return fulfillments.create(actor, orderId);
     }
 
-    @PostMapping("/api/v1/pickup-fulfillments/{fulfillmentId}/start-picking")
+    @PostMapping({"/api/v1/pickup-fulfillments/{fulfillmentId}/start-picking",
+            "/api/v1/fulfillments/{fulfillmentId}/accept"})
     PickupFulfillmentService.PickupFulfillmentView startPicking(
             @AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID fulfillmentId) {
         return fulfillments.startPicking(actor, fulfillmentId);
     }
 
-    @PostMapping("/api/v1/pickup-fulfillments/{fulfillmentId}/prepare")
+    @PostMapping({"/api/v1/pickup-fulfillments/{fulfillmentId}/prepare",
+            "/api/v1/fulfillments/{fulfillmentId}/ready"})
     PickupFulfillmentService.PickupFulfillmentView prepare(
             @AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID fulfillmentId) {
         return fulfillments.prepare(actor, fulfillmentId);
@@ -38,5 +40,19 @@ public class PickupFulfillmentController {
             @AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID fulfillmentId,
             @RequestHeader(name = "Idempotency-Key", required = false) String key) {
         return fulfillments.handover(actor, fulfillmentId, key);
+    }
+
+    @PostMapping("/api/v1/fulfillments/{fulfillmentId}/dispatch")
+    PickupFulfillmentService.PickupFulfillmentView dispatch(
+            @AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID fulfillmentId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String key) {
+        return fulfillments.dispatch(actor, fulfillmentId, key);
+    }
+
+    @PostMapping("/api/v1/fulfillments/{fulfillmentId}/delivered")
+    PickupFulfillmentService.PickupFulfillmentView delivered(
+            @AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID fulfillmentId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String key) {
+        return fulfillments.deliver(actor, fulfillmentId, key);
     }
 }

@@ -45,6 +45,7 @@ import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.order.CustomerOrderService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.CorrelationIdFilter;
@@ -67,6 +68,7 @@ class VerticalSlice5ExternalIT {
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
     @Autowired InventoryReservationService reservations;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired CustomerOrderService orders;
     @Autowired PaymentAttemptService attempts;
     @Autowired PaymentProviderEventService providerEvents;
@@ -368,7 +370,7 @@ class VerticalSlice5ExternalIT {
         UUID productId = catalog.createProduct(operations, "Provider Result Runner");
         UUID variantId = catalog.createVariant(operations, productId, prefix + "-SKU", "42", "Black");
         catalog.setPrice(operations, variantId, 120_000);
-        catalog.setStock(operations, variantId, locationId, stock);
+        adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
         return new Fixture(variantId, locationId, adminLogin, operationsLogin, ownerLogin, providerLogin,
                 administrator, operations, principal(ownerLogin), principal(providerLogin));

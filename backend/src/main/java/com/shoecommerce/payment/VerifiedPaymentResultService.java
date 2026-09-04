@@ -77,7 +77,7 @@ public class VerifiedPaymentResultService {
         }
 
         InventoryReservationService.PaymentCommit commitment =
-                reservations.commitForSuccessfulPayment(facts.reservationId(), now);
+                reservations.commitForSuccessfulPayment(facts.reservationIds(), now);
         if (commitment == InventoryReservationService.PaymentCommit.COMMITTED) {
             attempt.applySuccess(result, now);
             order.markPaid(now);

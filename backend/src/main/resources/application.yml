@@ -22,8 +22,15 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+      file-size-threshold: 5MB
 
 server:
+  tomcat:
+    max-swallow-size: 6MB
   servlet:
     session:
       timeout: 30m

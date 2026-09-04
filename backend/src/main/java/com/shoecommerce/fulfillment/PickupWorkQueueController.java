@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.shoecommerce.identity.SessionPrincipal;
 
 @RestController
-@RequestMapping("/api/v1/operations/pickups")
+@RequestMapping({"/api/v1/operations/pickups", "/api/v1/operations/fulfillments"})
 class PickupWorkQueueController {
     private final PickupWorkQueueService queue;
     PickupWorkQueueController(PickupWorkQueueService queue) { this.queue = queue; }

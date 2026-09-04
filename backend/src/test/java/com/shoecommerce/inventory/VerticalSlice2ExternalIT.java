@@ -64,6 +64,7 @@ class VerticalSlice2ExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired InventoryReservationService reservations;
     @LocalServerPort int port;
 
@@ -78,7 +79,8 @@ class VerticalSlice2ExternalIT {
         assertThatThrownBy(() -> reservations.readOwn(fixture.other(), reservation.id())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> reservations.releaseOwn(fixture.other(), reservation.id())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> reservations.reserve(fixture.other(), fixture.variantId(), fixture.locationId(), 2)).isInstanceOf(IllegalStateException.class).hasMessage("Insufficient available stock");
-        assertThatThrownBy(() -> catalog.setStock(fixture.operations(), fixture.variantId(), fixture.locationId(), 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 0,
+                "Reserved floor", "reserved-floor")).isInstanceOf(IllegalArgumentException.class);
         assertThat(balance(fixture)).isEqualTo(new Balance(2, 1, 1));
 
         InventoryReservationService.ReservationView released = reservations.releaseOwn(fixture.owner(), reservation.id());
@@ -88,7 +90,7 @@ class VerticalSlice2ExternalIT {
 
         UUID draft = catalog.createVariant(fixture.operations(), fixture.productId(), fixture.prefix() + "-DRAFT", "43", "Blue");
         catalog.setPrice(fixture.operations(), draft, 110_000);
-        catalog.setStock(fixture.operations(), draft, fixture.locationId(), 1);
+        adjustments.adjust(fixture.operations(), draft, fixture.locationId(), 1, "Test fixture", UUID.randomUUID().toString());
         assertThatThrownBy(() -> reservations.reserve(fixture.owner(), draft, fixture.locationId(), 1)).isInstanceOf(IllegalStateException.class).hasMessage("Variant is not published");
 
         jdbc.update("UPDATE org_location SET enabled = 0 WHERE public_id = ?", fixture.locationId());
@@ -97,22 +99,60 @@ class VerticalSlice2ExternalIT {
     }
 
     @Test
-    void provesAuthenticatedHttpOwnershipAndIdempotentRelease() throws Exception {
+    void provesLegacyStandaloneReservationApiIsClosed() throws Exception {
         Fixture fixture = fixture(1);
         Browser owner = new Browser();
-        Browser other = new Browser();
         assertThat(login(owner, fixture.ownerLogin()).statusCode()).isEqualTo(200);
-        assertThat(login(other, fixture.otherLogin()).statusCode()).isEqualTo(200);
-
-        HttpResponse<String> created = request(owner, "POST", "/api/v1/inventory/reservations", "{\"variantId\":\"" + fixture.variantId() + "\",\"locationId\":\"" + fixture.locationId() + "\",\"quantity\":1}", 201);
-        UUID reservationId = UUID.fromString(json.readTree(created.body()).get("id").asString());
-        assertThat(created.body()).contains("ACTIVE");
-        assertThat(get(owner, "/api/v1/inventory/reservations/" + reservationId).statusCode()).isEqualTo(200);
-        assertThat(get(other, "/api/v1/inventory/reservations/" + reservationId).statusCode()).isEqualTo(403);
-        assertThat(request(other, "DELETE", "/api/v1/inventory/reservations/" + reservationId, "", 403).statusCode()).isEqualTo(403);
-        assertThat(request(owner, "DELETE", "/api/v1/inventory/reservations/" + reservationId, "", 200).body()).contains("RELEASED");
-        assertThat(request(owner, "DELETE", "/api/v1/inventory/reservations/" + reservationId, "", 200).body()).contains("RELEASED");
+        request(owner, "POST", "/api/v1/inventory/reservations",
+                "{\"variantId\":\"" + fixture.variantId() + "\",\"locationId\":\"" + fixture.locationId() + "\",\"quantity\":1}", 404);
         assertThat(balance(fixture)).isEqualTo(new Balance(1, 0, 1));
+    }
+
+    @Test
+    void provesAuditedIdempotentInventoryAdjustment() {
+        Fixture fixture = fixture(5);
+        int initialMovements = adjustmentCount(fixture.variantId());
+
+        var increase = adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 8,
+                "Cycle count", "adjust-once");
+        assertThat(increase.onHandDelta()).isEqualTo(3);
+        assertThat(balance(fixture)).isEqualTo(new Balance(8, 0, 8));
+        var replay = adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 8,
+                "Cycle count", "adjust-once");
+        assertThat(replay.created()).isFalse();
+        assertThat(replay.movementId()).isEqualTo(increase.movementId());
+        assertThat(adjustmentCount(fixture.variantId())).isEqualTo(initialMovements + 1);
+        assertThatThrownBy(() -> adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 9,
+                "Cycle count", "adjust-once")).isInstanceOf(com.shoecommerce.platform.api.BusinessConflictException.class);
+
+        var decrease = adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 6,
+                "Damage count", "adjust-down");
+        assertThat(decrease.onHandDelta()).isEqualTo(-2);
+        reservations.reserve(fixture.owner(), fixture.variantId(), fixture.locationId(), 4);
+        int beforeRejected = adjustmentCount(fixture.variantId());
+        assertThatThrownBy(() -> adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 3,
+                "Invalid floor", "reserved-fence")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(balance(fixture)).isEqualTo(new Balance(6, 4, 2));
+        assertThat(adjustmentCount(fixture.variantId())).isEqualTo(beforeRejected);
+
+        SessionPrincipal foreignAdmin = bootstrapAdministrator("foreign-admin-" + UUID.randomUUID() + "@example.com");
+        UUID foreignBranch = scopes.createBranch(foreignAdmin, "FOREIGN-" + UUID.randomUUID().toString().substring(0, 6), "Foreign");
+        UUID foreignLocation = scopes.createLocation(foreignAdmin, foreignBranch, "FOREIGN-LOC-" + UUID.randomUUID().toString().substring(0, 6), "Foreign");
+        assertThatThrownBy(() -> adjustments.adjust(fixture.operations(), fixture.variantId(), foreignLocation, 1,
+                "Foreign", "foreign-location")).isInstanceOf(AccessDeniedException.class);
+
+        int audits = jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action = 'INVENTORY_ADJUSTED'", Integer.class);
+        MDC.put(CorrelationIdFilter.MDC_KEY, "x".repeat(65));
+        try {
+            assertThatThrownBy(() -> adjustments.adjust(fixture.operations(), fixture.variantId(), fixture.locationId(), 7,
+                    "Rollback proof", "rollback-adjustment")).isInstanceOf(DataAccessException.class);
+        } finally {
+            MDC.remove(CorrelationIdFilter.MDC_KEY);
+        }
+        assertThat(balance(fixture)).isEqualTo(new Balance(6, 4, 2));
+        assertThat(adjustmentCount(fixture.variantId())).isEqualTo(beforeRejected);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action = 'INVENTORY_ADJUSTED'", Integer.class)).isEqualTo(audits);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '16' AND success = 1", Integer.class)).isOne();
     }
 
     @Test
@@ -213,7 +253,7 @@ class VerticalSlice2ExternalIT {
         UUID productId = catalog.createProduct(operations, "Reservation Runner");
         UUID variantId = catalog.createVariant(operations, productId, prefix + "-SKU", "42", "Black");
         catalog.setPrice(operations, variantId, 120_000);
-        catalog.setStock(operations, variantId, locationId, stock);
+        adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
         return new Fixture(prefix, productId, variantId, locationId, ownerLogin, otherLogin, operations, principal(ownerLogin), principal(otherLogin));
     }
@@ -228,6 +268,7 @@ class VerticalSlice2ExternalIT {
 
     private SessionPrincipal principal(String login) { SessionPrincipal principal = (SessionPrincipal) users.loadUserByUsername(login); principal.eraseCredentials(); return principal; }
     private Balance balance(Fixture fixture) { return jdbc.queryForObject("SELECT on_hand, reserved, on_hand - reserved AS available FROM inventory_balance WHERE variant_id = (SELECT id FROM catalog_product_variant WHERE public_id = ?) AND location_id = (SELECT id FROM org_location WHERE public_id = ?)", (result, row) -> new Balance(result.getLong("on_hand"), result.getLong("reserved"), result.getLong("available")), fixture.variantId(), fixture.locationId()); }
+    private int adjustmentCount(UUID variantId) { return jdbc.queryForObject("SELECT COUNT(*) FROM inventory_stock_movement WHERE operation_type = 'INVENTORY_ADJUSTMENT' AND variant_public_id = ?", Integer.class, variantId); }
     private HttpResponse<String> login(Browser browser, String username) throws Exception { return request(browser, "POST", "/api/v1/auth/login", "username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + PASSWORD, 200, "application/x-www-form-urlencoded"); }
     private HttpResponse<String> get(Browser browser, String path) throws Exception { return browser.client.send(HttpRequest.newBuilder(uri(path)).GET().build(), HttpResponse.BodyHandlers.ofString()); }
     private HttpResponse<String> request(Browser browser, String method, String path, String body, int expected) throws Exception { return request(browser, method, path, body, expected, "application/json"); }

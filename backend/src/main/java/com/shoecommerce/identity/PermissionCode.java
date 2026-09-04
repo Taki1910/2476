@@ -12,6 +12,7 @@ public enum PermissionCode {
     PAYMENT_INITIATE,
     POS_SELL,
     FULFILL_PICKUP,
+    FULFILL_ORDER,
     ORDER_VIEW_SCOPED,
     ORDER_CANCEL,
     REPORT_VIEW,

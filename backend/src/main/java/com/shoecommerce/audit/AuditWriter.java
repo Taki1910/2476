@@ -61,6 +61,10 @@ public class AuditWriter {
                 Map.of("provider", provider, "evidence", details));
     }
 
+    public void appendSystem(String action, String resourceType, UUID resourcePublicId, Map<String, ?> details) {
+        append(null, "SYSTEM", action, resourceType, resourcePublicId, null, null, details);
+    }
+
     private void append(
             SessionPrincipal actor,
             String actorType,

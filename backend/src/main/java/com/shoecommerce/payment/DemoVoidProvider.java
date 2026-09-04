@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 @Profile("demo")
 final class DemoVoidProvider implements VoidProvider {
     @Override public Result reverse(Request request) {
-        return new Result(Outcome.SUCCEEDED, request.requestReference(), "00", "00", "DEMO-" + request.requestReference(), "demo");
+        return new Result(Outcome.SUCCEEDED, request.requestReference(), "00", "00",
+                "D" + request.requestReference().substring(Math.max(0, request.requestReference().length() - 31)), "demo");
     }
 }

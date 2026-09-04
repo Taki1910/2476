@@ -4,7 +4,7 @@
 >
 > Approved: 2026-08-24
 >
-> Implementation status: preparation authorized; implementation not started
+> Implementation status: Core MVP implemented; this document is retained as the approved planning/history baseline
 
 ## Purpose and authority
 
@@ -464,4 +464,3 @@ All items below remain `OPEN DECISION` and block only the named entry point.
 - [Reporting glossary](REPORTING_GLOSSARY.md)
 - [ADR governance](ADR/README.md)
 - [Blueprint v1.1.1 correction changelog](BLUEPRINT_V1_1_1_CHANGELOG.md)
-

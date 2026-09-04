@@ -3,6 +3,8 @@ package com.shoecommerce.payment;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,32 +42,29 @@ public class VoidService {
 
     @Transactional
     public Reservation reserve(SessionPrincipal actor, CustomerOrder.PaymentFacts order, String key) {
-        VoidOperation scoped = operations.findScopedForUpdate(actor.publicId(), key).orElse(null);
+        Payment payment = payments.findLockedByOrderId(order.orderId())
+                .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Paid capture was not found."));
+        VoidOperation scoped = operations.findByActorAccountPublicIdAndIdempotencyKey(actor.publicId(), key).orElse(null);
         if (scoped != null) {
             if (!scoped.orderPublicId().equals(order.orderId())) {
                 throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another Order.");
             }
-            return replay(scoped);
+            return lockedReplay(scoped);
         }
         VoidOperation existing = operations.findByOrderPublicId(order.orderId()).orElse(null);
-        if (existing != null) return replay(existing);
-
-        Payment payment = payments.findLockedByOrderId(order.orderId())
-                .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Paid capture was not found."));
+        if (existing != null) return lockedReplay(existing);
         PaymentAttempt capture = captureAttempts.findByPaymentAndStatus(payment, PaymentAttempt.Status.SUCCEEDED)
                 .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Successful capture was not found."));
         BigDecimal amount = BigDecimal.valueOf(order.totalAmount());
-        BigDecimal used = allocations.usedCapacity(order.orderItemId());
-        if (used.add(amount).compareTo(amount) > 0) {
-            throw new BusinessConflictException("VOID_CAPACITY_EXCEEDED", "Captured component has no remaining reversal capacity.");
-        }
+        validateCapture(order, capture);
+        requireCapacity(order);
         if (capture.providerTransactionNo() == null || capture.providerPaidAt() == null) {
             throw new BusinessConflictException("CAPTURE_EVIDENCE_INCOMPLETE", "Capture evidence is not sufficient for VNPAY reversal.");
         }
         var now = clock.instant();
         VoidOperation operation = operations.save(VoidOperation.create(payment, order, actor.publicId(), key, now));
         VoidAttempt attempt = attempts.save(VoidAttempt.create(operation, 1, actor.publicId(), key, now));
-        VoidAllocation allocation = allocations.save(VoidAllocation.create(operation, attempt, order.orderItemId(), amount, now));
+        List<VoidAllocation> reserved = allocate(order, operation, attempt, now);
         Location location = locations.findByPublicId(order.locationId()).orElseThrow();
         audit.append(actor, "VOID_INITIATED", "PAYMENT_VOID_OPERATION", operation.publicId(),
                 location.branchId(), location.id(), Map.of("orderId", order.orderId(), "attemptId", attempt.publicId(),
@@ -73,7 +72,7 @@ public class VoidService {
         VoidProvider.Request request = new VoidProvider.Request(attempt.merchantRequestReference(),
                 capture.merchantTransactionReference(), capture.providerTransactionNo(), capture.providerPaidAt(),
                 amount.longValueExact(), now);
-        return new Reservation(view(operation, attempt, List.of(allocation)), true,
+        return new Reservation(view(operation, attempt, reserved), true,
                 operation.publicId(), attempt.publicId(), request);
     }
 
@@ -94,22 +93,32 @@ public class VoidService {
 
     @Transactional
     public Reservation replay(SessionPrincipal actor, UUID orderId, String key) {
-        VoidOperation operation = operations.findScopedForUpdate(actor.publicId(), key).orElse(null);
+        payments.findLockedByOrderId(orderId);
+        VoidOperation operation = operations.findByActorAccountPublicIdAndIdempotencyKey(actor.publicId(), key).orElse(null);
         if (operation == null) return null;
         if (!operation.orderPublicId().equals(orderId)) {
             throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another Order.");
         }
-        return replay(operation);
+        return lockedReplay(operation);
     }
 
     @Transactional
     public Reservation retryReplay(SessionPrincipal actor, UUID orderId, String key) {
-        VoidAttempt attempt = attempts.findScopedForUpdate(actor.publicId(), key).orElse(null);
+        payments.findLockedByOrderId(orderId);
+        VoidAttempt attempt = attempts.findByActorAccountPublicIdAndIdempotencyKey(actor.publicId(), key).orElse(null);
         if (attempt == null) return null;
         if (!attempt.operation().orderPublicId().equals(orderId)) {
             throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another Order.");
         }
-        return replay(attempt.operation());
+        return lockedReplay(attempt.operation());
+    }
+
+    public void requireMatchingReplayOrder(SessionPrincipal actor, UUID orderId, String key, boolean retry) {
+        UUID existingOrderId = (retry ? attempts.findScopedOrderId(actor.publicId(), key)
+                : operations.findScopedOrderId(actor.publicId(), key)).orElse(null);
+        if (existingOrderId != null && !existingOrderId.equals(orderId)) {
+            throw new BusinessConflictException("IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another Order.");
+        }
     }
 
     @Transactional
@@ -123,17 +132,15 @@ public class VoidService {
             throw new BusinessConflictException("VOID_RETRY_BLOCKED", "Only a definitively failed Void may be retried; unknown outcomes require reconciliation.");
         }
         BigDecimal amount = BigDecimal.valueOf(order.totalAmount());
-        if (allocations.usedCapacity(order.orderItemId()).add(amount).compareTo(amount) > 0) {
-            throw new BusinessConflictException("VOID_CAPACITY_EXCEEDED", "Captured component has no remaining reversal capacity.");
-        }
+        requireCapacity(order);
         PaymentAttempt capture = captureAttempts.findByPaymentAndStatus(payment, PaymentAttempt.Status.SUCCEEDED)
                 .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Successful capture was not found."));
+        validateCapture(order, capture);
         var now = clock.instant();
         operation.retry();
         VoidAttempt attempt = attempts.save(VoidAttempt.create(operation, previous.generation() + 1,
                 actor.publicId(), key, now));
-        VoidAllocation allocation = allocations.save(VoidAllocation.create(operation, attempt,
-                order.orderItemId(), amount, now));
+        List<VoidAllocation> reserved = allocate(order, operation, attempt, now);
         Location location = locations.findByPublicId(order.locationId()).orElseThrow();
         audit.append(actor, "VOID_RETRY_INITIATED", "PAYMENT_VOID_OPERATION", operation.publicId(),
                 location.branchId(), location.id(), Map.of("orderId", order.orderId(), "attemptId", attempt.publicId(),
@@ -141,7 +148,7 @@ public class VoidService {
         var request = new VoidProvider.Request(attempt.merchantRequestReference(),
                 capture.merchantTransactionReference(), capture.providerTransactionNo(), capture.providerPaidAt(),
                 amount.longValueExact(), now);
-        return new Reservation(view(operation, attempt, List.of(allocation)), true,
+        return new Reservation(view(operation, attempt, reserved), true,
                 operation.publicId(), attempt.publicId(), request);
     }
 
@@ -149,6 +156,42 @@ public class VoidService {
         VoidAttempt attempt = attempts.findFirstByOperationOrderByGenerationDesc(operation).orElseThrow();
         return new Reservation(view(operation, attempt, allocations.findAllByAttempt(attempt)), false,
                 operation.publicId(), attempt.publicId(), null);
+    }
+
+    private Reservation lockedReplay(VoidOperation existing) {
+        VoidOperation operation = operations.findLockedByPublicId(existing.publicId()).orElseThrow();
+        VoidAttempt latest = attempts.findFirstByOperationOrderByGenerationDesc(operation).orElseThrow();
+        VoidAttempt attempt = attempts.findLockedByPublicId(latest.publicId()).orElseThrow();
+        return new Reservation(view(operation, attempt, allocations.findLockedByAttempt(attempt)), false,
+                operation.publicId(), attempt.publicId(), null);
+    }
+
+    private static void validateCapture(CustomerOrder.PaymentFacts order, PaymentAttempt capture) {
+        BigDecimal itemTotal = order.items().stream().map(item -> BigDecimal.valueOf(item.totalAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (order.items().isEmpty() || itemTotal.compareTo(BigDecimal.valueOf(order.totalAmount())) != 0
+                || capture.amount().compareTo(itemTotal) != 0 || !capture.currency().equals(order.currency())) {
+            throw new BusinessConflictException("CAPTURE_AMOUNT_MISMATCH", "Capture must cover all immutable Order components exactly.");
+        }
+    }
+
+    private void requireCapacity(CustomerOrder.PaymentFacts order) {
+        for (var item : order.items().stream().sorted(Comparator.comparing(line -> line.orderItemId().toString())).toList()) {
+            BigDecimal capacity = BigDecimal.valueOf(item.totalAmount());
+            if (capacity.signum() <= 0 || allocations.usedCapacity(item.orderItemId()).add(capacity).compareTo(capacity) > 0) {
+                throw new BusinessConflictException("VOID_CAPACITY_EXCEEDED", "Captured component has no remaining reversal capacity.");
+            }
+        }
+    }
+
+    private List<VoidAllocation> allocate(CustomerOrder.PaymentFacts order, VoidOperation operation,
+            VoidAttempt attempt, java.time.Instant now) {
+        List<VoidAllocation> reserved = new ArrayList<>();
+        for (var item : order.items().stream().sorted(Comparator.comparing(line -> line.orderItemId().toString())).toList()) {
+            reserved.add(allocations.save(VoidAllocation.create(operation, attempt, item.orderItemId(),
+                    BigDecimal.valueOf(item.totalAmount()), now)));
+        }
+        return reserved;
     }
 
     static VoidView view(VoidOperation operation, VoidAttempt attempt, List<VoidAllocation> allocations) {

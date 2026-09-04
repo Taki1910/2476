@@ -59,7 +59,8 @@ public class InventoryReservation {
     void commit(Instant now) { if (status != Status.ADOPTED) throw new IllegalStateException("Adopted reservation cannot be committed"); status = Status.COMMITTED; committedAt = now; }
     void consumeCommitted(Instant now) { if (status != Status.COMMITTED) throw new IllegalStateException("Committed reservation cannot be handed over"); status = Status.CONSUMED; consumedAt = now; }
     void restoreCancelled(Instant now) { if (status != Status.COMMITTED) throw new IllegalStateException("Committed reservation cannot be restored"); status = Status.CANCELLED_RESTORED; cancelledRestoredAt = now; }
-    void expire(Instant now) { if (status != Status.ADOPTED || expiresAt == null || now.isBefore(expiresAt)) throw new IllegalStateException("Reservation is not expired"); status = Status.EXPIRED; expiredAt = now; }
+    void expire(Instant now) { if (status != Status.ADOPTED || !dueForExpiry(now)) throw new IllegalStateException("Reservation is not expired"); status = Status.EXPIRED; expiredAt = now; }
+    boolean dueForExpiry(Instant now) { return expiresAt != null && !now.isBefore(expiresAt); }
     boolean active() { return status == Status.ACTIVE; }
     boolean adopted() { return status == Status.ADOPTED; }
     boolean consumed() { return status == Status.CONSUMED; }

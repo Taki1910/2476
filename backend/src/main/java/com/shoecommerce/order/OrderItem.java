@@ -10,13 +10,16 @@ import jakarta.persistence.*;
 public class OrderItem {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "public_id", nullable = false, unique = true) private UUID publicId;
-    @OneToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "order_id", nullable = false, unique = true) private CustomerOrder order;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "order_id", nullable = false) private CustomerOrder order;
     @Column(name = "variant_public_id", nullable = false) private UUID variantPublicId;
     @Column(name = "location_public_id", nullable = false) private UUID locationPublicId;
     @Column(nullable = false) private long quantity;
     @Column(name = "unit_price_amount", nullable = false, precision = 19, scale = 0) private BigDecimal unitPriceAmount;
     @Column(name = "sku_snapshot", length = 64) private String skuSnapshot;
     @Column(name = "size_snapshot", length = 32) private String sizeSnapshot;
+    @Column(name = "color_snapshot", length = 64) private String colorSnapshot;
+    @Column(name = "reservation_public_id") private UUID reservationPublicId;
+    @Column(name = "price_version_public_id") private UUID priceVersionPublicId;
 
     protected OrderItem() { }
 
@@ -29,6 +32,8 @@ public class OrderItem {
         item.locationPublicId = locationPublicId;
         item.quantity = quantity;
         item.unitPriceAmount = BigDecimal.valueOf(unitPriceAmount);
+        item.reservationPublicId = order.reservationPublicId();
+        item.priceVersionPublicId = order.priceVersionPublicId();
         return item;
     }
 
@@ -49,4 +54,20 @@ public class OrderItem {
     long totalAmount() { return Math.multiplyExact(unitPriceAmount(), quantity); }
     String skuSnapshot() { return skuSnapshot; }
     String sizeSnapshot() { return sizeSnapshot; }
+    String colorSnapshot() { return colorSnapshot; }
+    UUID reservationPublicId() { return reservationPublicId; }
+    UUID priceVersionPublicId() { return priceVersionPublicId; }
+    static OrderItem createCart(CustomerOrder order, CustomerOrder.ItemFacts line, UUID priceVersionId) {
+        OrderItem item = createCheckout(order, line.variantId(), line.locationId(), line.sku(), line.size(),
+                line.quantity(), line.unitPriceAmount());
+        if (line.reservationId() == null || priceVersionId == null) throw new IllegalArgumentException("Cart item evidence is required");
+        item.reservationPublicId = line.reservationId();
+        item.priceVersionPublicId = priceVersionId;
+        item.colorSnapshot = line.color();
+        return item;
+    }
+    CustomerOrder.ItemFacts facts() {
+        return new CustomerOrder.ItemFacts(publicId, reservationPublicId, variantPublicId, locationPublicId,
+                quantity, skuSnapshot, sizeSnapshot, colorSnapshot, unitPriceAmount(), totalAmount());
+    }
 }

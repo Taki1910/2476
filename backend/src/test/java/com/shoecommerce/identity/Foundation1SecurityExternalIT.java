@@ -151,6 +151,25 @@ class Foundation1SecurityExternalIT {
                 """, String.class, adminId)).startsWith("{bcrypt}");
     }
 
+    @Test
+    void selfRegistrationCreatesOnlyCustomerAuthorityAndRejectsDuplicates() throws Exception {
+        BrowserSession browser = new BrowserSession();
+        String login = "new-customer-" + UUID.randomUUID() + "@example.com";
+        String body = objectMapper.writeValueAsString(java.util.Map.of("login", login, "password", PASSWORD));
+
+        HttpResponse<String> created = postJson(browser, "/api/v1/auth/register", csrf(browser), body);
+        assertThat(created.statusCode()).isEqualTo(201);
+        assertThat(created.body()).contains(login);
+        assertThat(login(browser, login, PASSWORD).body())
+                .contains("CUSTOMER", "CATALOG_BROWSE", "ORDER_PLACE")
+                .doesNotContain("POS_SELL", "FULFILL_PICKUP", "REPORT_VIEW");
+
+        BrowserSession duplicate = new BrowserSession();
+        HttpResponse<String> conflict = postJson(duplicate, "/api/v1/auth/register", csrf(duplicate), body);
+        assertThat(conflict.statusCode()).isEqualTo(409);
+        assertThat(conflict.body()).contains("IDENTITY_ALREADY_EXISTS");
+    }
+
     private UUID bootstrapAdministrator() {
         UUID publicId = UUID.randomUUID();
         Timestamp now = Timestamp.from(Instant.now());
@@ -258,6 +277,13 @@ class Foundation1SecurityExternalIT {
             request.header(csrf.headerName(), csrf.token());
         }
         return session.client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> postJson(BrowserSession session, String path, Csrf csrf, String body) throws Exception {
+        return session.client.send(HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/json")
+                .header(csrf.headerName(), csrf.token())
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -43,9 +44,11 @@ public class SecurityConfiguration {
                         .csrfTokenRequestHandler(csrfHandler)
                         .ignoringRequestMatchers("/api/v1/payments/vnpay/ipn"))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login",
+                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/api/v1/auth/register",
                                 "/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return", "/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/storefront/products", "/api/v1/storefront/products/**", "/api/v1/storefront/hero").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/storefront/products/*/fit-analysis").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginProcessingUrl("/api/v1/auth/login")

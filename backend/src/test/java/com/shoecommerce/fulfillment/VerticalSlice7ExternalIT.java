@@ -46,6 +46,7 @@ import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.order.CustomerOrderService;
 import com.shoecommerce.payment.PaymentAttemptService;
 import com.shoecommerce.payment.PaymentProviderEvent;
@@ -71,10 +72,12 @@ class VerticalSlice7ExternalIT {
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
     @Autowired InventoryReservationService reservations;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired CustomerOrderService orders;
     @Autowired PaymentAttemptService attempts;
     @Autowired PaymentProviderEventService providerEvents;
     @Autowired PickupFulfillmentService fulfillments;
+    @Autowired PickupWorkQueueService workQueue;
     @LocalServerPort int port;
 
     @Test
@@ -92,6 +95,9 @@ class VerticalSlice7ExternalIT {
         assertThat(body.get("status").asString()).isEqualTo("PICKING");
         assertThat(body.get("locationId").asString()).isEqualTo(fixture.locationId().toString());
         assertThat(body.get("pickingStartedAt").isNull()).isFalse();
+        assertThat(workQueue.detail(fixture.operations(), flow.orderId()).pickingStartedAt())
+                .isEqualTo(Instant.parse(body.get("pickingStartedAt").asString())
+                        .truncatedTo(java.time.temporal.ChronoUnit.MICROS));
         assertCommercialState(fixture, flow);
         assertThat(balance(fixture)).isEqualTo(before);
         assertThat(auditCount("PICKUP_PICKING_STARTED", flow.fulfillmentId())).isEqualTo(1);
@@ -258,7 +264,7 @@ class VerticalSlice7ExternalIT {
         UUID productId = catalog.createProduct(operations, "Picking Runner");
         UUID variantId = catalog.createVariant(operations, productId, prefix + "-SKU", "42", "Black");
         catalog.setPrice(operations, variantId, 120_000);
-        catalog.setStock(operations, variantId, locationId, stock);
+        adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
         return new Fixture(prefix, variantId, branchId, locationId, operationsLogin, administrator, operations,
                 principal(ownerLogin), principal(providerLogin));

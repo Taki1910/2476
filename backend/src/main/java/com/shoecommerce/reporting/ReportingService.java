@@ -3,7 +3,6 @@ package com.shoecommerce.reporting;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -66,16 +65,16 @@ public class ReportingService {
                     FROM payment_attempt attempts
                     JOIN payment payments ON payments.id = attempts.payment_id
                     JOIN commerce_order orders ON orders.id = payments.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE attempts.status = 'SUCCEEDED' AND attempts.resolved_at >= ? AND attempts.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                 ), pos AS (
                     SELECT COALESCE(SUM(tenders.amount), 0) AS amount
                     FROM cash_tender tenders
                     JOIN commerce_order orders ON orders.id = tenders.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE tenders.created_at >= ? AND tenders.created_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                 ), voids AS (
                     SELECT COALESCE(SUM(allocations.amount), 0) AS amount
                     FROM payment_void_allocation allocations
@@ -89,17 +88,17 @@ public class ReportingService {
                     FROM payment_attempt attempts
                     JOIN payment payments ON payments.id = attempts.payment_id
                     JOIN commerce_order orders ON orders.id = payments.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE attempts.status = 'REVIEW_REQUIRED' AND attempts.resolved_at >= ? AND attempts.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT operations.requested_amount
                     FROM payment_void_operation operations
                     JOIN commerce_order orders ON orders.public_id = operations.order_public_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE operations.status IN ('UNKNOWN', 'REVIEW_REQUIRED')
                       AND operations.resolved_at >= ? AND operations.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT allocations.amount
                     FROM payment_void_allocation allocations
@@ -127,7 +126,7 @@ public class ReportingService {
         List<ProductSalesRow> rows = jdbc.query("""
                 WITH entries AS (
                     SELECT items.variant_public_id, items.sku_snapshot, items.size_snapshot,
-                           attempts.amount AS online_gross, CAST(0 AS DECIMAL(38,0)) AS pos_gross,
+                           items.unit_price_amount * items.quantity AS online_gross, CAST(0 AS DECIMAL(38,0)) AS pos_gross,
                            CAST(0 AS DECIMAL(38,0)) AS reversal
                     FROM payment_attempt attempts
                     JOIN payment payments ON payments.id = attempts.payment_id
@@ -137,7 +136,7 @@ public class ReportingService {
                       AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
                     UNION ALL
                     SELECT items.variant_public_id, items.sku_snapshot, items.size_snapshot,
-                           CAST(0 AS DECIMAL(38,0)), tenders.amount, CAST(0 AS DECIMAL(38,0))
+                           CAST(0 AS DECIMAL(38,0)), items.unit_price_amount * items.quantity, CAST(0 AS DECIMAL(38,0))
                     FROM cash_tender tenders
                     JOIN commerce_order orders ON orders.id = tenders.order_id
                     JOIN commerce_order_item items ON items.order_id = orders.id
@@ -193,7 +192,7 @@ public class ReportingService {
                 """, (rs, row) -> new InventoryRow(rs.getObject("variant_id", UUID.class),
                         rs.getString("product_name"), rs.getString("sku"), rs.getString("size"),
                         rs.getLong("on_hand"), rs.getLong("reserved"), rs.getLong("available"),
-                        rs.getTimestamp("updated_at").toInstant()), locationArguments);
+                        instant(rs, "updated_at")), locationArguments);
         List<MovementRow> movements = jdbc.query("""
                 SELECT TOP (100) movements.public_id, movements.order_public_id, movements.variant_public_id,
                        variants.sku, movements.operation_type, movements.on_hand_delta,
@@ -205,7 +204,7 @@ public class ReportingService {
                 """, (rs, row) -> new MovementRow(rs.getObject("public_id", UUID.class),
                         rs.getObject("order_public_id", UUID.class), rs.getObject("variant_public_id", UUID.class),
                         rs.getString("sku"), rs.getString("operation_type"), rs.getLong("on_hand_delta"),
-                        rs.getLong("reserved_delta"), rs.getTimestamp("occurred_at").toInstant()), locationArguments);
+                        rs.getLong("reserved_delta"), instant(rs, "occurred_at")), locationArguments);
         List<ReservationRow> reservations = jdbc.query("""
                 SELECT reservations.public_id, variants.public_id AS variant_id, variants.sku,
                        reservations.quantity, reservations.status, reservations.created_at,
@@ -217,7 +216,7 @@ public class ReportingService {
                 ORDER BY variants.sku, reservations.created_at, reservations.public_id
                 """, (rs, row) -> new ReservationRow(rs.getObject("public_id", UUID.class),
                         rs.getObject("variant_id", UUID.class), rs.getString("sku"), rs.getLong("quantity"),
-                        rs.getString("status"), rs.getTimestamp("created_at").toInstant(),
+                        rs.getString("status"), instant(rs, "created_at"),
                         nullableInstant(rs, "expires_at")), locationArguments);
         return new InventoryReport(context, normalizedSku, rows, movements, reservations);
     }
@@ -233,17 +232,17 @@ public class ReportingService {
                     FROM payment_attempt attempts
                     JOIN payment payments ON payments.id = attempts.payment_id
                     JOIN commerce_order orders ON orders.id = payments.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE attempts.status = 'SUCCEEDED' AND attempts.resolved_at >= ? AND attempts.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT 'POS_CASH', tenders.public_id, orders.public_id, 'ACCEPTED', tenders.amount,
                            tenders.amount, tenders.created_at, CAST(0 AS BIT)
                     FROM cash_tender tenders
                     JOIN commerce_order orders ON orders.id = tenders.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE tenders.created_at >= ? AND tenders.created_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT 'VOID', allocations.public_id, orders.public_id, 'SUCCEEDED', allocations.amount,
                            -allocations.amount, allocations.resolved_at, CAST(0 AS BIT)
@@ -259,18 +258,18 @@ public class ReportingService {
                     FROM payment_attempt attempts
                     JOIN payment payments ON payments.id = attempts.payment_id
                     JOIN commerce_order orders ON orders.id = payments.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE attempts.status = 'REVIEW_REQUIRED' AND attempts.resolved_at >= ? AND attempts.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT 'VOID_RECONCILIATION', operations.public_id, orders.public_id, operations.status,
                             operations.requested_amount, CAST(0 AS DECIMAL(38,0)), operations.resolved_at, CAST(1 AS BIT)
                     FROM payment_void_operation operations
                     JOIN commerce_order orders ON orders.public_id = operations.order_public_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
                     WHERE operations.status IN ('UNKNOWN', 'REVIEW_REQUIRED')
                       AND operations.resolved_at >= ? AND operations.resolved_at < ?
-                      AND orders.responsible_branch_public_id = ? AND items.location_public_id = ?
+                      AND orders.responsible_branch_public_id = ? AND EXISTS (SELECT 1 FROM commerce_order_item scope_items
+                          WHERE scope_items.order_id = orders.id AND scope_items.location_public_id = ?)
                     UNION ALL
                     SELECT 'VOID_RECONCILIATION', allocations.public_id, orders.public_id, 'RELEASED',
                            allocations.amount, CAST(0 AS DECIMAL(38,0)), allocations.resolved_at, CAST(1 AS BIT)
@@ -286,7 +285,7 @@ public class ReportingService {
                 """, (rs, row) -> new ReconciliationEntry(rs.getString("category"),
                         rs.getObject("reference_id", UUID.class), rs.getObject("order_id", UUID.class),
                         rs.getString("status"), money(rs, "amount"), money(rs, "net_effect"),
-                        rs.getTimestamp("occurred_at").toInstant(), rs.getBoolean("exception")),
+                        instant(rs, "occurred_at"), rs.getBoolean("exception")),
                 expand(intervalArguments(context), 6));
         BigDecimal exceptionAmount = entries.stream().filter(ReconciliationEntry::exception)
                 .map(entry -> new BigDecimal(entry.amount())).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -350,8 +349,12 @@ public class ReportingService {
     }
 
     private static Instant nullableInstant(ResultSet rs, String column) throws SQLException {
-        Timestamp value = rs.getTimestamp(column);
-        return value == null ? null : value.toInstant();
+        LocalDateTime value = rs.getObject(column, LocalDateTime.class);
+        return value == null ? null : value.toInstant(ZoneOffset.UTC);
+    }
+
+    private static Instant instant(ResultSet rs, String column) throws SQLException {
+        return rs.getObject(column, LocalDateTime.class).toInstant(ZoneOffset.UTC);
     }
 
     private static BigDecimal sum(List<ProductSalesRow> rows,

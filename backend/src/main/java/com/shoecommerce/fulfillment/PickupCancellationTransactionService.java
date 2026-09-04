@@ -15,6 +15,7 @@ import com.shoecommerce.branch.LocationRepository;
 import com.shoecommerce.identity.AuthorizationPolicy;
 import com.shoecommerce.identity.PermissionCode;
 import com.shoecommerce.identity.SessionPrincipal;
+import com.shoecommerce.identity.UserAccountRepository;
 import com.shoecommerce.inventory.InventoryReservationService;
 import com.shoecommerce.inventory.StockMovement;
 import com.shoecommerce.inventory.StockMovementRepository;
@@ -35,70 +36,74 @@ public class PickupCancellationTransactionService {
     private final StockMovementRepository movements;
     private final AuditWriter audit;
     private final Clock clock;
+    private final UserAccountRepository accounts;
 
     PickupCancellationTransactionService(CustomerOrderRepository orders, PickupFulfillmentRepository fulfillments,
             BranchRepository branches, LocationRepository locations, AuthorizationPolicy authorization,
             VoidService voids, InventoryReservationService reservations, StockMovementRepository movements,
-            AuditWriter audit, Clock clock) {
+            AuditWriter audit, Clock clock, UserAccountRepository accounts) {
         this.orders = orders; this.fulfillments = fulfillments; this.branches = branches; this.locations = locations;
         this.authorization = authorization; this.voids = voids; this.reservations = reservations;
         this.movements = movements; this.audit = audit; this.clock = clock;
+        this.accounts = accounts;
     }
 
     @Transactional
     public Result cancel(SessionPrincipal actor, UUID orderId, String key) {
-        VoidService.Reservation replay = voids.replay(actor, orderId, key);
-        if (replay != null) {
-            CustomerOrder replayOrder = orders.findLockedByPublicId(orderId).orElseThrow();
-            authorize(actor, replayOrder.paymentFacts());
-            PickupFulfillment replayFulfillment = fulfillments.findLockedByOrder(replayOrder).orElseThrow();
-            return new Result(replay, replayFulfillment.publicId());
-        }
-
+        // ponytail: reuse the per-actor command fence instead of adding a command-key table.
+        accounts.findByPublicIdForUpdate(actor.publicId()).orElseThrow();
+        voids.requireMatchingReplayOrder(actor, orderId, key, false);
         CustomerOrder order = orders.findLockedByPublicId(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
         CustomerOrder.PaymentFacts facts = order.paymentFacts();
         authorize(actor, facts);
-        if (!facts.paid()) {
-            throw new BusinessConflictException("ORDER_NOT_CONFIRMED_CANCELLABLE", "Only a paid pre-handover Order can use confirmed cancellation.");
-        }
         PickupFulfillment fulfillment = fulfillments.findLockedByOrder(order).orElse(null);
-        if (fulfillment != null && fulfillment.handedOver()) {
-            throw new BusinessConflictException("PICKUP_ALREADY_HANDED_OVER", "A handed-over Order requires the future Return workflow.");
+        if (fulfillment != null && (fulfillment.handedOver() || fulfillment.dispatched())) {
+            throw new BusinessConflictException("FULFILLMENT_ALREADY_ISSUED",
+                    "A handed-over or dispatched Order requires the future Return workflow.");
         }
-        if (fulfillment == null) {
+        if (fulfillment == null && facts.paid()) {
             Branch branch = branches.findByPublicId(facts.responsibleBranchId()).filter(Branch::enabled).orElseThrow();
             Location location = locations.findByPublicId(facts.locationId()).filter(Location::enabled).orElseThrow();
             fulfillment = fulfillments.save(PickupFulfillment.create(order, branch, location, clock.instant()));
         }
 
+        VoidService.Reservation replay = voids.replay(actor, orderId, key);
+        if (replay != null) {
+            if (fulfillment == null || !fulfillment.cancelled()) throw new IllegalStateException("Void has no cancelled fulfillment");
+            return new Result(replay, fulfillment.publicId());
+        }
+        if (!facts.paid()) {
+            throw new BusinessConflictException("ORDER_NOT_CONFIRMED_CANCELLABLE", "Only a paid pre-handover Order can use confirmed cancellation.");
+        }
+
         VoidService.Reservation financial = voids.reserve(actor, facts, key);
         var now = clock.instant();
-        fulfillment.cancel(actor.publicId(), now);
+        try { fulfillment.cancel(actor.publicId(), now); }
+        catch (IllegalStateException exception) {
+            throw new BusinessConflictException("FULFILLMENT_ALREADY_ISSUED", exception.getMessage());
+        }
         order.cancelPaid(now);
-        InventoryReservationService.FulfillmentStock stock = reservations.restoreCommittedCancellation(facts.reservationId(), now);
-        movements.save(StockMovement.create(StockMovement.Type.CANCELLATION_RESTORE,
-                "C:" + financial.operationId(), orderId, actor.publicId(), stock, now));
+        var restored = reservations.restoreCommittedCancellation(facts.reservationIds(), now);
+        for (var stock : restored) {
+            movements.save(StockMovement.create(StockMovement.Type.CANCELLATION_RESTORE,
+                    "C:" + financial.operationId() + ":" + stock.reservationId(), orderId, actor.publicId(), stock, now));
+            audit.append(actor, "CANCELLATION_RESTORE", "INVENTORY_STOCK_MOVEMENT", orderId,
+                    fulfillment.branch().id(), fulfillment.location().id(), Map.of("reservationId", stock.reservationId(),
+                            "variantId", stock.variantId(), "quantity", stock.quantity(),
+                            "onHandDelta", 0, "reservedDelta", -stock.quantity()));
+        }
         audit.append(actor, "ORDER_CANCELLATION_ACCEPTED", "ORDER", orderId,
                 fulfillment.branch().id(), fulfillment.location().id(), Map.of("fulfillmentId", fulfillment.publicId(),
                         "voidOperationId", financial.operationId(), "onHandDelta", 0,
-                        "reservedDelta", -stock.quantity()));
-        audit.append(actor, "CANCELLATION_RESTORE", "INVENTORY_STOCK_MOVEMENT", orderId,
-                fulfillment.branch().id(), fulfillment.location().id(), Map.of("reservationId", stock.reservationId(),
-                        "quantity", stock.quantity(), "onHandDelta", 0, "reservedDelta", -stock.quantity()));
+                        "reservedDelta", -facts.quantity(), "itemCount", restored.size()));
         return new Result(financial, fulfillment.publicId());
     }
 
     @Transactional
     public VoidService.Reservation retry(SessionPrincipal actor, UUID orderId, String key) {
-        VoidService.Reservation replay = voids.retryReplay(actor, orderId, key);
-        if (replay != null) {
-            CustomerOrder replayOrder = orders.findLockedByPublicId(orderId).orElseThrow();
-            authorize(actor, replayOrder.paymentFacts());
-            PickupFulfillment replayFulfillment = fulfillments.findLockedByOrder(replayOrder).orElseThrow();
-            if (!replayFulfillment.cancelled()) throw new BusinessConflictException("VOID_RETRY_BLOCKED", "Order is not cancelled.");
-            return replay;
-        }
+        accounts.findByPublicIdForUpdate(actor.publicId()).orElseThrow();
+        voids.requireMatchingReplayOrder(actor, orderId, key, true);
         CustomerOrder order = orders.findLockedByPublicId(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
         CustomerOrder.PaymentFacts facts = order.paymentFacts();
@@ -108,6 +113,8 @@ public class PickupCancellationTransactionService {
         if (!fulfillment.cancelled() || !"CANCELLED".equals(order.paymentStatus())) {
             throw new BusinessConflictException("VOID_RETRY_BLOCKED", "Only an operationally cancelled Order may retry financial reversal.");
         }
+        VoidService.Reservation replay = voids.retryReplay(actor, orderId, key);
+        if (replay != null) return replay;
         return voids.retry(actor, facts, key);
     }
 

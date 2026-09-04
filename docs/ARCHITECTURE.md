@@ -35,6 +35,7 @@ deferred capability into MVP implementation scope.
 | Customer catalog and versioned quotes | [ADR-0019](ADR/0019-customer-catalog-and-versioned-price-quotes.md) |
 | Quote checkout and atomic reservation | [ADR-0020](ADR/0020-quote-checkout-atomic-reservation.md) |
 | Independent checkout reservation expiry | [ADR-0021](ADR/0021-independent-checkout-reservation-expiry.md) |
+| Pickup and delivery fulfillment | [ADR-0027](ADR/0027-pickup-and-delivery-fulfillment.md) |
 
 ```text
 Customer Web | POS | Admin | future Mobile
@@ -268,21 +269,21 @@ The order becomes financially binding at successful capture plus atomic Order
 confirmation. A client timeout does not change this; replay/query returns the
 durable outcome.
 
-### Current pickup-fulfillment creation
+### Current online fulfillment
 
-Vertical Slice 6 creates one `PENDING` PickupFulfillment for an eligible `PAID`
-Order. The command locks Order first, derives responsible Branch and exact
-Location from the Order/reservation facts, requires `FULFILL_PICKUP` plus an
-active assignment to that enabled Location, verifies successful payment and
-consumed reservation, and inserts fulfillment plus audit atomically. A unique
-Order constraint backstops duplicate creation. It does not mutate Order,
-Reservation, or Inventory and does not implement preparation or handover.
+Cart checkout creates exactly one `PENDING` Fulfillment intent in the same
+transaction as Order and reservations. It snapshots either the selected common
+pickup Location or validated delivery receiver/address data; delivery fee is
+currently zero. The historical table/entity name `pickup_fulfillment` remains
+for append-only migration compatibility.
 
-Vertical Slice 7 adds only `PENDING -> PICKING`. It locks the PickupFulfillment
-row at rank 2, rechecks current exact-Location authority and terminal commercial
-eligibility, sets `pickingStartedAt` once, and appends audit in the same
-transaction. It does not acquire lower-rank business locks or mutate Order,
-Payment, Reservation, or Inventory.
+After payment, an employee with `FULFILL_ORDER` and an active exact-Location
+assignment can accept and prepare the whole order. Pickup ends at idempotent
+`HANDED_OVER`; delivery dispatch atomically consumes every committed reservation
+and appends one `DELIVERY_DISPATCH` movement per item, then `DELIVERED` records
+terminal evidence without another inventory mutation. Order -> Fulfillment ->
+Reservation -> Balance lock order gives dispatch/handover and confirmed
+cancellation exactly one winner.
 
 ### POS
 
@@ -303,9 +304,9 @@ allowed command begins, architecture fixes its effects:
    created.
 2. Confirmed pre-dispatch cancellation claims its operation, locks Order then
    Fulfillment, then any needed Payment, committed Reservation and balances in
-   rank order. It conditionally moves Order to `CANCELLATION_PENDING`, cancels
-   the still-cancellable Fulfillment, increases on-hand at each original
-   allocation Location and appends one immutable `CANCELLATION_RESTORE` movement
+   rank order. It conditionally cancels Order and the still-cancellable
+   Fulfillment, leaves on-hand unchanged, releases reserved quantity at each
+   original allocation Location and appends one immutable `CANCELLATION_RESTORE` movement
    per OrderItem plus required audit in the same local transaction. Any local
    failure rolls the whole cancellation/restoration decision back. When money
    was captured, the same Payment fence creates the durable selected void/refund
@@ -662,3 +663,12 @@ a concrete requirement and ADR.
 ADR governance is defined in `ADR/README.md`. Blueprint architecture decisions
 accepted for this baseline remain distinct from `OPEN DECISION` business policy
 and from MVP scope. Deferred features are not implementation commitments.
+
+## Phase 17 fitting boundary
+
+The Phase 17 customer fitting slice remains inside the modular monolith. A
+public multipart storefront endpoint hands a transient image to deterministic
+Java CV, which returns a proposal. Product-owned fit profiles and per-size
+ranges are read from SQL Server; no image, analysis result or AI-generated
+business mutation is persisted. Fit recommendation is deliberately separate
+from catalog variant selection and inventory availability.

@@ -25,13 +25,6 @@ public class PaymentAttemptController {
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result);
     }
 
-    @PostMapping("/api/v1/orders/{orderId}/payment-attempts")
-    ResponseEntity<PaymentAttemptService.PaymentAttemptView> initiate(@AuthenticationPrincipal SessionPrincipal actor,
-            @PathVariable UUID orderId, @RequestHeader(name = "Idempotency-Key", required = false) String key) {
-        PaymentAttemptService.InitiationResult result = attempts.initiate(actor, orderId, key);
-        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.attempt());
-    }
-
     @GetMapping("/api/v1/payment-attempts/{attemptId}")
     PaymentAttemptService.PaymentAttemptView read(@AuthenticationPrincipal SessionPrincipal actor, @PathVariable UUID attemptId) { return attempts.readOwn(actor, attemptId); }
 }

@@ -32,6 +32,7 @@ import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
 import com.shoecommerce.pricing.PriceQuoteService;
@@ -53,6 +54,7 @@ class VerticalSlice2CustomerCatalogExternalIT {
     @Autowired StorefrontCatalogService storefront;
     @Autowired PriceQuoteService pricing;
     @Autowired InventoryReservationService reservations;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired ObjectMapper json;
     @LocalServerPort int port;
 
@@ -61,8 +63,8 @@ class VerticalSlice2CustomerCatalogExternalIT {
         Fixture fixture = fixture("browse");
         InventoryState before = inventory(fixture.availableVariant());
 
-        var products = storefront.browse(fixture.customer());
-        var detail = storefront.detail(fixture.customer(), fixture.product());
+        var products = storefront.browse();
+        var detail = storefront.detail(fixture.product());
 
         assertThat(products).filteredOn(product -> product.id().equals(fixture.product())).singleElement().satisfies(product -> {
             assertThat(product.name()).startsWith("Court Runner");
@@ -73,9 +75,9 @@ class VerticalSlice2CustomerCatalogExternalIT {
                 .containsExactly("41", "42");
         assertThat(detail.variants()).extracting(StorefrontCatalogService.VariantView::availability)
                 .containsExactly("AVAILABLE", "UNAVAILABLE");
-        assertThatThrownBy(() -> storefront.browse(fixture.operations())).isInstanceOf(AccessDeniedException.class);
+        assertThat(storefront.browse()).isNotEmpty();
         assertThat(inventory(fixture.availableVariant())).isEqualTo(before);
-        assertThatThrownBy(() -> storefront.detail(fixture.customer(), UUID.randomUUID()))
+        assertThatThrownBy(() -> storefront.detail(UUID.randomUUID()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -108,22 +110,39 @@ class VerticalSlice2CustomerCatalogExternalIT {
     }
 
     @Test
-    void enforcesCustomerApiAuthenticationPermissionAndProblemDetails() throws Exception {
+    void fromPriceExcludesDraftAndClosedPricesAndMatchesTheCurrentQuote() {
+        Fixture fixture = fixture("from-price");
+        catalog.setPrice(fixture.operations(), fixture.unavailableVariant(), 175_000);
+        catalog.setPrice(fixture.operations(), fixture.draftVariant(), 1_000);
+        var historicalQuote = pricing.quote(fixture.customer(), fixture.availableVariant());
+        catalog.setPrice(fixture.operations(), fixture.availableVariant(), 149_000);
+
+        assertThat(storefront.browse()).filteredOn(product -> product.id().equals(fixture.product()))
+                .singleElement().satisfies(product -> assertThat(product.fromAmount()).isEqualTo(149_000));
+        assertThat(pricing.quote(fixture.customer(), fixture.availableVariant()).amount()).isEqualTo(149_000);
+        assertThat(historicalQuote.amount()).isEqualTo(125_000);
+        assertThat(storefront.detail(fixture.product()).variants()).hasSize(2);
+    }
+
+    @Test
+    void exposesBrowsingButKeepsQuotesAndStaffActionsProtected() throws Exception {
         Fixture fixture = fixture("api");
         Browser anonymous = new Browser();
-        assertThat(anonymous.client.send(HttpRequest.newBuilder(uri("/api/v1/storefront/products")).GET().build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
+        HttpResponse<String> publicProducts = anonymous.client.send(HttpRequest.newBuilder(uri("/api/v1/storefront/products")).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(publicProducts.statusCode()).isEqualTo(200);
+        assertThat(publicProducts.body()).contains("Court Runner").contains("125000");
+        assertThat(request(anonymous, "POST", "/api/v1/storefront/price-quotes", "{\"variantId\":\"" + fixture.availableVariant() + "\"}").statusCode()).isEqualTo(401);
 
         Browser operations = new Browser();
         login(operations, fixture.operationsLogin());
         HttpResponse<String> forbidden = operations.client.send(HttpRequest.newBuilder(uri("/api/v1/storefront/products")).GET().build(), HttpResponse.BodyHandlers.ofString());
-        assertThat(forbidden.statusCode()).isEqualTo(403);
-        assertThat(forbidden.body()).contains("ACCESS_DENIED");
+        assertThat(forbidden.statusCode()).isEqualTo(200);
 
         Browser customer = new Browser();
         login(customer, fixture.customerLogin());
         HttpResponse<String> products = customer.client.send(HttpRequest.newBuilder(uri("/api/v1/storefront/products")).GET().build(), HttpResponse.BodyHandlers.ofString());
         assertThat(products.statusCode()).isEqualTo(200);
-        assertThat(products.body()).contains("Court Runner").doesNotContain("125000");
+        assertThat(products.body()).contains("Court Runner").contains("125000");
         HttpResponse<String> detail = customer.client.send(HttpRequest.newBuilder(uri("/api/v1/storefront/products/" + fixture.product())).GET().build(), HttpResponse.BodyHandlers.ofString());
         assertThat(detail.statusCode()).isEqualTo(200);
         assertThat(detail.body()).contains("AVAILABLE").contains("UNAVAILABLE").doesNotContain("onHand").doesNotContain("reserved");
@@ -140,6 +159,26 @@ class VerticalSlice2CustomerCatalogExternalIT {
         assertThat(staffEndpoint.statusCode()).isEqualTo(403);
     }
 
+    @Test
+    void exposesDataDrivenHeroCandidatesWithoutFixingAProduct() throws Exception {
+        Fixture fixture = fixture("hero");
+        var hero = storefront.hero();
+
+        assertThat(hero.candidates()).filteredOn(product -> product.id().equals(fixture.product())).singleElement()
+                .satisfies(product -> {
+                    assertThat(product.featured()).isFalse();
+                    assertThat(product.newArrival()).isFalse();
+                    assertThat(product.campaignEligible()).isTrue();
+                    assertThat(product.merchandisingRank()).isEqualTo(100);
+                });
+        Browser anonymous = new Browser();
+        HttpResponse<String> response = anonymous.client.send(
+                HttpRequest.newBuilder(uri("/api/v1/storefront/hero")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("candidates").contains("topSeller");
+    }
+
     private Fixture fixture(String suffix) {
         SessionPrincipal admin = bootstrapAdmin();
         String operationsLogin = "vs2-" + suffix + "-ops-" + UUID.randomUUID() + "@example.com";
@@ -154,17 +193,17 @@ class VerticalSlice2CustomerCatalogExternalIT {
         UUID product = catalog.createProduct(operations, "Court Runner " + suffix);
         UUID available = catalog.createVariant(operations, product, "VS2-A-" + shortId(), "41", "Ink");
         catalog.setPrice(operations, available, 125_000);
-        catalog.setStock(operations, available, location, 2);
+        adjustments.adjust(operations, available, location, 2, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, available);
         reservations.reserve(customer, available, location, 1);
         UUID unavailable = catalog.createVariant(operations, product, "VS2-U-" + shortId(), "42", "Chalk");
         catalog.setPrice(operations, unavailable, 125_000);
-        catalog.setStock(operations, unavailable, location, 1);
+        adjustments.adjust(operations, unavailable, location, 1, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, unavailable);
         reservations.reserve(customer, unavailable, location, 1);
         UUID draft = catalog.createVariant(operations, product, "VS2-D-" + shortId(), "43", "Clay");
         catalog.setPrice(operations, draft, 125_000);
-        catalog.setStock(operations, draft, location, 1);
+        adjustments.adjust(operations, draft, location, 1, "Test fixture", UUID.randomUUID().toString());
         return new Fixture(product, available, unavailable, draft, operations, customer, operationsLogin, customerLogin);
     }
 

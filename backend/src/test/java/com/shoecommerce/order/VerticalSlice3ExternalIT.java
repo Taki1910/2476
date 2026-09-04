@@ -46,6 +46,7 @@ import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
+import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.CorrelationIdFilter;
 
@@ -67,6 +68,7 @@ class VerticalSlice3ExternalIT {
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
     @Autowired InventoryReservationService reservations;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired CustomerOrderService orders;
     @LocalServerPort int port;
 
@@ -103,22 +105,16 @@ class VerticalSlice3ExternalIT {
     }
 
     @Test
-    void provesAuthenticatedOrderHttpBoundary() throws Exception {
+    void rejectsLegacyDirectOrderHttpBoundary() throws Exception {
         Fixture fixture = fixture(1);
         UUID reservationId = reservations.reserve(fixture.owner(), fixture.variantId(), fixture.locationId(), 1).id();
         Browser owner = new Browser();
-        Browser other = new Browser();
         assertThat(login(owner, fixture.ownerLogin()).statusCode()).isEqualTo(200);
-        assertThat(login(other, fixture.otherLogin()).statusCode()).isEqualTo(200);
+        int before = jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order", Integer.class);
 
-        HttpResponse<String> created = request(owner, "POST", "/api/v1/orders", "{\"reservationId\":\"" + reservationId + "\"}", 201);
-        UUID orderId = UUID.fromString(json.readTree(created.body()).get("id").asString());
-        assertThat(created.body()).contains("PENDING_PAYMENT").contains("120000").contains("VND");
-        assertThat(get(owner, "/api/v1/orders/" + orderId).statusCode()).isEqualTo(200);
-        assertThat(get(other, "/api/v1/orders/" + orderId).statusCode()).isEqualTo(403);
-        assertThat(request(other, "POST", "/api/v1/orders/" + orderId + "/cancel", "", 403).statusCode()).isEqualTo(403);
-        assertThat(request(owner, "POST", "/api/v1/orders/" + orderId + "/cancel", "", 200).body()).contains("CANCELLED");
-        assertThat(request(owner, "POST", "/api/v1/orders/" + orderId + "/cancel", "", 200).body()).contains("CANCELLED");
+        request(owner, "POST", "/api/v1/orders", "{\"reservationId\":\"" + reservationId + "\"}", 405);
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order", Integer.class)).isEqualTo(before);
     }
 
     @Test
@@ -275,7 +271,7 @@ class VerticalSlice3ExternalIT {
         UUID productId = catalog.createProduct(operations, "Pending Order Runner");
         UUID variantId = catalog.createVariant(operations, productId, prefix + "-SKU", "42", "Black");
         catalog.setPrice(operations, variantId, 120_000);
-        catalog.setStock(operations, variantId, locationId, stock);
+        adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
         return new Fixture(variantId, branchId, locationId, ownerLogin, otherLogin, operations, principal(ownerLogin), principal(otherLogin));
     }

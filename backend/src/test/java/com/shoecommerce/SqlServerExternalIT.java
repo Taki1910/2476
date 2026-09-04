@@ -27,6 +27,11 @@ class SqlServerExternalIT {
 
         assertThat(jdbcTemplate.queryForObject("SELECT DB_NAME()", String.class)).isNotBlank();
         assertThat(migrationCount).isEqualTo(15);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version IN ('16','17','18')", Integer.class)).isEqualTo(3);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version = '19'", Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version = '20'", Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE name IN ('catalog_shoe_fit_profile', 'catalog_shoe_fit_size_range')", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM commerce_order_item items JOIN commerce_order orders ON orders.id = items.order_id WHERE orders.reservation_public_id IS NOT NULL AND (items.reservation_public_id IS NULL OR items.reservation_public_id <> orders.reservation_public_id)", Integer.class)).isZero();
         assertThat(clock.getZone()).isEqualTo(ZoneOffset.UTC);
     }
 }

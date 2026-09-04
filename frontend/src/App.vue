@@ -1,106 +1,77 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
-import { api, ApiError, SESSION_ENDED_EVENT, type Account } from './api'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { SESSION_ENDED_EVENT } from './api'
+import { locale, messageLabel, setLocale, t } from './i18n'
+import { errorCopy } from './format'
+import { clearPrivateSession, homeFor, loadSession, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
+import { cartCount } from './cart'
 
-const session = reactive<{ state: 'loading' | 'guest' | 'ready' | 'denied'; account?: Account }>({ state: 'loading' })
-const login = reactive({ username: '', password: '', busy: false, error: '' })
-
-async function loadSession() {
-  session.state = 'loading'
-  try {
-    session.account = await api.me()
-    session.state = session.account.permissions.some(permission => ['CATALOG_BROWSE', 'FULFILL_PICKUP', 'POS_SELL', 'REPORT_VIEW'].includes(permission)) ? 'ready' : 'denied'
-  } catch (error) {
-    session.state = error instanceof ApiError && error.status === 401 ? 'guest' : 'denied'
-  }
+const route = useRoute()
+const router = useRouter()
+let sessionChanges: BroadcastChannel | undefined
+const logoutBusy = ref(false)
+const logoutError = ref('')
+async function reloadSession() {
+  clearPrivateSession()
+  await loadSession()
+  if (!session.unavailable) await router.replace('/')
 }
-
-async function submitLogin() {
-  login.busy = true
-  login.error = ''
-  try {
-    session.account = await api.login(login.username.trim(), login.password)
-    login.password = ''
-    session.state = session.account.permissions.some(permission => ['CATALOG_BROWSE', 'FULFILL_PICKUP', 'POS_SELL', 'REPORT_VIEW'].includes(permission)) ? 'ready' : 'denied'
-  } catch {
-    login.error = 'Sign-in failed. Check your account details and try again.'
-  } finally {
-    login.busy = false
-  }
-}
-
 async function logout() {
-  await api.logout()
-  session.account = undefined
-  session.state = 'guest'
+  logoutBusy.value = true; logoutError.value = ''
+  try { await router.replace(await signOut()) }
+  catch (error) { logoutError.value = errorCopy(error) }
+  finally { logoutBusy.value = false }
 }
-
 function endSession() {
-  session.account = undefined
-  session.state = 'guest'
+  if (!session.account) return
+  clearPrivateSession()
+  router.replace({ path: '/login', query: { returnTo: route.fullPath, reason: 'expired' } })
 }
-
 onMounted(() => {
   window.addEventListener(SESSION_ENDED_EVENT, endSession)
-  loadSession()
+  sessionChanges = new BroadcastChannel(SESSION_CHANGE_CHANNEL)
+  sessionChanges.onmessage = event => { if (event.data?.source !== SESSION_CHANGE_SOURCE) reloadSession() }
 })
-onBeforeUnmount(() => window.removeEventListener(SESSION_ENDED_EVENT, endSession))
+onBeforeUnmount(() => {
+  window.removeEventListener(SESSION_ENDED_EVENT, endSession)
+  sessionChanges?.close()
+})
 </script>
 
 <template>
-  <a class="skip-link" href="#main">Skip to main content</a>
-
-  <div v-if="session.state === 'loading'" class="session-loader" role="status" aria-live="polite">
-    <span class="loader-mark" aria-hidden="true"></span>
-    Checking your session…
-  </div>
-
-  <main v-else-if="session.state === 'guest'" id="main" class="login-shell">
-    <section class="login-intro">
-      <p class="brand-wordmark">SHOE<br />COMMERCE</p>
-      <h1>Find the pair.<br />Confirm the price.</h1>
-      <p>Shoes ready to browse, clear availability by size, and a current price confirmed when you ask.</p>
-    </section>
-    <form class="login-form" @submit.prevent="submitLogin" aria-labelledby="login-title">
-      <h2 id="login-title">Sign in</h2>
-      <label for="username">Email or login</label>
-      <input id="username" v-model="login.username" name="username" autocomplete="username" required />
-      <label for="password">Password</label>
-      <input id="password" v-model="login.password" name="password" type="password" autocomplete="current-password" required />
-      <p v-if="login.error" class="form-error" role="alert">{{ login.error }}</p>
-      <button class="primary-button" type="submit" :disabled="login.busy">
-        {{ login.busy ? 'Signing in…' : 'Sign in' }}
-      </button>
-    </form>
-  </main>
-
-  <main v-else-if="session.state === 'denied'" id="main" class="centered-state">
-    <p class="state-code">403</p>
-    <h1>Commerce access required</h1>
-    <p>This signed-in account cannot use the storefront, pickup operations, point of sale, or reporting.</p>
-    <button class="text-button" type="button" @click="logout">Sign out and use another account</button>
-  </main>
-
-  <div v-else class="app-shell">
+  <a class="skip-link" href="#main">{{ t('Skip to main content') }}</a>
+  <div class="app-shell">
     <header class="site-header">
-      <RouterLink class="logo" :to="session.account?.permissions.includes('CATALOG_BROWSE') ? '/' : session.account?.permissions.includes('REPORT_VIEW') ? '/operations/reports' : session.account?.permissions.includes('POS_SELL') ? '/operations/pos' : '/operations/pickups'" aria-label="Shoe Commerce home">
-        <span aria-hidden="true">SC</span>
-        <strong>Shoe Commerce</strong>
+      <RouterLink class="logo" :to="session.account ? homeFor(session.account) : '/'" :aria-label="t('Shoe Commerce home')">
+        <span aria-hidden="true">SC</span><strong>Shoe Commerce</strong>
       </RouterLink>
       <div class="account-controls">
-        <nav aria-label="Primary">
-          <RouterLink v-if="session.account?.permissions.includes('CATALOG_BROWSE')" to="/">Storefront</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('FULFILL_PICKUP')" to="/operations/pickups">Pickups</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('POS_SELL')" to="/operations/pos">POS</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">Reports</RouterLink>
+        <nav :aria-label="t('Store')">
+          <RouterLink to="/">{{ t('Store') }}</RouterLink>
+          <RouterLink to="/#product-search">{{ t('Search') }}</RouterLink>
+          <RouterLink to="/cart">{{ t('Cart') }}<span v-if="cartCount" class="cart-count" :aria-label="t('Cart items')">{{ cartCount }}</span></RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/orders">{{ t('My Orders') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('FULFILL_ORDER')" to="/operations/fulfillments">{{ t('Fulfillment') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('POS_SELL')" to="/operations/pos">{{ t('POS') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">{{ t('Reports') }}</RouterLink>
         </nav>
-        <span>{{ session.account?.login }}</span>
-        <button type="button" @click="logout">Sign out</button>
+        <div class="locale-switch" :aria-label="t('Choose language')">
+          <button type="button" :aria-pressed="locale === 'vi-VN'" @click="setLocale('vi-VN')">VI</button><span aria-hidden="true">/</span><button type="button" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
+        </div>
+        <span v-if="session.account">{{ session.account.login }}</span>
+        <button v-if="session.account" type="button" :disabled="logoutBusy" @click="logout">{{ t(logoutBusy ? 'Signing out…' : 'Sign out') }}</button>
+        <div v-else class="guest-actions"><RouterLink to="/login">{{ t('Sign in') }}</RouterLink><RouterLink to="/register">{{ t('Register') }}</RouterLink></div>
       </div>
     </header>
     <main id="main">
-      <RouterView />
+      <p v-if="logoutError" class="form-error" role="alert">{{ messageLabel(logoutError) }}</p>
+      <section v-if="session.unavailable" class="inline-state" role="alert">
+        <h1>{{ t('Session service unavailable') }}</h1>
+        <p>{{ t('We could not check your session. Retry when the server is ready.') }}</p>
+        <button class="text-button" type="button" @click="reloadSession">{{ t('Retry') }}</button>
+      </section>
+      <RouterView v-else :key="`${session.generation}:${session.account?.accountId ?? 'guest'}`" />
     </main>
   </div>
 </template>

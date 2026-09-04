@@ -102,3 +102,13 @@ Vector databases, dedicated inference services, brokers, GPU services, and
 fine-tuning remain `DEFERRED`. Add them only after a confirmed use case and
 measured limitation show that the existing application/SQL boundary cannot meet
 the requirement.
+
+## Phase 17 resolved fitting slice
+
+Phase 17 implements the approved local path from [ADR-0028](ADR/0028-ai-assisted-shoe-fitting.md):
+constrained deterministic Java CV calibrated by a visible A4 sheet. It is not a
+trained model and does not create a probability claim. The output remains a
+validated customer proposal; it cannot change stock, payment, authorization or
+publishable business state. Raw images are transient request data and are not
+stored. Learned segmentation, provider selection, history and feedback remain
+deferred.

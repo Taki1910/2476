@@ -2,6 +2,8 @@ package com.shoecommerce.payment;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +49,19 @@ class VoidResultService {
         if (reserved.isEmpty() || reserved.stream().anyMatch(allocation -> !"ACTIVE".equals(allocation.status()))) {
             throw new IllegalStateException("Void attempt has no active component capacity");
         }
+        CustomerOrder.PaymentFacts facts = order.paymentFacts();
+        var expected = facts.items().stream().collect(Collectors.toMap(CustomerOrder.ItemFacts::orderItemId,
+                item -> BigDecimal.valueOf(item.totalAmount())));
+        BigDecimal allocated = reserved.stream().map(VoidAllocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (reserved.size() != expected.size()
+                || reserved.stream().map(VoidAllocation::componentPublicId).distinct().count() != expected.size()
+                || reserved.stream().anyMatch(allocation -> !expected.containsKey(allocation.componentPublicId())
+                    || expected.get(allocation.componentPublicId()).compareTo(allocation.amount()) != 0)
+                || allocated.compareTo(attempt.amount()) != 0
+                || allocated.compareTo(operation.requestedAmount()) != 0
+                || allocated.compareTo(BigDecimal.valueOf(facts.totalAmount())) != 0) {
+            throw new IllegalStateException("Void allocations do not cover the complete Order snapshot");
+        }
         Instant now = clock.instant();
         attempt.apply(result, now);
         switch (result.outcome()) {
@@ -55,7 +70,6 @@ class VoidResultService {
             case UNKNOWN -> operation.unknown(now);
             case REVIEW_REQUIRED -> operation.requireReview(now);
         }
-        CustomerOrder.PaymentFacts facts = order.paymentFacts();
         Location location = locations.findByPublicId(facts.locationId()).orElseThrow();
         String action = switch (result.outcome()) {
             case SUCCEEDED -> "VOID_SUCCEEDED";

@@ -142,9 +142,12 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 |---|---|
 | BR-FUL-101 | Handover/delivery/cancellation quantity transitions are versioned and cannot make fulfilled or remaining quantities inconsistent. |
 | BR-FUL-102 | Cancellation racing dispatch/handover has one conditional winner; if fulfillment wins, compensation follows return-to-sender/return policy. |
-| BR-FUL-103 | A `PAID` Order may create at most one `PENDING` pickup fulfillment at its server-derived responsible Branch and consumed-reservation Location; creation requires `FULFILL_PICKUP` plus an active exact-Location assignment and does not change inventory. |
-| BR-FUL-104 | Starting pickup preparation locks the authoritative Fulfillment and permits exactly one `PENDING -> PICKING` transition, sets `pickingStartedAt` once, requires current `FULFILL_PICKUP` plus exact active Location scope, and changes no commercial or inventory fact. |
+| BR-FUL-103 | Atomic cart checkout creates exactly one `PENDING` Pickup or Delivery intent at the common reserved Location. Pickup requires an eligible selected Location; Delivery snapshots validated receiver name, phone, address and optional note. |
+| BR-FUL-104 | Accepting preparation locks the authoritative Fulfillment and permits exactly one `PENDING -> PICKING` transition, sets `pickingStartedAt` once, requires current `FULFILL_ORDER` plus exact active Location scope, and changes no commercial or inventory fact. |
 | BR-FUL-105 | Pickup preparation permits `PENDING/PICKING -> PREPARED` without stock mutation. Idempotent handover requires `PREPARED`, locks Order then Fulfillment then Reservation and Balance, applies `onHand -= quantity` and `reserved -= quantity`, changes the Reservation to `CONSUMED`, and appends one `PICKUP_HANDOVER`. |
+| BR-FUL-106 | Delivery preparation permits `PENDING/PICKING -> PREPARED`; idempotent dispatch requires `PREPARED`, consumes every committed Order reservation exactly once, and appends one `DELIVERY_DISPATCH` movement per OrderItem. |
+| BR-FUL-107 | `OUT_FOR_DELIVERY -> DELIVERED` records actor, time and idempotency evidence and does not mutate inventory a second time. |
+| BR-FUL-108 | Confirmed cancellation may win only before pickup handover or delivery dispatch. The winner restores every committed reservation as one whole-order decision; after physical issue the future Return workflow is required. |
 | BR-RET-101 | Return creation locks/version-checks authoritative Fulfillment/return quantity facts and cannot exceed delivered/handed-over minus already accepted return quantity. |
 | BR-RET-102 | Only approved inspection disposition creates an idempotent Inventory return movement. |
 
