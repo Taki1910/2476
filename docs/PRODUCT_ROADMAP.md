@@ -1,7 +1,7 @@
 # Product Roadmap
 
 Status: authoritative product roadmap for the new Shoe Commerce project.
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ## Phase 15 — Customer Commerce Completion
 
@@ -100,13 +100,14 @@ real-world centimeter measurements.
 
 ## Phase 18 — Final Product Integration & Thesis Acceptance
 
-Status: FINAL ACCEPTANCE PASSED / BASELINE FROZEN / AWAITING SOL FINAL PRODUCT CERTIFICATION
+Status: FINAL ACCEPTANCE PASSED / SOL FINAL CERTIFICATION PASSED / GRADUATION PROJECT MVP CERTIFIED
 
-Phase 18 Terra technical/integration acceptance has passed for the
-already-certified transaction, customer commerce, fulfillment, POS, reporting,
-and AI-fitting slices on a clean, reproducible local environment. The baseline
-is frozen for independent Sol final product certification; it does not declare
-the Product MVP complete.
+Terra technical/integration acceptance and independent Sol final product
+certification have passed for the transaction, customer commerce, fulfillment,
+POS, reporting, and AI-fitting slices on a clean, reproducible local
+environment. The certified application baseline is
+`439d94c5b4f820d1088f82979570aa023f56d07b`; this is graduation-project MVP
+certification, not production certification.
 
 ## Product capability map
 
@@ -123,7 +124,7 @@ the Product MVP complete.
 
 ### NEXT
 
-- Independent Sol final product certification
+- Optional tag or push after human approval
 
 ### LATER
 
@@ -131,8 +132,9 @@ the Product MVP complete.
 
 ## Product completion rule
 
-`PRODUCT MVP: COMPLETE` may not be declared until the fulfillment experience and
-required product differentiators have passed their relevant acceptance gates.
+`PRODUCT MVP: COMPLETE` may be declared only when the fulfillment experience
+and required product differentiators have passed their relevant acceptance
+gates. Those gates have passed through independent Sol final certification.
 
 Current verdicts:
 
@@ -140,4 +142,11 @@ Current verdicts:
 - `CUSTOMER COMMERCE: COMPLETE`
 - `FULFILLMENT PRODUCT: COMPLETE`
 - `AI FITTING: COMPLETE`
-- `PRODUCT MVP: INCOMPLETE`
+- `PRODUCT MVP: COMPLETE`
+
+Phase 18 — Final Product Integration & Thesis Acceptance: `PASSED`
+
+Graduation Project MVP: `CERTIFIED`
+
+Frozen certified baseline:
+`439d94c5b4f820d1088f82979570aa023f56d07b`

@@ -1,6 +1,6 @@
 # Phase 18 Final Acceptance
 
-Status: PHASE 18 FINAL ACCEPTANCE: PASSED / FROZEN. This evidence log certifies the accepted Phase 18 baseline, not the entire Product MVP.
+Status: Terra integration acceptance: PASSED. Sol independent final product certification: PASSED. The certified application baseline is `439d94c5b4f820d1088f82979570aa023f56d07b`; this log preserves the Phase 18 evidence and does not claim production certification.
 
 ## Pickup end-to-end evidence — SC-078B097E
 
