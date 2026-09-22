@@ -30,6 +30,13 @@ public class AuthorizationPolicy {
         }
     }
 
+    public void requireRole(SessionPrincipal actor, RoleCode role) {
+        requireCurrent(actor);
+        if (!authorities.roleCodes(actor.accountId()).contains(role.name())) {
+            throw new AccessDeniedException("Role denied");
+        }
+    }
+
     public void requireBranchAccess(SessionPrincipal actor, UUID branchPublicId) {
         requireCurrent(actor);
         // Persisted assignments are authority; session-cached scope would survive reassignment.

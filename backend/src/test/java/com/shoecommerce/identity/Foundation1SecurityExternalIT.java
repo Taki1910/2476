@@ -62,6 +62,9 @@ class Foundation1SecurityExternalIT {
     private ScopeAdministrationService scopeAdministration;
 
     @Autowired
+    private StaffAccessService staffAccess;
+
+    @Autowired
     private AuthorizationPolicy authorization;
 
     @Autowired
@@ -76,6 +79,10 @@ class Foundation1SecurityExternalIT {
                 admin, "operations@example.com", PASSWORD, RoleCode.OPERATIONS);
         UUID cashierId = identityAdministration.createAccount(
                 admin, "cashier@example.com", PASSWORD, RoleCode.CASHIER);
+        UUID managerId = identityAdministration.createAccount(
+                admin, "manager@example.com", PASSWORD, RoleCode.OPERATIONS);
+        UUID staffId = identityAdministration.createAccount(
+                admin, "staff@example.com", PASSWORD, RoleCode.OPERATIONS);
         UUID disabledId = identityAdministration.createAccount(
                 admin, "disabled@example.com", PASSWORD, RoleCode.CUSTOMER);
         identityAdministration.setAccountEnabled(admin, disabledId, false);
@@ -84,9 +91,36 @@ class Foundation1SecurityExternalIT {
         UUID branchB = scopeAdministration.createBranch(admin, "HN", "Ha Noi");
         UUID locationA = scopeAdministration.createLocation(
                 admin, branchA, "HCM-FLOOR", "HCM Sales Floor");
+        UUID locationA2 = scopeAdministration.createLocation(
+                admin, branchA, "HCM-STOCK", "HCM Stockroom");
         UUID locationB = scopeAdministration.createLocation(
                 admin, branchB, "HN-FLOOR", "HN Sales Floor");
         scopeAdministration.setAssignment(admin, operationsId, branchA, locationA, true);
+        scopeAdministration.setAssignment(admin, managerId, branchA, locationA, true);
+        scopeAdministration.setAssignment(admin, staffId, branchA, locationA, true);
+        identityAdministration.setDirectPermission(admin, managerId, PermissionCode.STAFF_MANAGE_SCOPED, true);
+        identityAdministration.setDirectPermission(admin, managerId, PermissionCode.POS_SELL, true);
+
+        SessionPrincipal manager = principal("manager@example.com");
+        SessionPrincipal staffBeforeGrant = principal("staff@example.com");
+        assertThat(staffAccess.allowedCapabilities(manager)).extracting(StaffAccessService.CapabilityView::code)
+                .containsExactlyInAnyOrder("FULFILL_ORDER", "POS_SELL");
+        assertThat(staffAccess.setCapability(manager, staffId, PermissionCode.POS_SELL, true)).isTrue();
+        assertThatThrownBy(() -> authorization.requirePermission(staffBeforeGrant, PermissionCode.POS_SELL))
+                .isInstanceOf(AccessDeniedException.class);
+        SessionPrincipal staffWithPos = principal("staff@example.com");
+        authorization.requirePermission(staffWithPos, PermissionCode.POS_SELL);
+        assertThat(staffAccess.setCapability(manager, staffId, PermissionCode.POS_SELL, false)).isTrue();
+        assertThatThrownBy(() -> authorization.requirePermission(staffWithPos, PermissionCode.POS_SELL))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> staffAccess.setCapability(manager, managerId, PermissionCode.POS_SELL, true))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> staffAccess.setCapability(manager, adminId, PermissionCode.POS_SELL, true))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> staffAccess.setCapability(manager, staffId, PermissionCode.IDENTITY_MANAGE, true))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> staffAccess.setAssignment(manager, staffId, branchA, locationA2, true))
+                .isInstanceOf(AccessDeniedException.class);
 
         SessionPrincipal operations = principal("operations@example.com");
         authorization.requirePermission(operations, PermissionCode.CATALOG_MANAGE);

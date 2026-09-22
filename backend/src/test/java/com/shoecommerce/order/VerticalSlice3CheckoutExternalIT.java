@@ -43,13 +43,22 @@ import com.shoecommerce.branch.ScopeAdministrationService;
 import com.shoecommerce.catalog.CatalogService;
 import com.shoecommerce.catalog.StorefrontCatalogService;
 import com.shoecommerce.identity.AccountUserDetailsService;
+import com.shoecommerce.promotion.PromotionService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryAdjustmentService;
 import com.shoecommerce.fulfillment.PickupFulfillment;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.CtaKind;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.MediaKey;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.PublishDraft;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.SaveDraft;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.SectionInput;
+import com.shoecommerce.merchandising.StorefrontMerchandisingService.SectionType;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
+import com.shoecommerce.payment.PaymentAttemptService;
 import com.shoecommerce.pricing.PriceQuoteService;
 import com.shoecommerce.pricing.CartQuoteService;
 
@@ -74,6 +83,8 @@ class VerticalSlice3CheckoutExternalIT {
     @Autowired PriceQuoteService pricing;
     @Autowired CartQuoteService cartPricing;
     @Autowired CustomerOrderService orders;
+    @Autowired PaymentAttemptService payments;
+    @Autowired StorefrontMerchandisingService merchandising;
     @Autowired MutableClock clock;
     @Autowired ObjectMapper json;
     @LocalServerPort int port;
@@ -81,6 +92,7 @@ class VerticalSlice3CheckoutExternalIT {
     @BeforeEach
     void resetClock() {
         clock.set(TEST_NOW);
+        jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE status='PUBLISHED'",Timestamp.from(TEST_NOW));
     }
 
     @Test
@@ -272,6 +284,36 @@ class VerticalSlice3CheckoutExternalIT {
     }
 
     @Test
+    void storefrontPublicationDoesNotRunCheckoutExpiryInsideItsSerializableTransaction() {
+        Fixture fixture = fixture("storefront-publish", 1);
+        var quote = pricing.quote(fixture.customerA(), fixture.variant());
+        var order = orders.checkout(fixture.customerA(), quote.id(), "storefront-publish");
+        clock.set(order.reservationExpiresAt());
+        jdbc.update("DELETE FROM storefront_page_revision");
+        jdbc.update("""
+                INSERT INTO iam_account_permission(account_id,permission_id,granted_at)
+                SELECT accounts.id,permissions.id,?
+                FROM iam_user_account accounts CROSS JOIN iam_permission permissions
+                WHERE accounts.public_id=? AND permissions.code='STOREFRONT_MANAGE'
+                """, Timestamp.from(clock.instant()), fixture.operations().publicId());
+        SessionPrincipal manager = principal(fixture.operations().getUsername());
+        var draft = merchandising.saveDraft(manager, new SaveDraft(null, null, List.of(
+                new SectionInput(SectionType.HERO_BANNER, true, "Giày", "Shoes", null, null,
+                        "Xem ưu đãi", "View offers", CtaKind.OFFERS, null, null, null,
+                        MediaKey.COURT_CLASSIC, List.of()))));
+
+        assertThat(merchandising.publish(manager,
+                new PublishDraft(draft.revisionId(), draft.entityVersion(), null)).status())
+                .isEqualTo("PUBLISHED");
+        assertThat(jdbc.queryForObject("SELECT status FROM inventory_reservation WHERE public_id=?",
+                String.class, order.reservationId())).isEqualTo("ADOPTED");
+
+        storefront.browse();
+        assertThat(jdbc.queryForObject("SELECT status FROM inventory_reservation WHERE public_id=?",
+                String.class, order.reservationId())).isEqualTo("EXPIRED");
+    }
+
+    @Test
     void cancellationReleaseIsNotRepeatedByLaterExpiryNormalization() {
         Fixture fixture = fixture("cancel-expiry", 1);
         var quote = pricing.quote(fixture.customerA(), fixture.variant());
@@ -413,6 +455,7 @@ class VerticalSlice3CheckoutExternalIT {
     @Test
     void cartAuditFailureRollsBackEveryReservationAndOrderItem() {
         Fixture f = fixture("multi-audit", 3);
+        UUID promotion = promotion(f, 1L, null, 100);
         UUID second = extraVariant(f, "41", 900_000, 3);
         var demand = List.of(line(f.variant(), 1), line(second, 2));
         var quote = cartPricing.quote(f.customerA(), demand);
@@ -422,8 +465,14 @@ class VerticalSlice3CheckoutExternalIT {
                     .isInstanceOf(DataAccessException.class);
         } finally { org.slf4j.MDC.remove(com.shoecommerce.platform.api.CorrelationIdFilter.MDC_KEY); }
         assertNoCartEffects(f);
+        assertThat(redemptions(promotion)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_adjustment a JOIN commerce_order o ON o.public_id=a.order_public_id WHERE o.owner_account_public_id=?", Integer.class,f.customerA().publicId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_item_adjustment a JOIN commerce_order_item i ON i.public_id=a.order_item_public_id JOIN commerce_order o ON o.id=i.order_id WHERE o.owner_account_public_id=?", Integer.class,f.customerA().publicId())).isZero();
         assertThat(balance(f).reserved()).isZero();
         assertThat(reserved(second)).isZero();
+        var retryQuote = cartPricing.quote(f.customerA(), demand);
+        assertThat(orders.checkoutCart(f.customerA(), retryQuote.id(), demand, "multi-audit-retry").id()).isNotNull();
+        assertThat(redemptions(promotion)).isOne();
     }
 
     @Test
@@ -445,6 +494,7 @@ class VerticalSlice3CheckoutExternalIT {
     @Test
     void cartKeyCanonicalizesAllLinesAndReplaysAfterQuoteExpiry() {
         Fixture f = fixture("multi-replay", 5);
+        UUID promotion = promotion(f, 1L, null, 100);
         UUID second = extraVariant(f, "41", 900_000, 5);
         var demand = List.of(line(f.variant(), 1), line(second, 2));
         var quote = cartPricing.quote(f.customerA(), demand);
@@ -454,16 +504,19 @@ class VerticalSlice3CheckoutExternalIT {
         assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), List.of(line(f.variant(), 1), line(second, 1)), "multi-replay"))
                 .isInstanceOf(BusinessConflictException.class).hasMessageContaining("idempotency key");
         assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand, "new-key"))
-                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("already created");
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("fresh quote");
         clock.set(quote.expiresAt());
         assertThat(orders.checkoutCart(f.customerA(), quote.id(), reversed, "multi-replay").id()).isEqualTo(order.id());
         assertThat(orders.readOwnOrders(f.customerA(), 0, 20).items()).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isEqualTo(2);
+        assertThat(redemptions(promotion)).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_item_adjustment WHERE promotion_revision_public_id=?",Integer.class,promotion)).isEqualTo(2);
     }
 
     @Test
     void anyExpiredLineReleasesAllHoldsAndUnpaidCancellationIsIdempotent() {
         Fixture f = fixture("multi-holds", 5);
+        UUID promotion = promotion(f, null, 1L, 100);
         UUID second = extraVariant(f, "41", 900_000, 5);
         var demand = List.of(line(f.variant(), 1), line(second, 2));
         var quote = cartPricing.quote(f.customerA(), demand);
@@ -475,11 +528,74 @@ class VerticalSlice3CheckoutExternalIT {
         assertThat(orders.readOwn(f.customerA(), order.id()).status()).isEqualTo("CANCELLED");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ? AND status = 'EXPIRED'", Integer.class, f.customerA().publicId())).isEqualTo(2);
         assertThat(balance(f).reserved()).isZero(); assertThat(reserved(second)).isZero();
+        assertThat(status(promotion, order.id())).isEqualTo("RELEASED");
         var fresh = cartPricing.quote(f.customerA(), demand);
         var next = orders.checkoutCart(f.customerA(), fresh.id(), demand, "multi-cancel");
         orders.cancelOwn(f.customerA(), next.id()); orders.cancelOwn(f.customerA(), next.id());
         assertThat(balance(f).reserved()).isZero(); assertThat(reserved(second)).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ? AND status = 'RELEASED'", Integer.class, f.customerA().publicId())).isEqualTo(2);
+        assertThat(status(promotion, next.id())).isEqualTo("RELEASED");
+    }
+
+    @Test
+    void quoteDoesNotConsumeUsageAndUnlimitedPromotionNeverCreatesRedemption() {
+        Fixture f=fixture("usage-quote",3); UUID limited=promotion(f,1L,null,200);
+        cartPricing.quote(f.customerA(),List.of(line(f.variant(),1)));
+        assertThat(redemptions(limited)).isZero();
+        jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE public_id=?",Timestamp.from(clock.instant()),limited);
+        UUID unlimited=promotion(f,null,null,100);
+        var quote=cartPricing.quote(f.customerA(),List.of(line(f.variant(),1)));
+        var order=orders.checkoutCart(f.customerA(),quote.id(),List.of(line(f.variant(),1)),"unlimited");
+        assertThat(redemptions(unlimited)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_item_adjustment WHERE order_item_public_id IN (SELECT public_id FROM commerce_order_item WHERE order_id=(SELECT id FROM commerce_order WHERE public_id=?))",Integer.class,order.id())).isOne();
+    }
+
+    @Test
+    void globalLastUseAllowsExactlyOneOverlappingCheckoutWithoutLoserEffects() throws Exception {
+        Fixture f=fixture("global-last",2); UUID promotion=promotion(f,1L,null,100);
+        var demand=List.of(line(f.variant(),1)); var qa=cartPricing.quote(f.customerA(),demand); var qb=cartPricing.quote(f.customerB(),demand);
+        CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);
+        List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){
+            var a=executor.submit(()->cartAfterBarrier(f.customerA(),qa.id(),demand,"global-a",ready,start));
+            var b=executor.submit(()->cartAfterBarrier(f.customerB(),qb.id(),demand,"global-b",ready,start));
+            assertThat(ready.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();start.countDown();
+            outcomes=List.of(a.get(20,java.util.concurrent.TimeUnit.SECONDS),b.get(20,java.util.concurrent.TimeUnit.SECONDS));
+        } finally {start.countDown();}
+        assertThat(outcomes).filteredOn(CustomerOrderService.OrderView.class::isInstance).hasSize(1);
+        assertThat(outcomes).filteredOn(BusinessConflictException.class::isInstance).hasSize(1);
+        assertThat(redemptions(promotion)).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order WHERE owner_account_public_id IN (?,?)",Integer.class,f.customerA().publicId(),f.customerB().publicId())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id IN (?,?)",Integer.class,f.customerA().publicId(),f.customerB().publicId())).isOne();
+        assertThat(balance(f).reserved()).isOne();
+    }
+
+    @Test
+    void perCustomerLastUseAllowsOneOfTwoDistinctConcurrentCheckouts() throws Exception {
+        Fixture f=fixture("customer-last",2); UUID promotion=promotion(f,null,1L,100);
+        var demand=List.of(line(f.variant(),1)); var qa=cartPricing.quote(f.customerA(),demand); var qb=cartPricing.quote(f.customerA(),demand);
+        CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);
+        List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){
+            var a=executor.submit(()->cartAfterBarrier(f.customerA(),qa.id(),demand,"customer-a",ready,start));
+            var b=executor.submit(()->cartAfterBarrier(f.customerA(),qb.id(),demand,"customer-b",ready,start));
+            assertThat(ready.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();start.countDown();
+            outcomes=List.of(a.get(20,java.util.concurrent.TimeUnit.SECONDS),b.get(20,java.util.concurrent.TimeUnit.SECONDS));
+        } finally {start.countDown();}
+        assertThat(outcomes).filteredOn(CustomerOrderService.OrderView.class::isInstance).hasSize(1);
+        assertThat(outcomes).filteredOn(BusinessConflictException.class::isInstance).hasSize(1);
+        assertThat(redemptions(promotion)).isOne();
+    }
+
+    @Test
+    void acceptedQuoteDetectsEveryFinancialPromotionChangeButAllowsRetirement() {
+        Fixture f=fixture("stale",8); var demand=List.of(line(f.variant(),1));
+        UUID expired=promotion(f,null,null,100); var q1=cartPricing.quote(f.customerA(),demand); jdbc.update("UPDATE promotion SET valid_to=? WHERE public_id=?",Timestamp.from(clock.instant().plusSeconds(1)),expired);clock.advance(Duration.ofSeconds(2)); stale(f,q1.id(),demand,"expired");
+        clock.set(TEST_NOW); retire(expired); UUID invalid=promotion(f,null,null,100);var q2=cartPricing.quote(f.customerA(),demand);jdbc.update("UPDATE promotion SET status='INVALIDATED',invalidated_at=? WHERE public_id=?",Timestamp.from(clock.instant()),invalid);stale(f,q2.id(),demand,"invalid");
+        UUID exhausted=promotion(f,1L,null,200);var q3=cartPricing.quote(f.customerA(),demand);var qOther=cartPricing.quote(f.customerB(),demand);orders.checkoutCart(f.customerB(),qOther.id(),demand,"exhaust");stale(f,q3.id(),demand,"exhausted");
+        retire(exhausted);UUID low=promotion(f,null,null,10);var q4=cartPricing.quote(f.customerA(),demand);promotion(f,null,null,20);stale(f,q4.id(),demand,"winner");
+        jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE status='PUBLISHED'",Timestamp.from(clock.instant()));var q5=cartPricing.quote(f.customerA(),demand);promotion(f,null,null,30);stale(f,q5.id(),demand,"new");
+        jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE status='PUBLISHED'",Timestamp.from(clock.instant()));UUID retired=promotion(f,null,null,40);var q6=cartPricing.quote(f.customerA(),demand);retire(retired);assertThat(orders.checkoutCart(f.customerA(),q6.id(),demand,"retired").id()).isNotNull();
     }
 
     @Test
@@ -510,8 +626,12 @@ class VerticalSlice3CheckoutExternalIT {
 
     private Object cartAfterBarrier(SessionPrincipal actor, UUID quote, List<CartQuoteService.LineRequest> demand,
             CountDownLatch ready, CountDownLatch start) throws Exception {
+        return cartAfterBarrier(actor,quote,demand,"multi-race",ready,start);
+    }
+    private Object cartAfterBarrier(SessionPrincipal actor, UUID quote, List<CartQuoteService.LineRequest> demand,String key,
+            CountDownLatch ready, CountDownLatch start) throws Exception {
         ready.countDown(); if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Race did not start");
-        try { return orders.checkoutCart(actor, quote, demand, "multi-race"); }
+        try { return orders.checkoutCart(actor, quote, demand, key); }
         catch (BusinessConflictException conflict) { return conflict; }
     }
 
@@ -541,9 +661,12 @@ class VerticalSlice3CheckoutExternalIT {
     void cartCheckoutSnapshotsDeliveryAndIncludesIntentInIdempotency() {
         Fixture f = fixture("delivery-intent", 3);
         var demand = List.of(line(f.variant(), 1));
-        var quote = cartPricing.quote(f.customerA(), demand);
+        UUID rule=UUID.randomUUID();
+        jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
+                rule,UUID.randomUUID(),java.sql.Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
+        var quote = cartPricing.quote(f.customerA(), demand, new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
         var delivery = new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
-                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "12 Nguyen Hue, Quan 1", "Giao gio hanh chinh"));
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "12 Nguyen Hue, Quan 1", "Giao gio hanh chinh"));
 
         var created = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
         var replay = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
@@ -554,11 +677,109 @@ class VerticalSlice3CheckoutExternalIT {
         assertThat(created.receiverName()).isEqualTo("Nguyen Van A");
         assertThat(created.receiverPhone()).isEqualTo("+84 912 345 678");
         assertThat(created.deliveryAddress()).isEqualTo("12 Nguyen Hue, Quan 1");
+        assertThat(quote.merchandiseAmount()).isEqualTo(quote.items().getFirst().totalAmount());
+        assertThat(quote.shippingFeeAmount()).isEqualTo(80_000);
+        assertThat(created.merchandiseAmount()).isEqualTo(quote.merchandiseAmount());
+        assertThat(created.deliveryFeeAmount()).isEqualTo(quote.shippingFeeAmount());
+        assertThat(created.totalAmount()).isEqualTo(quote.totalAmount());
+        assertThat(created.locationId()).isEqualTo(quote.originLocationId());
         assertThat(created.deliveryNote()).isEqualTo("Giao gio hanh chinh");
-        assertThat(created.deliveryFeeAmount()).isZero();
         assertThatThrownBy(() -> orders.checkoutCart(f.customerA(), quote.id(), demand,
                 new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.PICKUP, location(f), null), "delivery-intent"))
                 .isInstanceOf(BusinessConflictException.class).hasMessageContaining("idempotency key");
+    }
+
+    @Test
+    void deliveryCheckoutNeverSubstitutesAnotherLocationAfterQuote() {
+        Fixture f=fixture("delivery-origin",3); UUID first=location(f);
+        UUID branch=jdbc.queryForObject("SELECT branches.public_id FROM org_location locations JOIN org_branch branches ON branches.id=locations.branch_id WHERE locations.public_id=?",UUID.class,first);
+        SessionPrincipal admin=bootstrapAdmin(); UUID second=scopes.createLocation(admin,branch,"SECOND-"+shortId(),"Second delivery stock");
+        scopes.setAssignment(admin,f.operations().publicId(),branch,second,true);
+        SessionPrincipal operations=(SessionPrincipal)users.loadUserByUsername(f.operations().getUsername());
+        adjustments.adjust(operations,f.variant(),second,3,"Second origin fixture",UUID.randomUUID().toString());
+        UUID rule=UUID.randomUUID(); jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
+                rule,UUID.randomUUID(),Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),Timestamp.from(clock.instant()),Timestamp.from(clock.instant()));
+        var demand=List.of(line(f.variant(),1)); var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
+        assertThat(quote.originLocationId()).isEqualTo(first);
+        adjustments.adjust(operations,f.variant(),first,0,"Quoted origin unavailable",UUID.randomUUID().toString());
+        var delivery=new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY,null,
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","12 Nguyen Hue",null));
+        assertThatThrownBy(()->orders.checkoutCart(f.customerA(),quote.id(),demand,delivery,"origin-no-switch"))
+                .isInstanceOf(BusinessConflictException.class).hasMessageContaining("fresh quote");
+        assertThat(jdbc.queryForObject("SELECT on_hand-reserved FROM inventory_balance WHERE variant_id=(SELECT id FROM catalog_product_variant WHERE public_id=?) AND location_id=(SELECT id FROM org_location WHERE public_id=?)",Long.class,f.variant(),second)).isEqualTo(3);
+    }
+
+    @Test
+    void promotionFinancialsReconcileFromDeliveryQuoteThroughOrderAndPaymentAttempt() {
+        Fixture f=fixture("promo-financial",3);promotion(f,"ITEM","ITEM_FIXED",10_000L,null,300);promotion(f,"ORDER_AUTOMATIC","ORDER_FIXED",20_000L,null,200);promotion(f,"SHIPPING","FREE_SHIPPING",null,null,100);
+        UUID rule=UUID.randomUUID();jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",rule,UUID.randomUUID(),Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),Timestamp.from(clock.instant()),Timestamp.from(clock.instant()));
+        var demand=List.of(line(f.variant(),1));var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
+        var delivery=new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY,null,new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","12 Nguyen Hue",null));
+        var order=orders.checkoutCart(f.customerA(),quote.id(),demand,delivery,"promo-financial");var attempt=payments.initiate(f.customerA(),order.id(),"pay-promo-financial").attempt();
+        assertThat(quote.merchandiseAmount()).isEqualTo(149_000);assertThat(quote.merchandiseDiscountAmount()).isEqualTo(30_000);assertThat(quote.shippingFeeAmount()).isEqualTo(80_000);assertThat(quote.shippingDiscountAmount()).isEqualTo(80_000);assertThat(quote.totalAmount()).isEqualTo(119_000);
+        assertThat(order.merchandiseAmount()).isEqualTo(quote.merchandiseAmount());assertThat(order.merchandiseDiscountAmount()).isEqualTo(quote.merchandiseDiscountAmount());assertThat(order.deliveryFeeAmount()).isEqualTo(quote.shippingFeeAmount());assertThat(order.shippingDiscountAmount()).isEqualTo(quote.shippingDiscountAmount());assertThat(order.totalAmount()).isEqualTo(quote.totalAmount());assertThat(attempt.amount()).isEqualByComparingTo("119000");
+        assertThat(jdbc.queryForObject("SELECT SUM(applied_amount) FROM commerce_order_item_adjustment WHERE layer='ORDER_ALLOCATION' AND order_item_public_id IN (SELECT public_id FROM commerce_order_item WHERE order_id=(SELECT id FROM commerce_order WHERE public_id=?))",Long.class,order.id())).isEqualTo(20_000);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_adjustment WHERE order_public_id=?",Integer.class,order.id())).isEqualTo(2);
+    }
+
+    @Test
+    void selectedCodeSnapshotsAllocationsOrdersPaymentAndIdempotentReplayWithoutRawCode() {
+        Fixture f=fixture("voucher-code",3);UUID second=extraVariant(f,"41",101_000,3);Voucher v=voucher(f,"CODE","SAVE-C3-SECRET",1L,25_000L);
+        var demand=List.of(line(f.variant(),1),line(second,1));var selection=PromotionService.VoucherSelection.code("  save-c3-secret  ");
+        var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("PICKUP",null,null),selection);
+        assertThat(quote.merchandiseDiscountAmount()).isEqualTo(25_000);
+        assertThat(jdbc.queryForObject("SELECT SUM(applied_amount) FROM pricing_cart_quote_item_adjustment WHERE quote_public_id=? AND layer='VOUCHER_ALLOCATION'",Long.class,quote.id())).isEqualTo(25_000);
+        assertThat(jdbc.queryForObject("SELECT masked_code_snapshot FROM pricing_cart_quote_adjustment WHERE quote_public_id=? AND acquisition_mode='CODE'",String.class,quote.id())).doesNotContain("SAVE-C3-SECRET");
+        var order=orders.checkoutCart(f.customerA(),quote.id(),demand,"voucher-replay");var replay=orders.checkoutCart(f.customerA(),quote.id(),demand,"voucher-replay");
+        assertThat(replay.id()).isEqualTo(order.id());assertThat(redemptions(v.revision())).isOne();
+        assertThat(jdbc.queryForObject("SELECT SUM(applied_amount) FROM commerce_order_item_adjustment WHERE layer='VOUCHER_ALLOCATION' AND order_item_public_id IN (SELECT public_id FROM commerce_order_item WHERE order_id=(SELECT id FROM commerce_order WHERE public_id=?))",Long.class,order.id())).isEqualTo(25_000);
+        assertThat(payments.initiate(f.customerA(),order.id(),"voucher-pay").attempt().amount()).isEqualByComparingTo(Long.toString(quote.totalAmount()));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_adjustment WHERE order_public_id=? AND masked_code_snapshot='SAVE-C3-SECRET'",Integer.class,order.id())).isZero();
+    }
+
+    @Test
+    void acceptedClaimUsesExactRetiredRevisionAndAlwaysReservesUsage() {
+        Fixture f=fixture("voucher-claim",2);Voucher first=voucher(f,"CLAIMABLE",null,null,20_000L);UUID claim=claim(first.family(),first.revision(),f.customerA());
+        var demand=List.of(line(f.variant(),1));var quote=cartPricing.quote(f.customerA(),demand,null,PromotionService.VoucherSelection.claim(claim));
+        retire(first.revision());voucherRevision(f,first.family(),2,30_000L);
+        var order=orders.checkoutCart(f.customerA(),quote.id(),demand,"claim-retired");
+        assertThat(order.totalAmount()).isEqualTo(quote.totalAmount());assertThat(redemptions(first.revision())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order_adjustment WHERE order_public_id=? AND promotion_revision_public_id=? AND voucher_claim_public_id=?",Integer.class,order.id(),first.revision(),claim)).isOne();
+    }
+
+    @Test
+    void selectedVoucherStalesWithoutOrderReservationOrInventoryEffects() {
+        Fixture f=fixture("voucher-stale",2);Voucher v=voucher(f,"CODE","STALE-C3",1L,10_000L);var demand=List.of(line(f.variant(),1));
+        var quote=cartPricing.quote(f.customerA(),demand,null,PromotionService.VoucherSelection.code("STALE-C3"));
+        jdbc.update("UPDATE promotion SET status='INVALIDATED',invalidated_at=? WHERE public_id=?",Timestamp.from(clock.instant()),v.revision());
+        assertThatThrownBy(()->orders.checkoutCart(f.customerA(),quote.id(),demand,"voucher-stale")).isInstanceOf(BusinessConflictException.class).extracting(e->((BusinessConflictException)e).code()).isEqualTo("VOUCHER_STALE");
+        assertNoCartEffects(f);assertThat(redemptions(v.revision())).isZero();
+    }
+
+    @Test
+    void sameCheckoutKeyRejectsDifferentAcceptedVoucherEvidence() {
+        Fixture f=fixture("voucher-key",3);Voucher v=voucher(f,"CODE","KEY-C3",null,10_000L);var demand=List.of(line(f.variant(),1));
+        var none=cartPricing.quote(f.customerA(),demand);var code=cartPricing.quote(f.customerA(),demand,null,PromotionService.VoucherSelection.code("KEY-C3"));
+        orders.checkoutCart(f.customerA(),none.id(),demand,"same-voucher-key");
+        assertThatThrownBy(()->orders.checkoutCart(f.customerA(),code.id(),demand,"same-voucher-key")).isInstanceOf(BusinessConflictException.class).extracting(e->((BusinessConflictException)e).code()).isEqualTo("IDEMPOTENCY_KEY_CONFLICT");
+        assertThat(redemptions(v.revision())).isZero();
+    }
+
+    @Test
+    void selectedVoucherRacesReserveExactlyOneWithoutLoserEffects() throws Exception {
+        Fixture codeFixture=fixture("voucher-code-race",2);Voucher code=voucher(codeFixture,"CODE","RACE-C3",1L,10_000L);var demand=List.of(line(codeFixture.variant(),1));
+        var codeA=cartPricing.quote(codeFixture.customerA(),demand,null,PromotionService.VoucherSelection.code("RACE-C3"));var codeB=cartPricing.quote(codeFixture.customerB(),demand,null,PromotionService.VoucherSelection.code("RACE-C3"));
+        assertVoucherRace(codeFixture,List.of(codeFixture.customerA(),codeFixture.customerB()),List.of(codeA.id(),codeB.id()),demand,code.revision());
+
+        Fixture claimFixture=fixture("voucher-claim-race",2);Voucher claimed=voucher(claimFixture,"CLAIMABLE",null,null,10_000L);UUID claim=claim(claimed.family(),claimed.revision(),claimFixture.customerA());
+        var claimDemand=List.of(line(claimFixture.variant(),1));var claimA=cartPricing.quote(claimFixture.customerA(),claimDemand,null,PromotionService.VoucherSelection.claim(claim));var claimB=cartPricing.quote(claimFixture.customerA(),claimDemand,null,PromotionService.VoucherSelection.claim(claim));
+        assertVoucherRace(claimFixture,List.of(claimFixture.customerA(),claimFixture.customerA()),List.of(claimA.id(),claimB.id()),claimDemand,claimed.revision());
+    }
+
+    private void assertVoucherRace(Fixture f,List<SessionPrincipal> actors,List<UUID> quoteIds,List<CartQuoteService.LineRequest> demand,UUID revision)throws Exception{
+        CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){var a=executor.submit(()->cartAfterBarrier(actors.get(0),quoteIds.get(0),demand,"voucher-race-a",ready,start));var b=executor.submit(()->cartAfterBarrier(actors.get(1),quoteIds.get(1),demand,"voucher-race-b",ready,start));assertThat(ready.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();start.countDown();outcomes=List.of(a.get(20,java.util.concurrent.TimeUnit.SECONDS),b.get(20,java.util.concurrent.TimeUnit.SECONDS));}finally{start.countDown();}
+        assertThat(outcomes).filteredOn(CustomerOrderService.OrderView.class::isInstance).hasSize(1);assertThat(outcomes).filteredOn(BusinessConflictException.class::isInstance).hasSize(1);assertThat(redemptions(revision)).isOne();assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id IN (?,?)",Integer.class,actors.get(0).publicId(),actors.get(1).publicId())).isOne();
     }
 
     private static CartQuoteService.LineRequest line(UUID id, long quantity) { return new CartQuoteService.LineRequest(id, quantity); }
@@ -570,6 +791,22 @@ class VerticalSlice3CheckoutExternalIT {
     }
     private UUID location(Fixture f) { return jdbc.queryForObject("SELECT locations.public_id FROM org_location locations JOIN inventory_balance balances ON balances.location_id = locations.id JOIN catalog_product_variant variants ON variants.id = balances.variant_id WHERE variants.public_id = ?", UUID.class, f.variant()); }
     private long reserved(UUID variant) { return jdbc.queryForObject("SELECT SUM(balances.reserved) FROM inventory_balance balances JOIN catalog_product_variant variants ON variants.id = balances.variant_id WHERE variants.public_id = ?", Long.class, variant); }
+    private UUID promotion(Fixture f,Long global,Long customer,int priority){
+        UUID id=UUID.randomUUID(),family=UUID.randomUUID(); Timestamp now=Timestamp.from(clock.instant());
+        jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',NULL,0,?)",family,now);
+        jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,global_usage_limit,per_customer_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,?,'PUBLISHED','ITEM','ITEM_FIXED',10000,?,?,?,?,?,?,?)",family,id,"C2 "+id,global,customer,priority,Timestamp.from(clock.instant().minusSeconds(60)),f.customerA().publicId(),now,now);
+        jdbc.update("INSERT INTO promotion_product_scope(promotion_id,product_public_id) SELECT id,? FROM promotion WHERE public_id=?",f.product(),id);return id;
+    }
+    private UUID promotion(Fixture f,String layer,String type,Long fixed,Long global,int priority){UUID id=UUID.randomUUID(),family=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',NULL,0,?)",family,now);jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,global_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,?,'PUBLISHED',?,?,?,?,?,?,?, ?,?)",family,id,"C2 "+type,layer,type,fixed,global,priority,Timestamp.from(clock.instant().minusSeconds(60)),f.customerA().publicId(),now,now);if("ITEM".equals(layer))jdbc.update("INSERT INTO promotion_product_scope(promotion_id,product_public_id) SELECT id,? FROM promotion WHERE public_id=?",f.product(),id);return id;}
+    private Voucher voucher(Fixture f,String mode,String code,Long global,long fixed){UUID family=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,?,?,?,?)",family,mode,code,false,now);return new Voucher(family,voucherRevision(f,family,1,fixed,global));}
+    private UUID voucherRevision(Fixture f,UUID family,int revision,long fixed){return voucherRevision(f,family,revision,fixed,null);}
+    private UUID voucherRevision(Fixture f,UUID family,int revision,long fixed,Long global){UUID id=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,global_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at,customer_summary,customer_terms) VALUES(?,?,?,?,'PUBLISHED','ORDER_AUTOMATIC','ORDER_FIXED',?, ?,100,?,?,?,?,?,?)",family,id,revision,"Voucher "+revision,fixed,global,Timestamp.from(clock.instant().minusSeconds(60)),f.customerA().publicId(),now,now,"Save now","Terms");return id;}
+    private UUID claim(UUID family,UUID revision,SessionPrincipal customer){UUID id=UUID.randomUUID();jdbc.update("INSERT INTO voucher_claim(public_id,promotion_family_public_id,claimed_revision_public_id,customer_account_public_id,status,claimed_at) VALUES(?,?,?,?,'CLAIMED',?)",id,family,revision,customer.publicId(),Timestamp.from(clock.instant()));return id;}
+    private record Voucher(UUID family,UUID revision){}
+    private int redemptions(UUID promotion){return jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE promotion_revision_public_id=?",Integer.class,promotion);}
+    private String status(UUID promotion,UUID order){return jdbc.queryForObject("SELECT status FROM promotion_redemption WHERE promotion_revision_public_id=? AND order_public_id=?",String.class,promotion,order);}
+    private void retire(UUID promotion){jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE public_id=? AND status='PUBLISHED'",Timestamp.from(clock.instant()),promotion);}
+    private void stale(Fixture f,UUID quote,List<CartQuoteService.LineRequest> demand,String key){assertThatThrownBy(()->orders.checkoutCart(f.customerA(),quote,demand,"stale-"+key)).isInstanceOf(BusinessConflictException.class).hasMessageContaining("offer");}
     private void assertNoCartEffects(Fixture f) {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_reservation WHERE owner_account_public_id = ?", Integer.class, f.customerA().publicId())).isZero();

@@ -2,6 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api, SESSION_ENDED_EVENT } from './api'
 
 describe('API session handling', () => {
+  it.each(['900', 'abc', '0', '-1', '1.5', '9007199254740992', null])('validates login Retry-After %s', async header => {
+    const headers: Record<string, string> = header === null ? {} : { 'Retry-After': header }
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'AUTH_RATE_LIMITED' }), { status: 429, headers })))
+    await expect(api.login('account', 'password')).rejects.toMatchObject({
+      status: 429, code: 'AUTH_RATE_LIMITED', retryAfterSeconds: header === '900' ? 900 : undefined,
+    })
+  })
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -188,8 +197,22 @@ describe('API session handling', () => {
     const variantId = 'aaaaaaaa-0000-0000-0000-000000000001'
     await api.cartQuote([{ variantId, quantity: 1 }, { variantId, quantity: 2 }])
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/storefront/cart-quotes')
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ items: [{ variantId, quantity: 3 }] })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ items: [{ variantId, quantity: 3 }], fulfillment: { type: 'PICKUP' }, voucherSelection: { type: 'NONE' } })
     expect(fetchMock.mock.calls[1][1].headers['X-CSRF-TOKEN']).toBe('csrf')
+  })
+
+  it('sends stable destination codes without client-authored shipping money', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({})))
+    vi.stubGlobal('fetch', fetchMock)
+    await api.cartQuote([{ variantId: 'aaaaaaaa-0000-0000-0000-000000000001', quantity: 1 }],
+      { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760' })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      items: [{ variantId: 'aaaaaaaa-0000-0000-0000-000000000001', quantity: 1 }],
+      fulfillment: { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760' },
+      voucherSelection: { type: 'NONE' },
+    })
   })
 
   it('submits one whole-cart command with stable ordering and the supplied key', async () => {
@@ -205,6 +228,14 @@ describe('API session handling', () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ quoteId: 'quote', items: [a, b], fulfillment })
     expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe('same-key')
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses explicit authoritative voucher selections and never sends voucher money', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }))).mockResolvedValueOnce(new Response(JSON.stringify({ id: 'quote' })))
+    vi.stubGlobal('fetch', fetchMock)
+    const variantId = 'aaaaaaaa-0000-0000-0000-000000000001'
+    await api.cartQuote([{ variantId, quantity: 1 }], undefined, { type: 'CODE', code: 'SAVE-10' })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ items: [{ variantId, quantity: 1 }], fulfillment: { type: 'PICKUP' }, voucherSelection: { type: 'CODE', code: 'SAVE-10' } })
   })
 
   it('preserves a line-specific ProblemDetail without exposing it as raw UI copy', async () => {

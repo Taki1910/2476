@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addToCart, cart, cartCount, changedQuoteItems, removeFromCart, removePurchasedItems, restoreCart, setCartQuantity } from './cart'
+import { activateCart, addToCart, cart, cartCount, changedQuoteItems, removeFromCart, removePurchasedItems, restoreCart, setCartQuantity } from './cart'
 import { normalizeCartDemand, type CartQuote } from './api'
 import { session } from './session'
 
@@ -12,11 +12,43 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) })
   session.account = undefined
   cart.items = []
+  cart.owner = null
   cart.storageError = false
 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('multi-item display cart', () => {
+  it('isolates logout, another account and refresh without resurrecting unowned legacy data', () => {
+    values.set('shoe-commerce:cart', JSON.stringify([{ ...item, quantity: 3 }]))
+    activateCart(null)
+    expect(cart.items).toEqual([])
+    activateCart('A'); addToCart(item)
+    activateCart(null)
+    expect(cart.items).toEqual([])
+    expect(values.has('shoe-commerce:cart:v2:A')).toBe(true)
+    activateCart('B')
+    expect(cartCount.value).toBe(0)
+    cart.owner = null; cart.items = []
+    activateCart('B')
+    expect(cartCount.value).toBe(0)
+    activateCart('A')
+    expect(cartCount.value).toBe(1)
+  })
+  it('merges guest quantities deterministically and consumes guest once', () => {
+    values.set('shoe-commerce:cart:v2:A', JSON.stringify({ owner: 'A', items: [{ ...item, quantity: 9 }] }))
+    addToCart(item); addToCart(item)
+    activateCart('A')
+    expect(cart.items[0].quantity).toBe(10)
+    expect(values.has('shoe-commerce:cart:v2:guest')).toBe(false)
+    cart.owner = null; cart.items = []
+    activateCart('A')
+    expect(cart.items[0].quantity).toBe(10)
+  })
+  it('does not let a late checkout response remove another owner’s units', () => {
+    activateCart('B'); addToCart(item)
+    removePurchasedItems([{ variantId: A, quantity: 1 }], 'A')
+    expect(cartCount.value).toBe(1)
+  })
   it('adds different variants and merges duplicates; badge counts total units', () => {
     expect(addToCart(item)).toBe('added')
     expect(addToCart({ ...item, variantId: B })).toBe('added')
@@ -30,7 +62,7 @@ describe('multi-item display cart', () => {
     setCartQuantity(A, 4)
     removeFromCart(B)
     expect(cart.items).toEqual([{ ...item, quantity: 4 }])
-    expect(restoreCart(values.get('shoe-commerce:cart')!)).toEqual(cart.items)
+    expect(JSON.parse(values.get('shoe-commerce:cart:v2:guest')!).items).toEqual(cart.items)
   })
   it('rejects invalid quantities without silently changing demand', () => {
     addToCart(item)

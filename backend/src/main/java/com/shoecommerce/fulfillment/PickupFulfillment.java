@@ -1,7 +1,6 @@
 package com.shoecommerce.fulfillment;
 
 import java.time.Instant;
-import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.hibernate.annotations.Nationalized;
@@ -42,8 +41,6 @@ public class PickupFulfillment {
     @Column(name = "receiver_phone", length = 32) private String receiverPhone;
     @Nationalized @Column(name = "delivery_address", length = 500) private String deliveryAddress;
     @Nationalized @Column(name = "delivery_note", length = 500) private String deliveryNote;
-    @Column(name = "delivery_fee_amount", nullable = false, precision = 19, scale = 0)
-    private BigDecimal deliveryFeeAmount;
     @Column(name = "dispatched_at") private Instant dispatchedAt;
     @Column(name = "dispatched_by_account_public_id") private UUID dispatchedByAccountPublicId;
     @Column(name = "dispatch_idempotency_key", length = 128) private String dispatchIdempotencyKey;
@@ -72,7 +69,6 @@ public class PickupFulfillment {
         fulfillment.channel = Channel.ONLINE;
         fulfillment.type = type;
         fulfillment.createdAt = now;
-        fulfillment.deliveryFeeAmount = BigDecimal.ZERO;
         if (delivery != null) {
             fulfillment.receiverName = delivery.receiverName();
             fulfillment.receiverPhone = delivery.receiverPhone();
@@ -97,7 +93,6 @@ public class PickupFulfillment {
         fulfillment.type = Type.PICKUP;
         fulfillment.status = Status.HANDED_OVER;
         fulfillment.createdAt = now;
-        fulfillment.deliveryFeeAmount = BigDecimal.ZERO;
         fulfillment.handedOverAt = now;
         fulfillment.handedOverByAccountPublicId = actorId;
         fulfillment.handoverIdempotencyKey = operationKey;
@@ -111,10 +106,9 @@ public class PickupFulfillment {
     }
 
     void prepare(UUID actorId, Instant now) {
-        if (status != Status.PENDING && status != Status.PICKING) {
+        if (status != Status.PICKING) {
             throw new IllegalStateException("Fulfillment cannot be marked ready");
         }
-        if (pickingStartedAt == null) pickingStartedAt = now;
         status = Status.PREPARED;
         preparedAt = now;
         preparedByAccountPublicId = actorId;
@@ -184,15 +178,15 @@ public class PickupFulfillment {
     String receiverPhone() { return receiverPhone; }
     String deliveryAddress() { return deliveryAddress; }
     String deliveryNote() { return deliveryNote; }
-    long deliveryFeeAmount() { return deliveryFeeAmount.longValueExact(); }
-
-    public record DeliveryDetails(String receiverName, String receiverPhone, String address, String note) {
+    public record DeliveryDetails(String receiverName, String receiverPhone, String provinceCode, String districtCode, String address, String note) {
         public DeliveryDetails {
             receiverName = required(receiverName, 120, "Receiver name");
             receiverPhone = required(receiverPhone, 32, "Receiver phone");
             if (receiverPhone.length() < 8 || !receiverPhone.matches("[0-9+(). -]+")) {
                 throw new IllegalArgumentException("Receiver phone is invalid");
             }
+            provinceCode = required(provinceCode, 12, "Province");
+            districtCode = required(districtCode, 12, "District");
             address = required(address, 500, "Delivery address");
             note = note == null || note.isBlank() ? null : note.trim();
             if (note != null && note.length() > 500) throw new IllegalArgumentException("Delivery note is too long");

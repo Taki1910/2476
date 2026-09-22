@@ -17,7 +17,7 @@ const cancelDialog = ref<HTMLDialogElement>()
 const orderId = computed(() => String(route.params.id))
 let disposed = false
 
-const fulfillmentLabel = { PENDING: 'Waiting for acceptance', PICKING: 'Being prepared', PREPARED: 'Ready', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', HANDED_OVER: 'Picked up', CANCELLED: 'Cancelled' }
+const fulfillmentLabel = { PENDING: 'Awaiting acceptance', PICKING: 'Picking', PREPARED: 'Prepared', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', HANDED_OVER: 'Picked up', CANCELLED: 'Cancelled' }
 const refundLabel = { PROCESSING: 'Refund processing', SUCCEEDED: 'Payment refunded', FAILED_RETRYABLE: 'Refund retry needed', UNKNOWN: 'Refund confirmation pending', REVIEW_REQUIRED: 'Refund under review' }
 const paymentLabel = { PENDING_PAYMENT: 'Payment needed', PAID: 'Paid', CANCELLED: 'Order cancelled' }
 
@@ -106,6 +106,7 @@ onBeforeUnmount(() => { disposed = true })
         <div v-if="order.financialVoidStatus"><dt>{{ t('Payment refund') }}</dt><dd>{{ t(refundLabel[order.financialVoidStatus]) }}</dd></div>
       </dl>
       <CommerceItems :items="order.items" />
+      <section v-if="order.adjustments?.length" class="order-adjustments" aria-labelledby="order-adjustments-title"><h2 id="order-adjustments-title">{{t('Offers on this order')}}</h2><ul><li v-for="item in order.adjustments" :key="`${item.name}-${item.layer}`"><span>{{t(item.acquisitionMode&&item.acquisitionMode!=='AUTOMATIC'?'Voucher':'Automatic offer')}} · {{item.name}}<small v-if="item.maskedCode">{{t('Code')}} {{item.maskedCode}}</small></span><strong>−{{formatVnd(item.amount)}}</strong></li></ul></section>
       <p v-if="error" class="form-error" role="alert">{{ messageLabel(error) }}</p>
       <div class="order-status-actions">
         <button v-if="order.status === 'PENDING_PAYMENT'" class="primary-button" type="button" :disabled="busy" @click="pay">{{ t(busy ? 'Opening VNPAY…' : 'Pay with VNPAY') }}</button>

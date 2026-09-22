@@ -22,6 +22,7 @@ const shiftWarning = ref('')
 const saleKey = ref('')
 const skuInput = ref<HTMLInputElement>()
 const receiptPanel = ref<HTMLElement>()
+const confirmDialog = ref<HTMLDialogElement>()
 
 const canSell = computed(() => variant.value && variant.value.available > 0 && !selling.value)
 
@@ -77,9 +78,14 @@ async function lookup() {
   }
 }
 
+function askSale() {
+  if (!canSell.value) return
+  confirmDialog.value?.showModal()
+}
+function closeDialog() { confirmDialog.value?.close() }
 async function sell() {
   if (!shift.value || !variant.value || !saleKey.value) return
-  if (!window.confirm(t('Confirm exact cash of {amount} for {sku}, size {size}? This immediately hands over one pair.', { amount: formatVnd(variant.value.amount), sku: variant.value.sku, size: variant.value.size }))) return
+  closeDialog()
   selling.value = true
   saleError.value = ''
   try {
@@ -167,12 +173,14 @@ onMounted(load)
         <p>{{ t('Your active location assignment determines which registers you may use.') }}</p>
       </div>
       <form @submit.prevent="openShift">
+        <p v-if="registers[0]" class="field-help"><strong>{{ t('Work location') }}:</strong> {{ registers[0].locationCode }} · {{ t(registers[0].locationName) }}</p>
         <label for="register">{{ t('Register lane') }}</label>
         <select id="register" v-model="selectedRegister" :disabled="opening || registers.length === 0" required>
           <option value="" disabled>{{ t('Select a register') }}</option>
           <option v-for="register in registers" :key="register.id" :value="register.id">{{ register.code }} · {{ t(register.locationName) }}</option>
         </select>
         <p v-if="registers.length === 0" class="field-help">{{ t('No enabled register is available in your assigned locations.') }}</p>
+        <p v-else class="field-help">{{ t('Only active registers at your assigned locations are shown.') }}</p>
         <button class="primary-button" type="submit" :disabled="opening || !selectedRegister">{{ t(opening ? 'Opening shift…' : 'Open shift') }}</button>
       </form>
     </section>
@@ -202,7 +210,7 @@ onMounted(load)
             <div v-if="variant" class="sale-commit">
               <p v-if="variant.available > 0"><strong>{{ t('Confirm only after receiving exact cash.') }}</strong><span>{{ t('This completes a paid order and hands over one pair immediately.') }}</span></p>
               <p v-else><strong>{{ t('Out of stock at this register.') }}</strong><span>{{ t('No cash was taken and no order was created.') }}</span></p>
-              <button type="button" :disabled="!canSell" @click="sell">{{ selling ? t('Completing sale…') : t('Take {amount} & complete sale', { amount: formatVnd(variant.amount) }) }}</button>
+              <button type="button" :disabled="!canSell" @click="askSale">{{ selling ? t('Completing sale…') : t('Take {amount} & complete sale', { amount: formatVnd(variant.amount) }) }}</button>
             </div>
             <p v-if="saleError" class="form-error" role="alert">{{ messageLabel(saleError) }}</p>
           </template>
@@ -243,5 +251,13 @@ onMounted(load)
     </template>
 
     <section v-if="error && !shift" class="inline-state" role="status"><h3>{{ t('Register status') }}</h3><p>{{ messageLabel(error) }}</p><button class="text-button" type="button" @click="load">{{ t('Refresh') }}</button></section>
+
+    <dialog v-if="variant" ref="confirmDialog" class="terminal-dialog" aria-labelledby="pos-dialog-title" aria-describedby="pos-dialog-description" @cancel="closeDialog">
+      <form method="dialog" @submit.prevent>
+        <h2 id="pos-dialog-title">{{ t('Confirm cash sale') }}</h2>
+        <p id="pos-dialog-description">{{ t('Confirm exact cash of {amount} for {sku}, size {size}? This immediately hands over one pair.', { amount: formatVnd(variant.amount), sku: variant.sku, size: variant.size }) }}</p>
+        <div><button class="text-button" type="button" @click="closeDialog">{{ t('Cancel') }}</button><button class="primary-button" type="button" @click="sell">{{ t('Complete sale') }}</button></div>
+      </form>
+    </dialog>
   </div>
 </template>

@@ -1,10 +1,12 @@
 package com.shoecommerce.payment;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,6 +18,9 @@ import com.shoecommerce.branch.Location;
 import com.shoecommerce.branch.LocationRepository;
 import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.order.CustomerOrder;
+import com.shoecommerce.order.OrderPaidComponents;
+import com.shoecommerce.order.OrderPaidComponents.PaidComponentKey;
+import com.shoecommerce.order.OrderPaidComponents.PaidComponentType;
 import com.shoecommerce.platform.api.BusinessConflictException;
 
 @Service
@@ -30,14 +35,16 @@ public class VoidService {
     private final VoidProvider provider;
     private final VoidResultService results;
     private final Clock clock;
+    private final OrderPaidComponents paidComponents;
 
     VoidService(PaymentRepository payments, PaymentAttemptRepository captureAttempts,
             VoidOperationRepository operations, VoidAttemptRepository attempts,
             VoidAllocationRepository allocations, LocationRepository locations, AuditWriter audit,
-            VoidProvider provider, VoidResultService results, Clock clock) {
+            VoidProvider provider, VoidResultService results, Clock clock, OrderPaidComponents paidComponents) {
         this.payments = payments; this.captureAttempts = captureAttempts; this.operations = operations;
         this.attempts = attempts; this.allocations = allocations; this.locations = locations; this.audit = audit;
         this.provider = provider; this.results = results; this.clock = clock;
+        this.paidComponents = paidComponents;
     }
 
     @Transactional
@@ -57,14 +64,16 @@ public class VoidService {
                 .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Successful capture was not found."));
         BigDecimal amount = BigDecimal.valueOf(order.totalAmount());
         validateCapture(order, capture);
-        requireCapacity(order);
+        var components = expectedComponents(order, VoidAttempt.CalculationVersion.SNAPSHOT_V2, paidComponents);
+        requireCapacity(components);
         if (capture.providerTransactionNo() == null || capture.providerPaidAt() == null) {
             throw new BusinessConflictException("CAPTURE_EVIDENCE_INCOMPLETE", "Capture evidence is not sufficient for VNPAY reversal.");
         }
         var now = clock.instant();
         VoidOperation operation = operations.save(VoidOperation.create(payment, order, actor.publicId(), key, now));
-        VoidAttempt attempt = attempts.save(VoidAttempt.create(operation, 1, actor.publicId(), key, now));
-        List<VoidAllocation> reserved = allocate(order, operation, attempt, now);
+        VoidAttempt attempt = attempts.save(VoidAttempt.create(operation, 1, actor.publicId(), key, now,
+                VoidAttempt.CalculationVersion.SNAPSHOT_V2));
+        List<VoidAllocation> reserved = allocate(components, operation, attempt, now);
         Location location = locations.findByPublicId(order.locationId()).orElseThrow();
         audit.append(actor, "VOID_INITIATED", "PAYMENT_VOID_OPERATION", operation.publicId(),
                 location.branchId(), location.id(), Map.of("orderId", order.orderId(), "attemptId", attempt.publicId(),
@@ -132,15 +141,16 @@ public class VoidService {
             throw new BusinessConflictException("VOID_RETRY_BLOCKED", "Only a definitively failed Void may be retried; unknown outcomes require reconciliation.");
         }
         BigDecimal amount = BigDecimal.valueOf(order.totalAmount());
-        requireCapacity(order);
+        var components = expectedComponents(order, previous.calculationVersion(), paidComponents);
+        requireCapacity(components);
         PaymentAttempt capture = captureAttempts.findByPaymentAndStatus(payment, PaymentAttempt.Status.SUCCEEDED)
                 .orElseThrow(() -> new BusinessConflictException("PAID_CAPTURE_NOT_FOUND", "Successful capture was not found."));
         validateCapture(order, capture);
         var now = clock.instant();
         operation.retry();
         VoidAttempt attempt = attempts.save(VoidAttempt.create(operation, previous.generation() + 1,
-                actor.publicId(), key, now));
-        List<VoidAllocation> reserved = allocate(order, operation, attempt, now);
+                actor.publicId(), key, now, previous.calculationVersion()));
+        List<VoidAllocation> reserved = allocate(components, operation, attempt, now);
         Location location = locations.findByPublicId(order.locationId()).orElseThrow();
         audit.append(actor, "VOID_RETRY_INITIATED", "PAYMENT_VOID_OPERATION", operation.publicId(),
                 location.branchId(), location.id(), Map.of("orderId", order.orderId(), "attemptId", attempt.publicId(),
@@ -169,29 +179,48 @@ public class VoidService {
     private static void validateCapture(CustomerOrder.PaymentFacts order, PaymentAttempt capture) {
         BigDecimal itemTotal = order.items().stream().map(item -> BigDecimal.valueOf(item.totalAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (order.items().isEmpty() || itemTotal.compareTo(BigDecimal.valueOf(order.totalAmount())) != 0
-                || capture.amount().compareTo(itemTotal) != 0 || !capture.currency().equals(order.currency())) {
+        if (order.items().isEmpty() || itemTotal.compareTo(BigDecimal.valueOf(order.merchandiseAmount())) != 0
+                || capture.amount().compareTo(BigDecimal.valueOf(order.totalAmount())) != 0
+                || !capture.currency().equals(order.currency())) {
             throw new BusinessConflictException("CAPTURE_AMOUNT_MISMATCH", "Capture must cover all immutable Order components exactly.");
         }
     }
 
-    private void requireCapacity(CustomerOrder.PaymentFacts order) {
-        for (var item : order.items().stream().sorted(Comparator.comparing(line -> line.orderItemId().toString())).toList()) {
-            BigDecimal capacity = BigDecimal.valueOf(item.totalAmount());
-            if (capacity.signum() <= 0 || allocations.usedCapacity(item.orderItemId()).add(capacity).compareTo(capacity) > 0) {
+    private void requireCapacity(Map<PaidComponentKey,BigDecimal> components) {
+        for (var entry:components.entrySet()) {
+            BigDecimal capacity = entry.getValue();
+            if (capacity.signum() <= 0 || allocations.usedCapacity(entry.getKey().type().name(), entry.getKey().publicId()).signum() > 0) {
                 throw new BusinessConflictException("VOID_CAPACITY_EXCEEDED", "Captured component has no remaining reversal capacity.");
             }
         }
     }
 
-    private List<VoidAllocation> allocate(CustomerOrder.PaymentFacts order, VoidOperation operation,
+    private List<VoidAllocation> allocate(Map<PaidComponentKey,BigDecimal> components, VoidOperation operation,
             VoidAttempt attempt, java.time.Instant now) {
         List<VoidAllocation> reserved = new ArrayList<>();
-        for (var item : order.items().stream().sorted(Comparator.comparing(line -> line.orderItemId().toString())).toList()) {
-            reserved.add(allocations.save(VoidAllocation.create(operation, attempt, item.orderItemId(),
-                    BigDecimal.valueOf(item.totalAmount()), now)));
-        }
+        components.forEach((item,amount)->reserved.add(allocations.save(VoidAllocation.create(operation,attempt,item,amount,now))));
         return reserved;
+    }
+
+    static Map<PaidComponentKey,BigDecimal> expectedComponents(CustomerOrder.PaymentFacts order,
+            VoidAttempt.CalculationVersion version, OrderPaidComponents reader) {
+        Map<PaidComponentKey,BigDecimal> result = new LinkedHashMap<>();
+        if (version == VoidAttempt.CalculationVersion.SNAPSHOT_V2) {
+            reader.read(order.orderId()).forEach(component -> result.put(component.key(), component.amount()));
+        } else {
+            legacyComponentAmounts(order).forEach((id, amount) -> result.put(new PaidComponentKey(PaidComponentType.ORDER_ITEM, id), amount));
+        }
+        return result;
+    }
+
+    // Historical attempts retain the original allocation rule; never use this for new attempts.
+    static Map<UUID,BigDecimal> legacyComponentAmounts(CustomerOrder.PaymentFacts order){
+        List<CustomerOrder.ItemFacts> items=order.items().stream().sorted(Comparator.comparing(line->line.orderItemId().toString())).toList();
+        long gross=items.stream().mapToLong(CustomerOrder.ItemFacts::totalAmount).sum()+order.shippingFeeAmount();
+        long target=order.totalAmount(),used=0;record Part(UUID id,long floor,BigDecimal remainder){}var parts=new ArrayList<Part>();
+        for(int i=0;i<items.size();i++){var item=items.get(i);long base=item.totalAmount()+(i==0?order.shippingFeeAmount():0);BigDecimal exact=BigDecimal.valueOf(target).multiply(BigDecimal.valueOf(base)).divide(BigDecimal.valueOf(gross),12,RoundingMode.DOWN);long floor=exact.setScale(0,RoundingMode.DOWN).longValueExact();used+=floor;parts.add(new Part(item.orderItemId(),floor,exact.subtract(BigDecimal.valueOf(floor))));}
+        var ranked=parts.stream().sorted(Comparator.comparing(Part::remainder).reversed().thenComparing(p->p.id().toString())).toList();Map<UUID,Long> extra=new java.util.HashMap<>();for(long i=0;i<target-used;i++)extra.merge(ranked.get((int)i).id(),1L,Long::sum);
+        Map<UUID,BigDecimal> result=new LinkedHashMap<>();parts.forEach(p->result.put(p.id(),BigDecimal.valueOf(p.floor()+extra.getOrDefault(p.id(),0L))));return result;
     }
 
     static VoidView view(VoidOperation operation, VoidAttempt attempt, List<VoidAllocation> allocations) {

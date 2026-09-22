@@ -6,6 +6,7 @@ import { locale, messageLabel, setLocale, t } from './i18n'
 import { errorCopy } from './format'
 import { clearPrivateSession, homeFor, loadSession, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
 import { cartCount } from './cart'
+import { canManageStorefront } from './merchandising'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,8 @@ let sessionChanges: BroadcastChannel | undefined
 const logoutBusy = ref(false)
 const logoutError = ref('')
 async function reloadSession() {
-  clearPrivateSession()
+  session.account = undefined
+  session.generation++
   await loadSession()
   if (!session.unavailable) await router.replace('/')
 }
@@ -49,12 +51,19 @@ onBeforeUnmount(() => {
       <div class="account-controls">
         <nav :aria-label="t('Store')">
           <RouterLink to="/">{{ t('Store') }}</RouterLink>
+          <RouterLink to="/promotions">{{ t('Offers') }}</RouterLink>
           <RouterLink to="/#product-search">{{ t('Search') }}</RouterLink>
           <RouterLink to="/cart">{{ t('Cart') }}<span v-if="cartCount" class="cart-count" :aria-label="t('Cart items')">{{ cartCount }}</span></RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/orders">{{ t('My Orders') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/account/vouchers">{{ t('My Vouchers') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('FULFILL_ORDER')" to="/operations/fulfillments">{{ t('Fulfillment') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('POS_SELL')" to="/operations/pos">{{ t('POS') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">{{ t('Reports') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('SHIPPING_RATE_MANAGE')" to="/operations/shipping">{{ t('Shipping rates') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('PROMOTION_MANAGE')" to="/operations/promotions">{{ t('Promotions') }}</RouterLink>
+          <RouterLink v-if="canManageStorefront(session.account)" to="/operations/storefront">{{ t('Storefront') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('STOREFRONT_MANAGE')" to="/operations/product-presentations">{{ t('Product copy') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))" to="/operations/people">{{ t('People & Access') }}</RouterLink>
         </nav>
         <div class="locale-switch" :aria-label="t('Choose language')">
           <button type="button" :aria-pressed="locale === 'vi-VN'" @click="setLocale('vi-VN')">VI</button><span aria-hidden="true">/</span><button type="button" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>

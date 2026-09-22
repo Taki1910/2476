@@ -252,7 +252,7 @@ class VerticalSlice3ExternalIT {
     }
 
     private void insertRawOrder(UUID orderId, Fixture fixture, UUID reservationId, String status, Timestamp now) {
-        jdbc.update("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at) VALUES (?, ?, ?, ?, 'VND', ?, 0, ?)", orderId, fixture.owner().publicId(), fixture.branchId(), reservationId, status, now);
+        jdbc.update("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at, merchandise_amount, shipping_fee_amount, total_amount) VALUES (?, ?, ?, ?, 'VND', ?, 0, ?, 120000, 0, 120000)", orderId, fixture.owner().publicId(), fixture.branchId(), reservationId, status, now);
     }
 
     private Fixture fixture(long stock) {

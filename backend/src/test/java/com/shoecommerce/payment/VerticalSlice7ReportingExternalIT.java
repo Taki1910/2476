@@ -90,6 +90,51 @@ class VerticalSlice7ReportingExternalIT {
     }
 
     @Test
+    void discountedMerchandiseAndShippingReconcileOnTheirOwnCaptureAndVoidDates() {
+        for(boolean delivery:List.of(false,true)) {
+            clock.set(TEST_NOW);
+            Fixture fixture=fixture("paid-report-"+delivery,4,1);
+            catalog.setPrice(fixture.manager(),fixture.variantA(),200_000);
+            clock.advance(Duration.ofSeconds(1));
+            UUID family=UUID.randomUUID(),revision=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());
+            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',0,?)",family,now);
+            jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'Report discount','PUBLISHED','ORDER_AUTOMATIC','ORDER_FIXED',50000,1000000,?,?,?,?)",family,revision,Timestamp.from(TEST_NOW),fixture.manager().publicId(),now,now);
+            if(delivery) jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',30000,1000,?,?,?,?)",UUID.randomUUID(),UUID.randomUUID(),Timestamp.from(TEST_NOW),fixture.manager().publicId(),now,now);
+            var lines=List.of(new CartQuoteService.LineRequest(fixture.variantA(),1));
+            var quote=cartPricing.quote(fixture.customer(),lines,delivery?new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"):null);
+            var fulfillment=delivery?new CustomerOrderService.FulfillmentRequest(com.shoecommerce.fulfillment.PickupFulfillment.Type.DELIVERY,null,
+                    new CustomerOrderService.DeliveryRequest("Test Receiver","0912345678","79","760","12 Nguyen Hue",null)):null;
+            var order=delivery?orders.checkoutCart(fixture.customer(),quote.id(),lines,fulfillment,"paid-report")
+                    :orders.checkoutCart(fixture.customer(),quote.id(),lines,"paid-report");
+            var attempt=attempts.initiate(fixture.customer(),order.id(),"paid-report").attempt();
+            var sale=new PendingSale(order.id(),attempt.id(),attempt.merchantTransactionReference(),attempt.amount().longValueExact());
+            paymentResults.apply(success(sale,digits()));
+            assertThat(reports.productSales(fixture.manager(),REPORT_FROM,REPORT_TO,fixture.locationId()).netSales()).isEqualTo("150000");
+            assertThat(reports.netSales(fixture.manager(),REPORT_FROM,REPORT_TO,fixture.locationId()).netSales()).isEqualTo(delivery?"180000":"150000");
+            clock.advance(Duration.ofDays(1));
+            cancellations.cancel(fixture.customer(),order.id(),"paid-report-void");
+            assertThat(reports.productSales(fixture.manager(),REPORT_TO,REPORT_TO.plusDays(1),fixture.locationId()).netSales()).isEqualTo("-150000");
+            assertThat(reports.netSales(fixture.manager(),REPORT_TO,REPORT_TO.plusDays(1),fixture.locationId()).netSales()).isEqualTo(delivery?"-180000":"-150000");
+            assertThat(reports.productSales(fixture.manager(),REPORT_FROM,REPORT_TO.plusDays(1),fixture.locationId()).netSales()).isEqualTo("0");
+            assertThat(reports.netSales(fixture.manager(),REPORT_FROM,REPORT_TO.plusDays(1),fixture.locationId()).netSales()).isEqualTo("0");
+            var breakdown=reports.netSales(fixture.manager(),REPORT_FROM,REPORT_TO.plusDays(1),fixture.locationId());
+            assertThat(breakdown.merchandiseGross()).isEqualTo("200000");
+            assertThat(breakdown.itemDiscount()).isEqualTo("0");
+            assertThat(breakdown.orderDiscount()).isEqualTo("50000");
+            assertThat(breakdown.voucherDiscount()).isEqualTo("0");
+            assertThat(breakdown.merchandiseNetBeforeReversal()).isEqualTo("150000");
+            assertThat(breakdown.merchandiseVoids()).isEqualTo("150000");
+            assertThat(breakdown.shippingGross()).isEqualTo(delivery?"30000":"0");
+            assertThat(breakdown.shippingNetBeforeReversal()).isEqualTo(delivery?"30000":"0");
+            assertThat(breakdown.shippingVoids()).isEqualTo(delivery?"30000":"0");
+            assertThat(breakdown.unallocatedLegacyVoids()).isEqualTo("0");
+            assertThat(reports.reconciliation(fixture.manager(),REPORT_FROM,REPORT_TO.plusDays(1),fixture.locationId()).entries().stream()
+                    .map(row->new BigDecimal(row.netEffect())).reduce(BigDecimal.ZERO,BigDecimal::add)).isEqualByComparingTo("0");
+            jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE public_id=?",Timestamp.from(clock.instant()),revision);
+        }
+    }
+
+    @Test
     void coreMvpScenarioReconcilesOnlineVoidPosProductsAndInventory() {
         Fixture fixture = fixture("core", 2, 2);
         OnlineSale onlineA = onlineSale(fixture, fixture.variantA(), "online-a");

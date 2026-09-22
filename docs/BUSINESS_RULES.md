@@ -46,7 +46,7 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-MON-104 | `voucherBase = discountedItemSubtotal - orderDiscount`; `merchandiseNet = voucherBase - voucherDiscount`. |
 | BR-MON-105 | `shippingNet = shippingFee - shippingDiscount`; initial `tax = 0`; `finalPayable = merchandiseNet + shippingNet + tax`. |
 | BR-MON-106 | Every monetary component is non-negative, a discount cannot exceed its base, and all line/unit allocations sum exactly to the rounded Order component. |
-| BR-MON-107 | A zero-payable Order uses the ordinary confirmation transaction without an external PaymentAttempt. |
+| BR-MON-107 | CONFIRMED MVP scope: payable must be > 0. A zero-total quote returns `ZERO_PAYABLE_NOT_SUPPORTED` without Order/reservation/redemption creation. A free line in a positive-total Order remains valid. Zero-payable confirmation without PaymentAttempt is deferred by [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md). |
 
 ### Scope and authorization
 
@@ -93,6 +93,7 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-CHK-106 | If captured payment arrives after Order cancellation/expiry or resource release, Order is not reopened; reconciliation initiates idempotent void/refund. |
 | BR-CHK-107 | Limited POS cash confirmation atomically records one `PAID` POS Order, exact CashTender, immediate handover, `onHand -= 1`, one StockMovement and audit evidence; it creates no Reservation or PaymentAttempt. |
 | BR-CHK-108 | Placement/confirmation/cancellation/expiry acquire every required Shift, Order, Fulfillment/Return, Payment, Benefit/Voucher, Reservation and Balance lock only in BR-LOCK-102 order and revalidate protected facts under those fences. |
+| BR-CHK-109 | A browser cart is explicitly guest-owned or account-owned. Login merges guest and authenticated demand by variant within cart limits; logout and account switching never expose one account's cart to another. |
 | BR-CAN-101 | Unconfirmed cancellation/expiry releases active stock/Voucher holds exactly once and does not create an on-hand restoration movement. |
 | BR-CAN-102 | Under ADR-0022 stock semantics, an allowed confirmed pre-handover cancellation atomically fences Order and Fulfillment, leaves `onHand` unchanged, decrements `reserved`, transitions the historical Reservation `COMMITTED -> CANCELLED_RESTORED`, and appends one immutable `CANCELLATION_RESTORE` per Order. |
 | BR-CAN-103 | Dispatch and confirmed cancellation lock Order then Fulfillment; exactly one wins. A dispatch winner requires return-to-sender/Return compensation and forbids direct cancellation stock restoration. |
@@ -144,8 +145,8 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-FUL-102 | Cancellation racing dispatch/handover has one conditional winner; if fulfillment wins, compensation follows return-to-sender/return policy. |
 | BR-FUL-103 | Atomic cart checkout creates exactly one `PENDING` Pickup or Delivery intent at the common reserved Location. Pickup requires an eligible selected Location; Delivery snapshots validated receiver name, phone, address and optional note. |
 | BR-FUL-104 | Accepting preparation locks the authoritative Fulfillment and permits exactly one `PENDING -> PICKING` transition, sets `pickingStartedAt` once, requires current `FULFILL_ORDER` plus exact active Location scope, and changes no commercial or inventory fact. |
-| BR-FUL-105 | Pickup preparation permits `PENDING/PICKING -> PREPARED` without stock mutation. Idempotent handover requires `PREPARED`, locks Order then Fulfillment then Reservation and Balance, applies `onHand -= quantity` and `reserved -= quantity`, changes the Reservation to `CONSUMED`, and appends one `PICKUP_HANDOVER`. |
-| BR-FUL-106 | Delivery preparation permits `PENDING/PICKING -> PREPARED`; idempotent dispatch requires `PREPARED`, consumes every committed Order reservation exactly once, and appends one `DELIVERY_DISPATCH` movement per OrderItem. |
+| BR-FUL-105 | Pickup preparation permits only `PICKING -> PREPARED` without stock mutation. Idempotent handover requires `PREPARED`, locks Order then Fulfillment then Reservation and Balance, applies `onHand -= quantity` and `reserved -= quantity`, changes the Reservation to `CONSUMED`, and appends one `PICKUP_HANDOVER`. |
+| BR-FUL-106 | Delivery preparation permits only `PICKING -> PREPARED`; idempotent dispatch requires `PREPARED`, consumes every committed Order reservation exactly once, and appends one `DELIVERY_DISPATCH` movement per OrderItem. |
 | BR-FUL-107 | `OUT_FOR_DELIVERY -> DELIVERED` records actor, time and idempotency evidence and does not mutate inventory a second time. |
 | BR-FUL-108 | Confirmed cancellation may win only before pickup handover or delivery dispatch. The winner restores every committed reservation as one whole-order decision; after physical issue the future Return workflow is required. |
 | BR-RET-101 | Return creation locks/version-checks authoritative Fulfillment/return quantity facts and cannot exceed delivered/handed-over minus already accepted return quantity. |
@@ -157,7 +158,7 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 |---|---|
 | BR-PROMO-101 | Promotion evaluation order, priority, exclusivity, tie-break and rounding are deterministic and versioned. |
 | BR-PROMO-102 | First supported stacking permits at most one item promotion per line, one automatic order promotion, one Voucher and one shipping benefit; these layers stack in that order. |
-| BR-PROMO-103 | Candidates within one layer are mutually exclusive and resolve by priority descending then stable definition ID ascending; lowest-price-wins is not implicit. |
+| BR-PROMO-103 | Historical conceptual tie-break by definition ID is superseded for implemented C2/C3 by BR-PROMO-110 and ADR-0032/0035. Lowest-price-wins remains non-implicit. |
 | BR-VCH-101 | Voucher Definition, Voucher Issuance and Voucher Redemption are separate identities. |
 | BR-VCH-102 | Voucher issuance is deduplicated per campaign/customer/definition according to policy. |
 | BR-VCH-103 | Limited voucher reservation/redemption is atomic and concurrency safe. |
@@ -253,7 +254,13 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 - `CONFIRMED`: Quote creation for an unknown/unpublished variant is hidden as not found; an unavailable published variant is rejected and does not create a normal quote.
 - `CONFIRMED`: A quote does not reserve stock and is not an Order, Payment, Promotion, Voucher, or checkout guarantee.
 
-# Quote checkout, reservation and Order — Vertical Slice 3
+# Quote checkout, reservation and Order — Vertical Slice 3 (historical single-item boundary)
+
+The quantity-one and automatic-Location selection below describe the initial slice only.
+Current single-variant checkout accepts quantity 1–10; cart checkout accepts multiple
+lines and explicit Pickup/Delivery evidence under ADR-0031/0032/0035. These later
+contracts supersede the initial quantity/location restrictions, not its atomicity,
+ownership or idempotency guarantees.
 
 - `CONFIRMED`: Checkout accepts only an owned persisted PriceQuote and a scoped opaque idempotency key; amount, currency, total, Location, and Order identity are server-owned.
 - `CONFIRMED`: One PriceQuote may create at most one successful Order. Same customer/key/quote replays that Order; the same customer/key with another quote is a conflict.
@@ -266,3 +273,14 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
   reuses the quote deadline. Relevant catalog, quote, or checkout reads lazily
   expire an overdue unpaid hold, release `reserved`, and cancel that unpaid
   Order using server time.
+# Phase C1 shipping
+
+- `BR-SHP-101`: Delivery quote selects and snapshots the lowest qualifying inventory Location; checkout must reserve at that exact Location.
+- `BR-SHP-102`: Current C2/C3 `totalAmount = merchandiseAmount - merchandiseDiscountAmount + shippingFeeAmount - shippingDiscountAmount`; PaymentAttempt uses that immutable Order total. The C1 formula without discounts is historical.
+- `BR-SHP-103`: Published shipping revisions are immutable. RETIRED affects new quotes; INVALIDATED also rejects existing unconsumed quotes.
+- `BR-SHP-104`: Free-text address never determines the fee; enabled province/district codes do.
+- `BR-SHP-105`: Pickup shipping is zero and retains customer-selected exact-Location behavior.
+
+| BR-PROMO-110 | C2/C3 automatic winners sort by priority descending then revision public ID ascending; item buy quantity aggregates variants of scoped Products. Supersedes BR-PROMO-103 tie-break for this scope. |
+| BR-PROMO-104 | Limited automatic promotion usage is RESERVED at placement, REDEEMED on verified payment, and RELEASED on unpaid cancellation/expiry, once per revision and Order. |
+| BR-PROMO-105 | Published revisions and accepted Order adjustment snapshots are immutable; changed quote results fail with PROMOTION_QUOTE_STALE. |

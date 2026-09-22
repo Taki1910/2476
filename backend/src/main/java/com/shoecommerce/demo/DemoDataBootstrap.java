@@ -30,14 +30,14 @@ public class DemoDataBootstrap implements CommandLineRunner {
             new ProductSeed("daily-canvas", "Daily Canvas", "DC", "Natural / Navy", 990_000, List.of("38", "39", "40", "41"), List.of(9, 6, 2, 0), "Canvas", "Daily Essentials", true, false, true, 5, 120, "/products/daily-canvas.png", "/products/daily-canvas.png"),
             new ProductSeed("court-high", "Court High", "CH", "Chalk / Red", 1_690_000, List.of("40", "41", "42", "43"), List.of(6, 4, 1, 0), "Court", "Court Originals", false, false, true, 4, 120, "/products/court-high.png", "/products/court-high.png"),
             new ProductSeed("pace-knit", "Pace Knit", "PK", "Stone / Lime", 1_590_000, List.of("39", "40", "41", "42"), List.of(7, 5, 2, 0), "Running", "Metro Motion", false, false, true, 10, 120, "/products/pace-knit.png", "/products/pace-knit.png"),
-            new ProductSeed("urban-hiker", "Urban Hiker", "UH", "Black / Olive", 1_890_000, List.of("40", "41", "42", "43", "44"), List.of(4, 4, 3, 2, 1), "Trail", "Trail Series", false, true, true, 11, 14, "/products/trail-form.png", "/products/trail-form.png"),
-            new ProductSeed("city-loafer", "City Loafer", "CL", "Brown Leather", 2_190_000, List.of("39", "40", "41", "42"), List.of(3, 4, 3, 1), "Slip-on", "City Edit", false, true, true, 12, 10, "/products/studio-low.png", "/products/studio-low.png"),
+            new ProductSeed("urban-hiker", "Urban Hiker", "UH", "Black / Olive", 1_890_000, List.of("40", "41", "42", "43", "44"), List.of(4, 4, 3, 2, 1), "Trail", "Trail Series", false, true, true, 11, 14, "/products/urban-hiker.png", "/products/urban-hiker.png"),
+            new ProductSeed("city-loafer", "City Loafer", "CL", "Brown Leather", 2_190_000, List.of("39", "40", "41", "42"), List.of(3, 4, 3, 1), "Slip-on", "City Edit", false, true, true, 12, 10, "/products/city-loafer.png", "/products/city-loafer.png"),
             new ProductSeed("lite-runner", "Lite Runner", "LR", "Grey / White", 1_290_000, List.of("39", "40", "41", "42"), List.of(5, 5, 3, 2), "Running", "Metro Motion", false, true, true, 13, 9, "/products/pace-knit.png", "/products/pace-knit.png"),
             new ProductSeed("street-high", "Street High", "SH", "All Black", 1_690_000, List.of("40", "41", "42", "43"), List.of(3, 4, 2, 1), "Lifestyle", "After Hours", false, true, true, 14, 8, "/products/after-dark.png", "/products/after-dark.png"),
             new ProductSeed("canvas-low", "Canvas Low", "CLOW", "Beige", 890_000, List.of("38", "39", "40", "41"), List.of(5, 6, 4, 2), "Canvas", "Daily Essentials", false, true, true, 15, 7, "/products/daily-canvas.png", "/products/daily-canvas.png"),
-            new ProductSeed("basket-retro", "Basket Retro", "BR", "White / Green", 1_390_000, List.of("39", "40", "41", "42"), List.of(3, 5, 3, 1), "Court", "Court Originals", false, true, true, 16, 6, "/products/court-classic.png", "/products/court-classic.png"),
+            new ProductSeed("basket-retro", "Basket Retro", "BR", "White / Green", 1_390_000, List.of("39", "40", "41", "42"), List.of(3, 5, 3, 1), "Court", "Court Originals", false, true, true, 16, 6, "/products/basket-retro.png", "/products/basket-retro.png"),
             new ProductSeed("skate-pro", "Skate Pro", "SP", "Black / Gum", 1_190_000, List.of("39", "40", "41", "42", "43"), List.of(4, 5, 3, 2, 1), "Lifestyle", "Street Utility", false, true, true, 17, 5, "/products/studio-low.png", "/products/studio-low.png"),
-            new ProductSeed("trail-edge", "Trail Edge", "TE", "Navy / Orange", 1_790_000, List.of("40", "41", "42", "43"), List.of(4, 3, 2, 1), "Trail", "Trail Series", false, true, true, 18, 4, "/products/trail-form.png", "/products/trail-form.png"),
+            new ProductSeed("trail-edge", "Trail Edge", "TE", "Navy / Orange", 1_790_000, List.of("40", "41", "42", "43"), List.of(4, 3, 2, 1), "Trail", "Trail Series", false, true, true, 18, 4, "/products/trail-edge.png", "/products/trail-edge.png"),
             new ProductSeed("form-trainer", "Form Trainer", "FT", "Black / Sand", 1_490_000, List.of("39", "40", "41", "42"), List.of(4, 3, 2, 1), "Training", "Motion Lab", false, true, true, 19, 3, "/products/pace-knit.png", "/products/pace-knit.png"),
             new ProductSeed("archive-one", "Archive One", "AO", "Black / Silver", 2_490_000, List.of("40", "41", "42"), List.of(2, 2, 1), "Limited", "Archive 01", true, false, false, 6, 120, "/products/after-dark.png", "/products/after-dark.png"));
 
@@ -60,7 +60,10 @@ public class DemoDataBootstrap implements CommandLineRunner {
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         seedAccounts(now);
         seedLocations(now);
+        seedShipping(now);
         seedCatalog(now);
+        seedProductPresentations(now);
+        seedPromotions(now);
         seedFitProfiles(now);
         seedOnlineScenarios(now);
         seedPosScenarios(now);
@@ -74,6 +77,10 @@ public class DemoDataBootstrap implements CommandLineRunner {
         account("cashier.demo", "CASHIER", now);
         account("operations.demo", "OPERATIONS", now);
         account("manager.demo", "OPERATIONS", now);
+        directPermission("manager.demo", "STAFF_MANAGE_SCOPED", now);
+        directPermission("manager.demo", "SHIPPING_RATE_MANAGE", now);
+        directPermission("manager.demo", "PROMOTION_MANAGE", now);
+        directPermission("manager.demo", "STOREFRONT_MANAGE", now);
     }
 
     private void seedLocations(LocalDateTime now) {
@@ -92,6 +99,25 @@ public class DemoDataBootstrap implements CommandLineRunner {
         register("DEMO-01", floorId, now);
         register("DEMO-02", floorId, now);
         register("DEMO-STOCK-01", stockroomId, now);
+    }
+
+    private void seedShipping(LocalDateTime now) {
+        UUID manager = jdbc.queryForObject("SELECT public_id FROM iam_user_account WHERE login_normalized='manager.demo'", UUID.class);
+        shippingRule("demo-shipping-core", "001", "LOCAL_CORE", 30_000, 30, manager, now);
+        shippingRule("demo-shipping-outer", "017", "LOCAL_OUTER", 50_000, 20, manager, now);
+        shippingRule("demo-shipping-inter", "760", "INTER_PROVINCE", 80_000, 10, manager, now);
+    }
+
+    private void shippingRule(String key, String district, String zone, long fee, int priority, UUID manager, LocalDateTime now) {
+        UUID publicId=uuid(key), family=uuid(key+"-family");
+        insert("""
+            IF NOT EXISTS (SELECT 1 FROM shipping_rate_rule WHERE public_id=?)
+            INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,
+              destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,
+              created_by_account_public_id,created_at,published_at)
+            SELECT ?,?,1,'PUBLISHED','GLOBAL',province_code,?,?,?, ?,?,?,?,?
+            FROM geo_district WHERE code=?
+            """, publicId, publicId, family, district, zone, fee, priority, now.minusYears(1), manager, now, now, district);
     }
 
     private void seedCatalog(LocalDateTime now) {
@@ -119,6 +145,38 @@ public class DemoDataBootstrap implements CommandLineRunner {
         }
     }
 
+    private void seedProductPresentations(LocalDateTime now) {
+        UUID manager = accountPublicId("manager.demo");
+        presentation("court-classic",
+                "Court Classic thuộc danh mục Court và bộ sưu tập Court Originals. Hồ sơ kích cỡ hiện được ghi nhận là chuẩn kích cỡ, với độ rộng tiêu chuẩn.",
+                "Court Classic is in the Court category and the Court Originals collection. Its current sizing profile is recorded as true to size with a regular width profile.",
+                manager, now);
+        presentation("metro-runner",
+                "Metro Runner thuộc danh mục Running và bộ sưu tập Metro Motion. Hồ sơ kích cỡ hiện được ghi nhận là chuẩn kích cỡ, với độ rộng được ghi nhận là rộng.",
+                "Metro Runner is in the Running category and the Metro Motion collection. Its current sizing profile is recorded as true to size with a wide width profile.",
+                manager, now);
+        presentation("trail-form",
+                "Trail Form thuộc danh mục Trail và bộ sưu tập Trail Series. Hồ sơ kích cỡ hiện được ghi nhận là chuẩn kích cỡ, với độ rộng tiêu chuẩn.",
+                "Trail Form is in the Trail category and the Trail Series collection. Its current sizing profile is recorded as true to size with a regular width profile.",
+                manager, now);
+    }
+
+    private void presentation(String productKey, String summaryVi, String summaryEn, UUID manager,
+            LocalDateTime now) {
+        UUID product = uuid("product-" + productKey);
+        UUID presentation = uuid("product-presentation-" + productKey + "-v1");
+        insert("""
+                IF NOT EXISTS (
+                    SELECT 1 FROM product_presentation_revision
+                    WHERE product_id=(SELECT id FROM catalog_product WHERE public_id=?))
+                INSERT INTO product_presentation_revision(
+                    public_id,product_id,revision_number,status,summary_vi,summary_en,entity_version,
+                    created_by_account_public_id,created_at,published_at)
+                SELECT ?,id,1,'PUBLISHED',?,?,1,?,?,?
+                FROM catalog_product WHERE public_id=?
+                """, product, presentation, summaryVi, summaryEn, manager, now, now, product);
+    }
+
     private void seedFitProfiles(LocalDateTime now) {
         fitProfile(now, "court-classic", "TRUE_TO_SIZE", "REGULAR", List.of(
                 new FitRange("39", 242, 249, 86, 96), new FitRange("40", 249, 256, 88, 99),
@@ -135,6 +193,24 @@ public class DemoDataBootstrap implements CommandLineRunner {
         fitProfile(now, "trail-form", "TRUE_TO_SIZE", "REGULAR", List.of(
                 new FitRange("40", 246, 253, 88, 99), new FitRange("41", 253, 260, 90, 101),
                 new FitRange("42", 260, 267, 92, 103), new FitRange("43", 267, 274, 94, 105)));
+    }
+
+    private void seedPromotions(LocalDateTime now) {
+        UUID manager=accountPublicId("manager.demo");
+        promotion("court-ten","Court Weekend","ITEM","ITEM_PERCENT","10.0000",null,0L,null,100L,3,manager,now,List.of("court-classic"));
+        promotion("metro-fixed","Metro unit saving","ITEM","ITEM_FIXED",null,100_000L,0L,null,null,2,manager,now,List.of("metro-runner"));
+        promotion("order-saving","Automatic order saving","ORDER_AUTOMATIC","ORDER_FIXED",null,150_000L,3_000_000L,null,null,20,manager,now,List.of());
+        promotion("free-shipping","Free shipping over 3M","SHIPPING","FREE_SHIPPING",null,null,3_000_000L,null,null,10,manager,now,List.of());
+    }
+
+    private void promotion(String key,String name,String layer,String type,String percent,Long fixed,Long minimum,Long buy,Long limit,int priority,UUID manager,LocalDateTime now,List<String> productKeys){
+        UUID id=uuid("promotion-"+key),family=uuid("promotion-family-"+key);
+        insert("IF NOT EXISTS(SELECT 1 FROM promotion_family WHERE public_id=?) INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',NULL,0,?)",family,family,now);
+        insert("""
+          IF NOT EXISTS(SELECT 1 FROM promotion WHERE public_id=?) INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,percentage_value,fixed_amount,minimum_spend_amount,buy_quantity,global_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at)
+          VALUES(?,?,1,?,'PUBLISHED',?,?,?,?,?,?,?,?,?,?,?,?)
+          """,id,family,id,name,layer,type,percent,fixed,minimum,buy,limit,priority,now.minusYears(1),manager,now,now);
+        for(String productKey:productKeys) insert("IF NOT EXISTS(SELECT 1 FROM promotion_product_scope WHERE promotion_id=(SELECT id FROM promotion WHERE public_id=?) AND product_public_id=?) INSERT INTO promotion_product_scope(promotion_id,product_public_id) SELECT id,? FROM promotion WHERE public_id=?",id,uuid("product-"+productKey),uuid("product-"+productKey),id);
     }
 
     private void fitProfile(LocalDateTime now, String productKey, String tendency, String width,
@@ -196,9 +272,9 @@ public class DemoDataBootstrap implements CommandLineRunner {
                 createdAt.plusHours(8),
                 List.of("COMMITTED", "CANCELLED_RESTORED").contains(reservationStatus) ? paidAt : null,
                 reservationStatus.equals("CANCELLED_RESTORED") ? cancelledAt : null);
-        insert("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at, cancelled_at, paid_at, price_quote_public_id, checkout_idempotency_key, price_version_public_id, channel) VALUES (?, ?, ?, ?, 'VND', ?, 0, ?, ?, ?, ?, ?, ?, 'ONLINE')",
+        insert("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at, cancelled_at, paid_at, price_quote_public_id, checkout_idempotency_key, price_version_public_id, channel, merchandise_amount, shipping_fee_amount, total_amount) VALUES (?, ?, ?, ?, 'VND', ?, 0, ?, ?, ?, ?, ?, ?, 'ONLINE', ?, 0, ?)",
                 orderPublicId, customerPublicId, branchPublicId, reservationPublicId, orderStatus, createdAt, cancelledAt, paidAt,
-                quotePublicId, "demo-checkout-" + key, pricePublicId);
+                quotePublicId, "demo-checkout-" + key, pricePublicId, amount, amount);
         long orderId = id("SELECT id FROM commerce_order WHERE public_id = ?", orderPublicId);
         insert("INSERT INTO commerce_order_item(public_id, order_id, variant_public_id, location_public_id, quantity, unit_price_amount, sku_snapshot, size_snapshot, reservation_public_id, price_version_public_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)", itemPublicId, orderId, variant.publicId(), floorPublicId, amount, variant.sku(), variant.size(), reservationPublicId, pricePublicId);
 
@@ -231,7 +307,7 @@ public class DemoDataBootstrap implements CommandLineRunner {
         LocalDateTime dispatched = delivery ? createdAt.plusMinutes(50) : null;
         LocalDateTime delivered = status.equals("DELIVERED") ? createdAt.plusHours(2) : null;
         LocalDateTime cancelled = status.equals("CANCELLED") ? createdAt.plusMinutes(40) : null;
-        insert("INSERT INTO pickup_fulfillment(public_id, order_id, branch_id, location_id, status, entity_version, created_at, picking_started_at, prepared_at, prepared_by_account_public_id, handed_over_at, handed_over_by_account_public_id, handover_idempotency_key, cancelled_at, cancelled_by_account_public_id, channel, fulfillment_type, receiver_name, receiver_phone, delivery_address, delivery_note, delivery_fee_amount, dispatched_at, dispatched_by_account_public_id, dispatch_idempotency_key, delivered_at, delivered_by_account_public_id, delivery_idempotency_key) VALUES (?, ?, (SELECT id FROM org_branch WHERE public_id = ?), (SELECT id FROM org_location WHERE public_id = ?), ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ONLINE', ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)",
+        insert("INSERT INTO pickup_fulfillment(public_id, order_id, branch_id, location_id, status, entity_version, created_at, picking_started_at, prepared_at, prepared_by_account_public_id, handed_over_at, handed_over_by_account_public_id, handover_idempotency_key, cancelled_at, cancelled_by_account_public_id, channel, fulfillment_type, receiver_name, receiver_phone, delivery_address, delivery_note, dispatched_at, dispatched_by_account_public_id, dispatch_idempotency_key, delivered_at, delivered_by_account_public_id, delivery_idempotency_key) VALUES (?, ?, (SELECT id FROM org_branch WHERE public_id = ?), (SELECT id FROM org_location WHERE public_id = ?), ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ONLINE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 uuid("pickup-" + key), orderId, branchPublicId, floorPublicId, status, createdAt, picking, prepared,
                 prepared == null ? null : operator, handed, handed == null ? null : operator,
                 handed == null ? null : "demo-handover-" + key, cancelled, cancelled == null ? null : operator,
@@ -327,7 +403,7 @@ public class DemoDataBootstrap implements CommandLineRunner {
         UUID priceVersion = jdbc.queryForObject("SELECT public_id FROM pricing_variant_price WHERE variant_id = ? AND valid_to IS NULL", UUID.class, variantId);
         long amount = jdbc.queryForObject("SELECT amount FROM pricing_variant_price WHERE variant_id = ? AND valid_to IS NULL", Long.class, variantId);
         UUID orderPublicId = uuid("order-" + key);
-        insert("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at, cancelled_at, paid_at, price_quote_public_id, checkout_idempotency_key, price_version_public_id, channel) VALUES (?, NULL, ?, NULL, 'VND', 'PAID', 0, ?, NULL, ?, NULL, NULL, ?, 'POS')", orderPublicId, branchPublicId, soldAt, soldAt, priceVersion);
+        insert("INSERT INTO commerce_order(public_id, owner_account_public_id, responsible_branch_public_id, reservation_public_id, currency, status, entity_version, created_at, cancelled_at, paid_at, price_quote_public_id, checkout_idempotency_key, price_version_public_id, channel, merchandise_amount, shipping_fee_amount, total_amount) VALUES (?, NULL, ?, NULL, 'VND', 'PAID', 0, ?, NULL, ?, NULL, NULL, ?, 'POS', ?, 0, ?)", orderPublicId, branchPublicId, soldAt, soldAt, priceVersion, amount, amount);
         long orderId = id("SELECT id FROM commerce_order WHERE public_id = ?", orderPublicId);
         insert("INSERT INTO commerce_order_item(public_id, order_id, variant_public_id, location_public_id, quantity, unit_price_amount, sku_snapshot, size_snapshot, price_version_public_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)", uuid("item-" + key), orderId, variant.publicId(), floorPublicId, amount, variant.sku(), variant.size(), priceVersion);
         insert("INSERT INTO pos_cash_sale(public_id, order_id, shift_id, cashier_account_id, variant_public_id, idempotency_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", salePublicId, orderId, shiftId, cashierId, variant.publicId(), "demo-" + key, soldAt);
@@ -344,6 +420,10 @@ public class DemoDataBootstrap implements CommandLineRunner {
         insert("IF NOT EXISTS (SELECT 1 FROM iam_user_account WHERE login_normalized = ?) INSERT INTO iam_user_account(public_id, login_normalized, password_hash, status, auth_version, entity_version, created_at, updated_at) VALUES (?, ?, ?, 'ENABLED', 1, 0, ?, ?)", login, uuid("account-" + login), login, passwords.encode(PASSWORD), now, now);
         long accountId = id("SELECT id FROM iam_user_account WHERE login_normalized = ?", login);
         insert("IF NOT EXISTS (SELECT 1 FROM iam_account_role ar JOIN iam_role_bundle r ON r.id = ar.role_id WHERE ar.account_id = ? AND r.code = ?) INSERT INTO iam_account_role(account_id, role_id) SELECT ?, id FROM iam_role_bundle WHERE code = ?", accountId, role, accountId, role);
+    }
+
+    private void directPermission(String login, String permission, LocalDateTime now) {
+        insert("IF NOT EXISTS (SELECT 1 FROM iam_account_permission ap JOIN iam_permission p ON p.id = ap.permission_id JOIN iam_user_account a ON a.id = ap.account_id WHERE a.login_normalized = ? AND p.code = ?) INSERT INTO iam_account_permission(account_id, permission_id, granted_at) SELECT a.id, p.id, ? FROM iam_user_account a CROSS JOIN iam_permission p WHERE a.login_normalized = ? AND p.code = ?", login, permission, now, login, permission);
     }
 
     private void assign(String login, long branchId, long locationId, LocalDateTime now) {

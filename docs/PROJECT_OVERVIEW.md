@@ -9,8 +9,9 @@
 - Critical review inputs: `ARCHITECTURE_REVIEW_V1.md` and
   `ARCHITECTURE_REVIEW_V1_1.md`
 - Legacy role: reference only; `QLCHGiay/` is not the new application
-- Implementation status: Core MVP implemented through Flyway `V15`; see the
-  root [README](../README.md) for current setup, verification, and demo limits.
+- Implementation status: historical Core MVP and subsequent A–C3/S1 source are
+  tracked in [CURRENT_BASELINE](CURRENT_BASELINE.md), including full working-tree
+  identity and current remediation gates. The pre-remediation source has V1–V26.
 
 Blueprint v1.1 resolved the six architecture-review blockers. Blueprint v1.1.1
 then completed the targeted corrections and independent acceptance re-review.
@@ -109,8 +110,8 @@ Return + Refund require separate admission decisions.
 ## Blueprint v1.1.1 targeted corrections
 
 1. All cross-domain transactions now follow one global business-lock hierarchy:
-   Order, Fulfillment/Return, Payment, limited Benefit/Voucher, Reservation,
-   InventoryBalance, then CashierShift when applicable. Durable operation
+   CashierShift, Order, Fulfillment/Return, Payment, limited Benefit/Voucher,
+   Reservation, then InventoryBalance when applicable (BR-LOCK-102). Durable operation
    identity is claimed first; external providers are called only after commit.
 2. Active refund amount is retained for unknown provider outcomes, released
    exactly once after a contractually definitive failure, and reacquired under

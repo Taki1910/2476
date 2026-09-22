@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { api, type ProductSummary } from '../api'
+import { api, type ProductSummary, type PublicOffer } from '../api'
+import StorefrontHomepage from '../components/StorefrontHomepage.vue'
+import ProductPresentationSummary from '../components/ProductPresentationSummary.vue'
 import { errorCopy, formatVnd } from '../format'
-import { locale, messageLabel, t } from '../i18n'
-import { productAlt, productMedia } from '../product-media'
+import { messageLabel, t } from '../i18n'
+import type { StorefrontHomepage as StorefrontHomepageModel } from '../merchandising'
+import { PRODUCT_IMAGE_PLACEHOLDER, productAlt } from '../product-media'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,6 +15,10 @@ const products = ref<ProductSummary[]>([])
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const loading = ref(true)
 const error = ref('')
+const homepage = ref<StorefrontHomepageModel<ProductSummary, PublicOffer> | null>(null)
+const merchandisingLoading = ref(true)
+const merchandisingFailed = ref(false)
+const hasPublished = computed(() => !!homepage.value?.sections.length)
 let loadVersion = 0
 
 async function loadProducts(value = query.value) {
@@ -22,9 +29,16 @@ async function loadProducts(value = query.value) {
   finally { if (version === loadVersion) loading.value = false }
 }
 
+async function loadHomepage() {
+  merchandisingLoading.value = true; merchandisingFailed.value = false
+  try { homepage.value = await api.storefrontHomepage() }
+  catch { homepage.value = null; merchandisingFailed.value = true }
+  finally { merchandisingLoading.value = false }
+}
+
 async function submitSearch() {
   const value = query.value.trim()
-  await router.replace(value ? { path: '/', query: { q: value } } : { path: '/' })
+  await router.replace({ path: '/', query: { ...route.query, q: value || undefined } })
 }
 
 async function clearSearch() {
@@ -32,12 +46,22 @@ async function clearSearch() {
   await submitSearch()
 }
 
+async function updateQuery(event: Event) {
+  query.value = (event.target as HTMLInputElement).value
+  if (!query.value.trim() && route.query.q) {
+    products.value = []
+    loading.value = true
+    ++loadVersion
+    await router.replace({ query: { ...route.query, q: undefined } })
+  }
+}
+
 function productImage(product: ProductSummary) {
-  return product.primaryImage || productMedia(product.name)?.src || '/products/court-classic.png'
+  return product.primaryImage || product.heroImage || PRODUCT_IMAGE_PLACEHOLDER
 }
 
 function productImageAlt(product: ProductSummary) {
-  return productAlt(product.name, locale.value) || product.name
+  return productAlt(product.name)
 }
 
 watch(() => route.query.q, value => {
@@ -45,11 +69,13 @@ watch(() => route.query.q, value => {
   if (next !== query.value) query.value = next
   loadProducts(next)
 })
-onMounted(() => loadProducts())
+onMounted(() => { void loadHomepage(); void loadProducts() })
 </script>
 
 <template>
-  <section class="catalog-hero">
+  <StorefrontHomepage :homepage="homepage" :loading="merchandisingLoading" :failed="merchandisingFailed" />
+
+  <section v-if="!merchandisingLoading && !hasPublished" class="catalog-hero">
     <div><h1>{{ t('Choose the shoe.') }}<br /><em>{{ t('Then the size.') }}</em></h1></div>
     <p>{{ t('Explore the full collection. Search by product name, SKU, color, or category, then choose the right size.') }}</p>
   </section>
@@ -58,7 +84,7 @@ onMounted(() => loadProducts())
     <form class="store-search" role="search" @submit.prevent="submitSearch">
       <label for="product-search">{{ t('Search the store') }}</label>
       <div>
-        <input id="product-search" v-model="query" type="search" :placeholder="t('Search products, SKU, color…')" autocomplete="off" />
+        <input id="product-search" :value="query" type="search" :placeholder="t('Search products, SKU, color…')" autocomplete="off" @input="updateQuery" />
         <button class="primary-button" type="submit" :disabled="loading">{{ t('Search') }}</button>
         <button v-if="query" class="text-button" type="button" @click="clearSearch">{{ t('Clear search') }}</button>
       </div>
@@ -72,11 +98,12 @@ onMounted(() => loadProducts())
     <div v-else-if="error" class="inline-state" role="alert"><h3>{{ t('Catalog unavailable') }}</h3><p>{{ messageLabel(error) }}</p><button class="text-button" type="button" @click="loadProducts()">{{ t('Try again') }}</button></div>
     <div v-else-if="!products.length" class="inline-state"><h3>{{ t(query ? 'No products match that search.' : 'No shoes available yet') }}</h3><p v-if="query">{{ t('Try a product name, SKU, color, or category.') }}</p><button v-if="query" class="text-button" type="button" @click="clearSearch">{{ t('Clear search') }}</button></div>
     <ul v-else class="product-grid">
-      <li v-for="(product, index) in products" :key="product.id" :class="{ featured: index === 0 && !query }">
+      <li v-for="(product, index) in products" :key="product.id" :class="{ featured: index === 0 && !query && !hasPublished && products.length >= 3 }">
         <RouterLink class="product-card" :to="`/products/${product.id}`" :aria-label="`${t('View product')}: ${product.name}`">
           <div class="product-image"><img :src="productImage(product)" :alt="productImageAlt(product)" width="1456" height="1092" :loading="index < 2 ? 'eager' : 'lazy'" /></div>
           <div class="product-card-copy">
-            <h3>{{ product.name }}</h3><p>{{ product.category ?? product.collection ?? t('Available by size') }}</p>
+            <h3>{{ product.name }}</h3><p class="product-card-taxonomy">{{ product.category ?? product.collection ?? t('Available by size') }}</p>
+            <ProductPresentationSummary :presentation="product.presentation" compact />
             <div><strong>{{ t('From') }} {{ formatVnd(product.fromAmount) }}</strong><span>{{ product.availableVariantCount }} {{ t('available sizes') }}</span></div>
           </div>
         </RouterLink>

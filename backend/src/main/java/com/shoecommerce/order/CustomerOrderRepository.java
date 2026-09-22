@@ -23,11 +23,11 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     boolean existsByCartQuotePublicId(UUID cartQuotePublicId);
     @Query(value = """
             SELECT orders.public_id
-            FROM commerce_order orders
+            FROM commerce_order orders WITH (READPAST)
             WHERE orders.status = 'PENDING_PAYMENT'
               AND (orders.price_quote_public_id IS NOT NULL OR orders.cart_quote_public_id IS NOT NULL)
-              AND EXISTS (SELECT 1 FROM commerce_order_item items
-                JOIN inventory_reservation reservations ON reservations.public_id = items.reservation_public_id
+              AND EXISTS (SELECT 1 FROM commerce_order_item items WITH (READPAST)
+                JOIN inventory_reservation reservations WITH (READPAST) ON reservations.public_id = items.reservation_public_id
                 WHERE items.order_id = orders.id AND items.variant_public_id = :variantId
                   AND reservations.status = 'ADOPTED' AND reservations.expires_at <= :now)
             ORDER BY orders.id

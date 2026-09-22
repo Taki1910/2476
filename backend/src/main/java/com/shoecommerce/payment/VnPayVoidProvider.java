@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,7 @@ final class VnPayVoidProvider implements VoidProvider {
     private final ObjectMapper json;
     private final HttpClient http;
 
+    @Autowired
     VnPayVoidProvider(@Value("${payment.vnpay.tmn-code:}") String tmnCode,
             @Value("${payment.vnpay.api-url:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}") String apiUrl,
             @Value("${payment.vnpay.refund-create-by:shoe-commerce}") String createBy,

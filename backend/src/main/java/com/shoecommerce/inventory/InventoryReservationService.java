@@ -116,8 +116,13 @@ public class InventoryReservationService {
         return candidates.stream().map(CheckoutStock::location)
                 .filter(location -> common.contains(location.id())).distinct()
                 .sorted(Comparator.comparing(Location::id))
-                .map(location -> new CheckoutLocation(location.publicId(), location.code(), location.name()))
+                .map(location -> new CheckoutLocation(location.publicId(), location.branchPublicId(), location.code(), location.name()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CheckoutLocation deliveryOrigin(List<Demand> demands) {
+        return checkoutLocations(demands).stream().findFirst().orElseThrow();
     }
 
     private List<CheckoutStock> cartStock(List<Demand> demands, boolean lock, UUID preferredLocationId) {
@@ -439,7 +444,7 @@ public class InventoryReservationService {
     public record ReservationView(UUID id, UUID ownerAccountId, UUID variantId, UUID locationId, long quantity, String status, Instant createdAt, Instant adoptedAt, Instant releasedAt, Instant consumedAt, Instant expiresAt, Instant expiredAt, Instant committedAt, Instant cancelledRestoredAt) { }
     public record Adoption(UUID reservationId, UUID ownerAccountId, UUID variantId, UUID locationId, UUID branchId, long quantity) { }
     public record Demand(ProductVariant variant, long quantity) { }
-    public record CheckoutLocation(UUID id, String code, String name) { }
+    public record CheckoutLocation(UUID id, UUID branchId, String code, String name) { }
     private record CheckoutStock(Demand demand, Location location, InventoryBalance balance) { }
     public record Consumption(long quantity, long beforeOnHand, long beforeReserved, long afterOnHand, long afterReserved) { }
     public record FulfillmentStock(UUID reservationId, UUID variantId, UUID locationId, long quantity,

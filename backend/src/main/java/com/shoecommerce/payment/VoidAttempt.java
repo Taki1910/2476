@@ -14,6 +14,7 @@ import jakarta.persistence.*;
 })
 public class VoidAttempt {
     enum Status { CREATED, SUCCEEDED, DEFINITIVE_FAILED, UNKNOWN, REVIEW_REQUIRED }
+    enum CalculationVersion { LEGACY_V1, SNAPSHOT_V2 }
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "public_id", nullable = false, unique = true) private UUID publicId;
@@ -23,6 +24,8 @@ public class VoidAttempt {
     @Column(name = "idempotency_key", nullable = false, length = 128) private String idempotencyKey;
     @Column(name = "merchant_request_reference", nullable = false, unique = true, length = 32) private String merchantRequestReference;
     @Column(nullable = false, precision = 19, scale = 0) private BigDecimal amount;
+    @Enumerated(EnumType.STRING) @Column(name = "calculation_version", nullable = false, length = 16)
+    private CalculationVersion calculationVersion;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 24) private Status status;
     @Column(name = "provider_response_id", length = 32) private String providerResponseId;
     @Column(name = "provider_response_code", length = 8) private String providerResponseCode;
@@ -34,8 +37,9 @@ public class VoidAttempt {
 
     protected VoidAttempt() { }
 
-    static VoidAttempt create(VoidOperation operation, int generation, UUID actorId, String key, Instant now) {
-        if (operation == null || generation <= 0 || actorId == null || key == null || key.isBlank()) {
+    static VoidAttempt create(VoidOperation operation, int generation, UUID actorId, String key, Instant now,
+            CalculationVersion calculationVersion) {
+        if (operation == null || generation <= 0 || actorId == null || key == null || key.isBlank() || calculationVersion == null) {
             throw new IllegalArgumentException("Void attempt is invalid");
         }
         VoidAttempt attempt = new VoidAttempt();
@@ -46,6 +50,7 @@ public class VoidAttempt {
         attempt.idempotencyKey = key;
         attempt.merchantRequestReference = UUID.randomUUID().toString().replace("-", "");
         attempt.amount = operation.requestedAmount();
+        attempt.calculationVersion = calculationVersion;
         attempt.status = Status.CREATED;
         attempt.createdAt = now;
         return attempt;
@@ -80,6 +85,7 @@ public class VoidAttempt {
     String idempotencyKey() { return idempotencyKey; }
     String merchantRequestReference() { return merchantRequestReference; }
     BigDecimal amount() { return amount; }
+    CalculationVersion calculationVersion() { return calculationVersion; }
     String status() { return status.name(); }
     Instant createdAt() { return createdAt; }
     Instant resolvedAt() { return resolvedAt; }

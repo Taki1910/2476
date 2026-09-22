@@ -40,6 +40,12 @@ server:
         same-site: lax
 
 security:
+  login-rate-limit:
+    pair-limit: 5
+    pair-window: PT15M
+    source-limit: 30
+    source-window: PT1M
+    max-buckets: 10000
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:10}
   session:

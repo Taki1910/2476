@@ -18,6 +18,11 @@ interface VoidAllocationRepository extends JpaRepository<VoidAllocation, Long> {
     @Query("select allocation from VoidAllocation allocation where allocation.attempt = :attempt order by allocation.id")
     List<VoidAllocation> findLockedByAttempt(@Param("attempt") VoidAttempt attempt);
 
-    @Query(value = "SELECT COALESCE(SUM(amount), 0) FROM payment_void_allocation WHERE component_public_id = :componentId AND status IN ('ACTIVE', 'SUCCEEDED')", nativeQuery = true)
-    BigDecimal usedCapacity(@Param("componentId") UUID componentId);
+    @Query(value = """
+            SELECT COALESCE(SUM(amount),0) FROM payment_void_allocation
+            WHERE component_type=:type AND status IN ('ACTIVE','SUCCEEDED')
+            AND ((:type='ORDER_ITEM' AND component_public_id=:componentId)
+                 OR (:type='SHIPPING' AND shipping_order_public_id=:componentId))
+            """, nativeQuery = true)
+    BigDecimal usedCapacity(@Param("type") String type, @Param("componentId") UUID componentId);
 }

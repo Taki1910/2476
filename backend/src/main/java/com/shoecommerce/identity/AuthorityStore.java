@@ -16,7 +16,7 @@ public class AuthorityStore {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    Set<String> roleCodes(long accountId) {
+    public Set<String> roleCodes(long accountId) {
         return Set.copyOf(jdbcTemplate.queryForList("""
                 SELECT roles.code
                 FROM iam_account_role account_roles
@@ -25,7 +25,7 @@ public class AuthorityStore {
                 """, String.class, accountId));
     }
 
-    Set<String> permissionCodes(long accountId) {
+    public Set<String> permissionCodes(long accountId) {
         return Set.copyOf(jdbcTemplate.queryForList("""
                 SELECT permissions.code
                 FROM iam_account_role account_roles
@@ -40,7 +40,7 @@ public class AuthorityStore {
                 """, String.class, accountId, accountId));
     }
 
-    boolean hasPermission(long accountId, PermissionCode permission) {
+    public boolean hasPermission(long accountId, PermissionCode permission) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM (
@@ -70,7 +70,7 @@ public class AuthorityStore {
         }
     }
 
-    boolean setDirectPermission(long accountId, PermissionCode permission, boolean granted, Instant now) {
+    public boolean setDirectPermission(long accountId, PermissionCode permission, boolean granted, Instant now) {
         if (granted) {
             if (hasDirectPermission(accountId, permission)) {
                 return false;
@@ -98,6 +98,25 @@ public class AuthorityStore {
                   AND roles.code IN ('CASHIER', 'OPERATIONS', 'ADMINISTRATOR')
                 """, Integer.class, accountId);
         return count != null && count > 0;
+    }
+
+    public Set<String> directPermissionCodes(long accountId) {
+        return Set.copyOf(jdbcTemplate.queryForList("""
+                SELECT permissions.code
+                FROM iam_account_permission account_permissions
+                JOIN iam_permission permissions ON permissions.id = account_permissions.permission_id
+                WHERE account_permissions.account_id = ?
+                """, String.class, accountId));
+    }
+
+    public Set<String> inheritedPermissionCodes(long accountId) {
+        return Set.copyOf(jdbcTemplate.queryForList("""
+                SELECT DISTINCT permissions.code
+                FROM iam_account_role account_roles
+                JOIN iam_role_permission role_permissions ON role_permissions.role_id = account_roles.role_id
+                JOIN iam_permission permissions ON permissions.id = role_permissions.permission_id
+                WHERE account_roles.account_id = ?
+                """, String.class, accountId));
     }
 
     private boolean hasDirectPermission(long accountId, PermissionCode permission) {

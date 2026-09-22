@@ -1,5 +1,11 @@
 # Security Model — Blueprint v1.1.1
 
+Current remediation decisions: [ADR-0035](ADR/0035-voucher-family-claim-usage.md)
+defines customer voucher ownership and PROMOTION_MANAGE administration;
+[ADR-0036](ADR/0036-bounded-single-instance-login-throttle.md) defines the accepted
+login throttle policy. Its implementation/verification status is tracked in
+[CURRENT_BASELINE](CURRENT_BASELINE.md); policy approval alone is not deployment.
+
 > Architecture status: **ACCEPTED FOR THE APPROVED MVP BASELINE**
 >
 > MVP scope and gates: [MVP_IMPLEMENTATION_BASELINE.md](MVP_IMPLEMENTATION_BASELINE.md)
@@ -63,7 +69,8 @@ INVENTORY_ADJUST
 CHECKOUT_RESERVE
 ORDER_PLACE
 POS_SELL
-FULFILL_PICKUP
+FULFILL_ORDER
+STAFF_MANAGE_SCOPED
 ORDER_VIEW_SCOPED
 ORDER_CANCEL
 REPORT_VIEW
@@ -88,12 +95,20 @@ is a system obligation, not an actor permission. Customer payment initiation
 uses ownership plus `PAYMENT_INITIATE`; it never grants or reuses provider
 authority.
 
-Pickup-fulfillment creation and starting picking require persisted
-`FULFILL_PICKUP` and an active assignment to the exact enabled Location derived
+Pickup/Delivery fulfillment commands require persisted
+`FULFILL_ORDER` and an active assignment to the exact enabled Location derived
 by the server from the Order/fulfillment.
 A Branch-only assignment, another Location in the same Branch, or an assignment
 in another Branch is insufficient. Disabled Branch/Location scope is denied;
 relocation is a separate business decision.
+
+Scoped staff administration is defined by ADR-0030. `STAFF_MANAGE_SCOPED`
+allows only exact-Location management of Cashier and Operations accounts. The
+Phase B delegated allowlist is `POS_SELL` and `FULFILL_ORDER`, and the actor must
+hold the capability being delegated. Global account status, roles, credentials,
+arbitrary permissions, Customer, Provider, and Administrator identities remain
+under the separate `IDENTITY_MANAGE` boundary. Every assignment or direct grant
+change increments the target account's existing `authVersion`.
 
 `OPEN DECISION`: Exact role bundles, assignment rules, cross-branch grants,
 thresholds, maker-checker actions, emergency access, and break-glass auditing.
@@ -233,3 +248,18 @@ payment; it creates an operational retry/alert.
 - Recovery channel/TTL/rate limits and verified-contact ownership.
 - CORS origins, encryption/key management, secrets platform, log retention, and
   payment compliance boundary.
+# Phase C1 shipping administration
+
+`SHIPPING_RATE_MANAGE` is separate from price and staff administration. Exact-Location rules additionally require an active assignment to that Location. Global-origin rules require both `SHIPPING_RATE_MANAGE` and `IDENTITY_MANAGE`. C1 exposes no interactive Branch-wide rule mutation because one Location assignment does not prove Branch-wide authority.
+
+## C2 promotion administration
+
+PROMOTION_MANAGE is a standalone global financial capability and is not in the OPERATIONS bundle. Demo data grants it directly to manager.demo; scoped staff or identity administration does not imply it.
+
+## S1.1 storefront merchandising administration
+
+`STOREFRONT_MANAGE` independently protects reading HOME management state,
+replacing its draft and publishing it. It is absent from role bundles and is
+granted directly to `manager.demo` only in demo data. Guest, Customer, Cashier
+and ordinary Operations accounts cannot call these management use cases.
+`GET /api/v1/storefront/homepage` is public and exposes published content only.

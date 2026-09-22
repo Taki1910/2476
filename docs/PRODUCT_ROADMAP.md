@@ -1,7 +1,9 @@
 # Product Roadmap
 
-Status: authoritative product roadmap for the new Shoe Commerce project.
-Last updated: 2026-09-05
+Status: historical roadmap through Phase 18 (2026-09-05). Its verdicts refer to
+those baselines. Current A–C3/S1 source and the approved remediation sequence are
+tracked in [CURRENT_BASELINE](CURRENT_BASELINE.md) and the
+[remediation plan](superpowers/plans/2026-09-13-remediation-master.md).
 
 ## Phase 15 — Customer Commerce Completion
 

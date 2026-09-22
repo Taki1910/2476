@@ -1,5 +1,6 @@
 package com.shoecommerce.catalog;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -36,6 +37,20 @@ public class StorefrontCatalogService {
     }
 
     @Transactional(readOnly = true)
+    public Set<UUID> currentProductIds() {
+        Timestamp at = Timestamp.from(clock.instant());
+        return Set.copyOf(jdbc.query("""
+                SELECT DISTINCT products.public_id
+                FROM catalog_product products
+                JOIN catalog_product_variant variants ON variants.product_id = products.id
+                JOIN pricing_variant_price prices ON prices.variant_id = variants.id
+                WHERE variants.lifecycle_status = 'PUBLISHED'
+                  AND prices.valid_from <= ?
+                  AND (prices.valid_to IS NULL OR prices.valid_to > ?)
+                """, (rs, row) -> rs.getObject(1, UUID.class), at, at));
+    }
+
+    @Transactional(readOnly = true)
     public List<ProductSummary> browse(String query) {
         normalizeExpiredCheckoutHolds(null);
         String search = query == null ? "" : query.trim();
@@ -59,6 +74,7 @@ public class StorefrontCatalogService {
                            products.category, products.collection, products.featured,
                            products.new_arrival, products.campaign_eligible,
                            products.merchandising_rank, products.hero_image, products.primary_image,
+                           presentation.summary_vi, presentation.summary_en,
                            variants.id AS variant_id, prices.amount,
                            CASE WHEN EXISTS (
                                SELECT 1
@@ -72,6 +88,8 @@ public class StorefrontCatalogService {
                     FROM catalog_product products
                     JOIN catalog_product_variant variants ON variants.product_id = products.id
                     JOIN pricing_variant_price prices ON prices.variant_id = variants.id
+                    LEFT JOIN product_presentation_revision presentation
+                      ON presentation.product_id = products.id AND presentation.status = 'PUBLISHED'
                     WHERE variants.lifecycle_status = 'PUBLISHED'
                 """ + filter + """
                       AND prices.valid_from <= ?
@@ -79,11 +97,13 @@ public class StorefrontCatalogService {
                 )
                 SELECT product_public_id, name, category, collection, featured, new_arrival,
                        campaign_eligible, merchandising_rank, hero_image, primary_image,
+                       summary_vi, summary_en,
                        COUNT_BIG(*) AS variant_count,
                        SUM(available) AS available_variant_count, MIN(amount) AS from_amount
                 FROM visible
                 GROUP BY product_public_id, name, category, collection, featured, new_arrival,
-                         campaign_eligible, merchandising_rank, hero_image, primary_image
+                         campaign_eligible, merchandising_rank, hero_image, primary_image,
+                         summary_vi, summary_en
                 ORDER BY merchandising_rank, name, product_public_id
                 """;
         return jdbc.query(sql, (rs, row) -> new ProductSummary(
@@ -99,7 +119,8 @@ public class StorefrontCatalogService {
                         rs.getString("primary_image"),
                         rs.getLong("variant_count"),
                         rs.getLong("available_variant_count"),
-                        rs.getLong("from_amount")), parameters.toArray());
+                        rs.getLong("from_amount"),
+                        presentation(rs.getString("summary_vi"), rs.getString("summary_en"))), parameters.toArray());
     }
 
     @Transactional(readOnly = true)
@@ -126,7 +147,10 @@ public class StorefrontCatalogService {
                   AND variants.lifecycle_status = 'PUBLISHED'
                   AND prices.valid_from <= ?
                   AND (prices.valid_to IS NULL OR prices.valid_to > ?)
-                ORDER BY TRY_CONVERT(DECIMAL(10,2), variants.size), variants.size, variants.color, variants.public_id
+                ORDER BY
+                    CASE WHEN TRY_CONVERT(DECIMAL(10,2), variants.size) IS NULL THEN 1 ELSE 0 END,
+                    TRY_CONVERT(DECIMAL(10,2), variants.size),
+                    variants.size, variants.color, variants.public_id
                 """, (rs, row) -> new VariantView(
                         UUID.fromString(rs.getString("variant_public_id")),
                         rs.getString("sku"),
@@ -138,12 +162,13 @@ public class StorefrontCatalogService {
         ProductMetadata metadata = jdbc.queryForObject("""
                 SELECT name, category, collection, featured, new_arrival, campaign_eligible,
                        merchandising_rank, hero_image, primary_image,
+                       presentation.summary_vi, presentation.summary_en,
                         CASE WHEN EXISTS (
                             SELECT 1 FROM catalog_shoe_fit_profile fit_profiles
-                            WHERE fit_profiles.product_id = catalog_product.id
+                            WHERE fit_profiles.product_id = products.id
                               AND NOT EXISTS (
                                   SELECT 1 FROM catalog_product_variant variants
-                                  WHERE variants.product_id = catalog_product.id
+                                  WHERE variants.product_id = products.id
                                     AND variants.lifecycle_status = 'PUBLISHED'
                                     AND NOT EXISTS (
                                         SELECT 1 FROM catalog_shoe_fit_size_range size_ranges
@@ -151,14 +176,34 @@ public class StorefrontCatalogService {
                                     )
                               )
                         ) THEN 1 ELSE 0 END AS fit_supported
-                FROM catalog_product WHERE public_id = ?
+                FROM catalog_product products
+                LEFT JOIN product_presentation_revision presentation
+                  ON presentation.product_id = products.id AND presentation.status = 'PUBLISHED'
+                WHERE products.public_id = ?
                 """, (rs, row) -> new ProductMetadata(rs.getString("name"), rs.getString("category"),
                         rs.getString("collection"), rs.getBoolean("featured"), rs.getBoolean("new_arrival"),
                         rs.getBoolean("campaign_eligible"), rs.getInt("merchandising_rank"),
-                        rs.getString("hero_image"), rs.getString("primary_image"), rs.getBoolean("fit_supported")), productId);
+                        rs.getString("hero_image"), rs.getString("primary_image"), rs.getBoolean("fit_supported"),
+                        presentation(rs.getString("summary_vi"), rs.getString("summary_en"))), productId);
+
+        long minimum = variants.stream().mapToLong(VariantView::amount).min().orElseThrow();
+        long maximum = variants.stream().mapToLong(VariantView::amount).max().orElseThrow();
+        PriceSummary pricing = new PriceSummary(minimum == maximum ? "SINGLE" : "RANGE",
+                minimum, maximum, "VND");
+
+        List<MediaView> media = new ArrayList<>();
+        String primaryImage = trimmed(metadata.primaryImage());
+        String heroImage = trimmed(metadata.heroImage());
+        if (primaryImage != null) media.add(new MediaView(primaryImage, media.size(), metadata.name()));
+        if (heroImage != null && !heroImage.equals(primaryImage)) {
+            media.add(new MediaView(heroImage, media.size(), metadata.name()));
+        }
+
+        FitGuidance fitGuidance = fitGuidance(productId, variants, metadata.fitSupported());
         return new ProductDetail(productId, metadata.name(), metadata.category(), metadata.collection(),
                 metadata.featured(), metadata.newArrival(), metadata.campaignEligible(),
-                metadata.merchandisingRank(), metadata.heroImage(), metadata.primaryImage(), metadata.fitSupported(), variants);
+                metadata.merchandisingRank(), metadata.heroImage(), metadata.primaryImage(), metadata.fitSupported(), variants,
+                pricing, List.copyOf(media), fitGuidance, metadata.presentation());
     }
 
     @Transactional(readOnly = true)
@@ -250,10 +295,20 @@ public class StorefrontCatalogService {
 
     public record ProductSummary(UUID id, String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, long variantCount, long availableVariantCount, long fromAmount) { }
+            String primaryImage, long variantCount, long availableVariantCount, long fromAmount,
+            ProductPresentation presentation) { }
     public record ProductDetail(UUID id, String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, boolean fitSupported, List<VariantView> variants) { }
+            String primaryImage, boolean fitSupported, List<VariantView> variants, PriceSummary pricing,
+            List<MediaView> media, FitGuidance fitGuidance, ProductPresentation presentation) { }
+    public record LocalizedSummary(String vi, String en) { }
+    public record ProductPresentation(LocalizedSummary summary) { }
+    public record PriceSummary(String state, long minimumAmount, long maximumAmount, String currency) { }
+    public record MediaView(String url, int position, String alt) { }
+    public record FitRangeView(String size, BigDecimal minimumFootLengthMm, BigDecimal maximumFootLengthMm,
+            BigDecimal minimumFootWidthMm, BigDecimal maximumFootWidthMm) { }
+    public record FitGuidance(String sizeSystem, String fitTendency, String widthProfile,
+            boolean fitAssistantSupported, List<FitRangeView> ranges) { }
     public record VariantView(UUID id, String sku, String size, String color, String availability, long amount) { }
     public record HeroProduct(UUID id, String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
@@ -263,7 +318,57 @@ public class StorefrontCatalogService {
             HeroProduct featuredCollection, List<HeroProduct> candidates) { }
     private record ProductMetadata(String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, boolean fitSupported) { }
+            String primaryImage, boolean fitSupported, ProductPresentation presentation) { }
+    private record FitProfileRow(long id, String sizeSystem, String fitTendency, String widthProfile) { }
+
+    private FitGuidance fitGuidance(UUID productId, List<VariantView> variants, boolean fitAssistantSupported) {
+        List<FitProfileRow> profiles = jdbc.query("""
+                SELECT fit_profiles.id, fit_profiles.size_system, fit_profiles.fit_tendency,
+                       fit_profiles.width_profile
+                FROM catalog_shoe_fit_profile fit_profiles
+                JOIN catalog_product products ON products.id = fit_profiles.product_id
+                WHERE products.public_id = ?
+                """, (rs, row) -> new FitProfileRow(rs.getLong("id"), rs.getString("size_system"),
+                        rs.getString("fit_tendency"), rs.getString("width_profile")), productId);
+        if (profiles.size() != 1) return null;
+        FitProfileRow profile = profiles.getFirst();
+        if (!"EU".equals(profile.sizeSystem())
+                || !Set.of("RUNS_SMALL", "TRUE_TO_SIZE", "RUNS_LARGE").contains(profile.fitTendency())
+                || !Set.of("NARROW", "REGULAR", "WIDE").contains(profile.widthProfile())) return null;
+
+        Set<String> visibleSizes = variants.stream().map(VariantView::size).collect(java.util.stream.Collectors.toSet());
+        if (visibleSizes.isEmpty()) return null;
+        List<FitRangeView> ranges = jdbc.query("""
+                SELECT size_ranges.size_label, size_ranges.min_foot_length_mm,
+                       size_ranges.max_foot_length_mm, size_ranges.min_foot_width_mm,
+                       size_ranges.max_foot_width_mm
+                FROM catalog_shoe_fit_size_range size_ranges
+                WHERE size_ranges.profile_id = ?
+                ORDER BY
+                    CASE WHEN TRY_CONVERT(DECIMAL(10,2), size_ranges.size_label) IS NULL THEN 1 ELSE 0 END,
+                    TRY_CONVERT(DECIMAL(10,2), size_ranges.size_label),
+                    size_ranges.size_label
+                """, (rs, row) -> new FitRangeView(rs.getString("size_label"),
+                        rs.getBigDecimal("min_foot_length_mm"), rs.getBigDecimal("max_foot_length_mm"),
+                        rs.getBigDecimal("min_foot_width_mm"), rs.getBigDecimal("max_foot_width_mm")), profile.id())
+                .stream().filter(range -> visibleSizes.contains(range.size())).toList();
+        if (ranges.size() != visibleSizes.size()
+                || !ranges.stream().map(FitRangeView::size).collect(java.util.stream.Collectors.toSet()).equals(visibleSizes)) {
+            return null;
+        }
+        return new FitGuidance(profile.sizeSystem(), profile.fitTendency(), profile.widthProfile(),
+                fitAssistantSupported, ranges);
+    }
+
+    private static String trimmed(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static ProductPresentation presentation(String vi, String en) {
+        return vi == null || en == null ? null : new ProductPresentation(new LocalizedSummary(vi, en));
+    }
 
     private static HeroProduct pick(List<HeroProduct> candidates, Set<UUID> used,
             Comparator<HeroProduct> order) {

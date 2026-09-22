@@ -41,15 +41,15 @@ focused responsive workbench for one exact-cash, quantity-one sale at a time.
 - Checkout revalidates that evidence and stock; success creates a time-bounded
   reservation and an unpaid Order, never a Payment.
 - Customer availability is intentionally coarse and must not expose internal location quantities.
-- Customer catalog access requires current authenticated authority and must not reuse staff operations permissions.
+- Customer catalog browsing is public; checkout, orders and saved vouchers require current customer authority. Staff permissions do not confer customer ownership.
 - Limited POS accepts only an active authorized Shift, one server-priced variant, quantity one and exact cash; it never accepts client-authored money.
 - POS and Customer Web compete on the same Location InventoryBalance, and a completed POS receipt is immutable historical evidence.
 - Reporting is read-only and location-scoped. It reconciles successful online capture and POS cash against successful item void allocations, while unresolved provider outcomes remain visible exceptions.
-- Product media is absent from the current domain; the UI must not fabricate it.
+- Catalog owns controlled product media references. Storefront merchandising may reuse only the approved local `/products/*.png` references and must not fabricate or upload media.
 
 ## Evidence on Hand
 
-Real product names, SKU-level sizes/colors, publication state, effective price versions, and location inventory balances exist in SQL Server. No approved product photography, marketing claims, reviews, or brand assets exist in the new application.
+Real product names, SKU-level sizes/colors, publication state, effective price versions, location inventory balances, and controlled local product illustrations exist in the new application. No approved product photography, reviews, or external brand assets exist.
 
 ## Product Principles
 

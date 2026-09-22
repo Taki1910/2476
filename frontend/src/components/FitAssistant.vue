@@ -28,8 +28,17 @@ function close() { clearImage(); step.value = 'closed' }
 function resetPhoto() { clearImage(); step.value = 'photo' }
 function pick(event: Event) {
   const selected = (event.target as HTMLInputElement).files?.[0]
+  acceptImage(selected)
+  ;(event.target as HTMLInputElement).value = ''
+}
+function drop(event: DragEvent) {
+  if (event.dataTransfer?.files.length !== 1) { error.value = 'Choose one photo at a time.'; return }
+  acceptImage(event.dataTransfer.files[0])
+}
+function acceptImage(selected?: File) {
   if (!selected) return
-  if (!['image/jpeg', 'image/png'].includes(selected.type) || selected.size > 5 * 1024 * 1024) {
+  clearImage()
+  if (!['image/jpeg', 'image/png'].includes(selected.type) || !selected.size || selected.size > 5 * 1024 * 1024) {
     error.value = 'Only PNG or JPEG images up to 5 MB are accepted.'; step.value = 'photo'; return
   }
   revokePreview(); file.value = selected; preview.value = URL.createObjectURL(selected); error.value = ''; step.value = 'check'
@@ -57,27 +66,28 @@ onBeforeUnmount(revokePreview)
 </script>
 
 <template>
-  <section class="fit-assistant" aria-labelledby="fit-heading">
+  <p v-if="fitSupported === false" class="fit-unsupported" role="status">{{ t('This shoe model does not have a supported fit profile yet.') }}</p>
+  <section v-else class="fit-assistant" :class="{ 'is-closed': step === 'closed' }" aria-labelledby="fit-heading">
     <div class="fit-assistant-heading">
-      <div><h2 id="fit-heading">{{ t('Find my size') }}</h2><p>{{ t('Photo-assisted fit recommendation') }}</p></div>
-      <button v-if="step !== 'closed' && fitSupported !== false" class="text-button" type="button" @click="close">{{ t('Close') }}</button>
+      <div><h2 id="fit-heading">{{ t(step === 'closed' ? 'Not sure about your size?' : 'Find my size') }}</h2><p>{{ t(step === 'closed' ? 'Optional photo guide' : 'Measure your foot from a photo for size guidance.') }}</p></div>
+      <button v-if="step === 'closed'" class="fit-entry" type="button" @click="open"><span>{{ t('Find my size') }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
+      <button v-if="step !== 'closed'" class="text-button" type="button" @click="close">{{ t('Close') }}</button>
     </div>
 
-    <template v-if="fitSupported === false">
-      <p class="fit-unsupported">{{ t('This shoe model does not have a supported fit profile yet.') }}</p>
-    </template>
-    <template v-else-if="step === 'closed'">
-      <button class="fit-entry" type="button" @click="open"><span>{{ t('Find my size') }}</span><small>{{ t('Photo-assisted fit recommendation') }}</small><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
-    </template>
-    <template v-else-if="step === 'prepare'">
+    <template v-if="step === 'prepare'">
       <div class="fit-step-copy"><h3>{{ t('Prepare your photo') }}</h3><p>{{ t('Use A4 paper, place it flat, and show the whole sheet and foot.') }}</p><p>{{ t('Keep the camera close to overhead, use good light, and avoid heavy shadows.') }}</p></div>
       <div class="fit-sequence" aria-label="Prepare, photo, check, analyze, recommendation"><span class="active">{{ t('Prepare') }}</span><span>{{ t('Photo') }}</span><span>{{ t('Check') }}</span><span>{{ t('Analyze') }}</span><span>{{ t('Recommendation') }}</span></div>
       <button class="primary-button" type="button" @click="step = 'photo'">{{ t('Start with a photo') }}</button>
     </template>
     <template v-else-if="step === 'photo'">
       <div class="fit-step-copy"><h3>{{ t('Choose or take a photo') }}</h3><p>{{ t('Show the entire A4 sheet and one whole foot inside it.') }}</p></div>
-      <input id="fit-photo-input" class="fit-upload-input" type="file" accept="image/png,image/jpeg" capture="environment" @change="pick" />
-      <label class="fit-upload-label" for="fit-photo-input">{{ t('Choose or take a photo') }}</label>
+      <div class="fit-drop-zone" @dragover.prevent @drop.prevent="drop">
+        <p>{{ t('Drop one photo here, or choose a file.') }}</p>
+        <input id="fit-photo-input" class="fit-upload-input" type="file" accept="image/png,image/jpeg" capture="environment" aria-describedby="fit-upload-help" @change="pick" />
+        <label class="fit-upload-label" for="fit-photo-input">{{ t('Choose or take a photo') }}</label>
+        <p id="fit-upload-help">{{ t('Only PNG or JPEG images up to 5 MB are accepted.') }}</p>
+        <p>{{ t('Show heel, toes and all A4 corners. Shoot from above in good light; avoid tilted views. Without a usable reference, no size can be estimated.') }}</p>
+      </div>
       <p v-if="error" class="form-error" role="alert">{{ t(error) }}</p>
     </template>
     <template v-else-if="step === 'check'">

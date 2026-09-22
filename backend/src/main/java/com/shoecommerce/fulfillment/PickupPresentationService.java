@@ -52,7 +52,7 @@ public class PickupPresentationService {
                 fulfillment == null ? null : fulfillment.receiverPhone(),
                 fulfillment == null ? null : fulfillment.deliveryAddress(),
                 fulfillment == null ? null : fulfillment.deliveryNote(),
-                fulfillment == null ? 0 : fulfillment.deliveryFeeAmount());
+                order.shippingFeeAmount());
     }
 
     public record Presentation(String customerStatus, String fulfillmentType, String fulfillmentStatus,

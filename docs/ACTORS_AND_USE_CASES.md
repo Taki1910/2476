@@ -1,3 +1,5 @@
+> Remediation authority: [CURRENT_BASELINE](CURRENT_BASELINE.md), [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md), [ADR-0035](ADR/0035-voucher-family-claim-usage.md), [ADR-0036](ADR/0036-bounded-single-instance-login-throttle.md) and [API contracts](API/README.md). Earlier phase descriptions below remain historical where explicitly superseded.
+
 # Actors and Use Cases — Blueprint v1.1.1
 
 > Architecture status: **ACCEPTED FOR THE APPROVED MVP BASELINE**
@@ -161,8 +163,9 @@ conflict; reconciliation and a governed void/refund path remain future scope.
 
 ### Fulfillment, returns, and refunds
 
-- Create one `PENDING` pickup fulfillment for an eligible paid Order at its
-  server-derived Location; require `FULFILL_PICKUP` and exact active Location
+- Create one `PENDING` fulfillment intent automatically during new cart checkout;
+  legacy paid Orders without one use an explicit recovery path. Fulfillment
+  commands require `FULFILL_ORDER` and exact active Location
   scope, preserve paid/reservation/inventory facts, and audit atomically.
 - Start pickup preparation exactly once with `PENDING -> PICKING` under the same
   current permission and exact-Location scope; record the actor in audit, not as
@@ -217,3 +220,4 @@ Before implementation, every use case must document:
 - Legal receipt/invoice requirements, tax calculation, rounding, and timezone
   cutoffs.
 - Customer-support visibility and masking of sensitive data.
+

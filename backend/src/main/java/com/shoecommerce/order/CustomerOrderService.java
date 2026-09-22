@@ -32,6 +32,7 @@ import com.shoecommerce.pricing.PriceQuoteService;
 import com.shoecommerce.pricing.CartQuoteService;
 import com.shoecommerce.pricing.VariantPrice;
 import com.shoecommerce.pricing.VariantPriceRepository;
+import com.shoecommerce.promotion.PromotionService;
 
 @Service
 public class CustomerOrderService {
@@ -51,18 +52,20 @@ public class CustomerOrderService {
     private final PickupPresentationService pickupPresentation;
     private final CartQuoteService cartQuotes;
     private final PickupFulfillmentService fulfillments;
+    private final PromotionService promotions;
 
     public CustomerOrderService(CustomerOrderRepository orders, InventoryReservationService reservations, PaymentAttemptService payments,
             ProductVariantRepository variants, VariantPriceRepository prices, LocationRepository locations,
             AuthorizationPolicy authorization, OwnershipPolicy ownership, AuditWriter audit, Clock clock,
             PriceQuoteService priceQuotes, UserAccountRepository accounts, PickupPresentationService pickupPresentation,
-            CartQuoteService cartQuotes, PickupFulfillmentService fulfillments) {
+            CartQuoteService cartQuotes, PickupFulfillmentService fulfillments,PromotionService promotions) {
         this.orders = orders; this.reservations = reservations; this.payments = payments; this.variants = variants; this.prices = prices;
         this.locations = locations; this.authorization = authorization; this.ownership = ownership; this.audit = audit; this.clock = clock;
         this.priceQuotes = priceQuotes; this.accounts = accounts;
         this.pickupPresentation = pickupPresentation;
         this.cartQuotes = cartQuotes;
         this.fulfillments = fulfillments;
+        this.promotions=promotions;
     }
 
     @Transactional
@@ -79,10 +82,11 @@ public class CustomerOrderService {
         authorization.requirePermission(actor, PermissionCode.CHECKOUT_RESERVE);
         var demand = CartQuoteService.normalize(requested);
         FulfillmentIntent intent = fulfillmentIntent(fulfillmentRequest);
-        String fingerprint = CartQuoteService.fingerprint(quoteId, demand, intent.fingerprint());
         String key = idempotencyKey == null ? "" : idempotencyKey.trim();
         if (key.isEmpty() || key.length() > 128) throw new InvalidRequestException("INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must contain 1 to 128 characters.");
         accounts.findByPublicIdForUpdate(actor.publicId()).orElseThrow(() -> new IllegalStateException("Checkout account not found"));
+        String fingerprint = CartQuoteService.fingerprint(quoteId, demand, intent.fingerprint(),
+                promotions.quoteVoucherFingerprint(actor.publicId(),quoteId));
         var replay = orders.findByOwnerAccountPublicIdAndCheckoutIdempotencyKey(actor.publicId(), key);
         if (replay.isPresent()) {
             if (!fingerprint.equals(replay.get().checkoutFingerprint())) {
@@ -98,15 +102,32 @@ public class CustomerOrderService {
             stockDemand.add(new InventoryReservationService.Demand(checkout.variants().get(i), quote.items().get(i).quantity()));
         }
         Instant now = clock.instant();
-        var adoptions = reservations.reserveCartForCheckout(actor, stockDemand, now, intent.pickupLocationId());
+        if (!quote.fulfillmentType().equals(intent.type().name())
+                || (intent.type()==PickupFulfillment.Type.DELIVERY && (!quote.destinationProvinceCode().equals(intent.delivery().provinceCode())
+                || !quote.destinationDistrictCode().equals(intent.delivery().districtCode())))) {
+            throw new BusinessConflictException("CART_QUOTE_MISMATCH", "Fulfillment changed. Review a new quote before checkout.");
+        }
+        UUID exactLocation = intent.type()==PickupFulfillment.Type.DELIVERY ? quote.originLocationId() : intent.pickupLocationId();
+        List<InventoryReservationService.Adoption> adoptions;
+        try { adoptions = reservations.reserveCartForCheckout(actor, stockDemand, now, exactLocation); }
+        catch (BusinessConflictException conflict) {
+            if(intent.type()==PickupFulfillment.Type.DELIVERY && ("PICKUP_LOCATION_UNAVAILABLE".equals(conflict.code())||"INSUFFICIENT_STOCK".equals(conflict.code())))
+                throw new BusinessConflictException("SHIPPING_QUOTE_STALE","Stock or delivery pricing changed. Request a fresh quote.");
+            throw conflict;
+        }
         List<CustomerOrder.ItemFacts> lines = new java.util.ArrayList<>();
         for (var line : quote.items()) {
             var adoption = adoptions.stream().filter(value -> value.variantId().equals(line.variantId())).findFirst().orElseThrow();
             lines.add(new CustomerOrder.ItemFacts(null, adoption.reservationId(), line.variantId(), adoption.locationId(),
                     line.quantity(), line.sku(), line.size(), line.color(), line.unitPriceAmount(), line.totalAmount()));
         }
-        CustomerOrder order = orders.save(CustomerOrder.createCart(actor.publicId(), adoptions.getFirst().branchId(), quoteId,
-                key, fingerprint, lines, quote.items().stream().map(CartQuoteService.LineView::priceVersionId).toList(), now));
+        CustomerOrder order = orders.saveAndFlush(CustomerOrder.createCart(actor.publicId(), adoptions.getFirst().branchId(), quoteId,
+                key, fingerprint, lines, quote.items().stream().map(CartQuoteService.LineView::priceVersionId).toList(),
+                quote.merchandiseAmount(),quote.merchandiseDiscountAmount(), quote.shippingFeeAmount(),quote.shippingDiscountAmount(), checkout.shippingRuleId(), quote.shippingZoneCode(),
+                quote.originLocationId(), quote.originBranchId(), quote.destinationProvinceCode(), quote.destinationDistrictCode(),
+                quote.quotedAt(), now));
+        promotions.storeOrder(order.publicId(),actor.publicId(),reservations.expiryForOrder(adoptions.getFirst().reservationId()),
+                checkout.promotionEvaluation(),order.items().stream().collect(java.util.stream.Collectors.toMap(OrderItem::variantPublicId,OrderItem::publicId)));
         Location location = locations.findByPublicId(adoptions.getFirst().locationId()).orElseThrow();
         fulfillments.createIntent(actor, order, location, intent.type(), intent.delivery(), now);
         audit.append(actor, "ORDER_CREATED", "ORDER", order.publicId(), location.branchId(), location.id(),
@@ -200,6 +221,8 @@ public class CustomerOrderService {
         if (order.cancelled()) return view(order);
         if (!order.pendingPayment()) throw new BusinessConflictException("Paid Order cannot be cancelled without a refund policy");
         payments.cancelPendingForOwnedOrder(actor, order.publicId());
+        promotions.lockUsage(order.publicId());
+        promotions.release(order.publicId(),clock.instant());
         reservations.releaseAdoptedForCancelledOrder(actor, order.paymentFacts().reservationIds());
         order.cancel(clock.instant());
         Location location = locations.findByPublicId(order.paymentFacts().locationId()).orElseThrow(() -> new IllegalStateException("Order location not found"));
@@ -232,7 +255,10 @@ public class CustomerOrderService {
                     item.locationPublicId(), item.quantity(), item.unitPriceAmount(), item.totalAmount())).toList(),
                 pickup.fulfillmentType(), pickup.acceptedAt(), pickup.readyAt(), pickup.handedOverAt(),
                 pickup.dispatchedAt(), pickup.deliveredAt(), pickup.fulfillmentCancelledAt(), pickup.receiverName(),
-                pickup.receiverPhone(), pickup.deliveryAddress(), pickup.deliveryNote(), pickup.deliveryFeeAmount());
+                pickup.receiverPhone(), pickup.deliveryAddress(), pickup.deliveryNote(), order.merchandiseAmount(),order.merchandiseDiscountAmount(), order.shippingFeeAmount(),order.shippingDiscountAmount(),
+                promotions.orderAdjustments(order.publicId()).stream().map(a->new PromotionView(a.familyId(),a.revisionId(),a.revision(),a.name(),a.effectType(),a.layer(),
+                    a.qualifyingBaseAmount(),a.percentageValue(),a.fixedAmount(),a.appliedAmount(),a.appliedAt(),a.acquisitionMode(),a.maskedCode(),a.claimId(),
+                    a.allocations().stream().map(x->new PromotionAllocationView(x.variantId(),x.layer(),x.appliedAmount())).toList())).toList());
     }
     public record OrderView(UUID id, String orderReference, UUID reservationId, Instant reservationExpiresAt, UUID priceQuoteId, UUID priceVersionId,
             UUID ownerAccountId, UUID responsibleBranchId, String status, Instant createdAt, Instant cancelledAt,
@@ -243,7 +269,12 @@ public class CustomerOrderService {
             List<OrderLine> items, String fulfillmentType, Instant acceptedAt, Instant readyAt,
             Instant handedOverAt, Instant dispatchedAt, Instant deliveredAt, Instant fulfillmentCancelledAt,
             String receiverName, String receiverPhone, String deliveryAddress, String deliveryNote,
-            long deliveryFeeAmount) { }
+            long merchandiseAmount,long merchandiseDiscountAmount, long deliveryFeeAmount,long shippingDiscountAmount,List<PromotionView> adjustments) { }
+
+    public record PromotionView(UUID familyId,UUID revisionId,int revision,String name,String effectType,String layer,long qualifyingBaseAmount,
+            java.math.BigDecimal percentageValue,Long fixedAmount,long amount,Instant appliedAt,String acquisitionMode,String maskedCode,
+            UUID claimId,List<PromotionAllocationView> allocations){}
+    public record PromotionAllocationView(UUID variantId,String layer,long appliedAmount){}
 
     public record OrderLine(UUID id, UUID reservationId, UUID priceVersionId, UUID variantId, String sku,
             String size, String color, UUID locationId, long quantity, long unitPriceAmount, long totalAmount) { }
@@ -251,13 +282,13 @@ public class CustomerOrderService {
     public record OrderPage(List<OrderView> items, int page, int size, boolean hasNext) { }
 
     public record FulfillmentRequest(PickupFulfillment.Type type, UUID pickupLocationId, DeliveryRequest delivery) { }
-    public record DeliveryRequest(String receiverName, String receiverPhone, String address, String note) { }
+    public record DeliveryRequest(String receiverName, String receiverPhone, String provinceCode, String districtCode, String address, String note) { }
     private record FulfillmentIntent(PickupFulfillment.Type type, UUID pickupLocationId,
             PickupFulfillment.DeliveryDetails delivery) {
         String fingerprint() {
             if (type == PickupFulfillment.Type.PICKUP) return "PICKUP|" + pickupLocationId;
             return "DELIVERY|" + delivery.receiverName() + "|" + delivery.receiverPhone() + "|"
-                    + delivery.address() + "|" + (delivery.note() == null ? "" : delivery.note());
+                    + delivery.provinceCode()+"|"+delivery.districtCode()+"|"+delivery.address() + "|" + (delivery.note() == null ? "" : delivery.note());
         }
     }
 
@@ -277,7 +308,7 @@ public class CustomerOrderService {
             }
             DeliveryRequest delivery = request.delivery();
             return new FulfillmentIntent(request.type(), null, new PickupFulfillment.DeliveryDetails(
-                    delivery.receiverName(), delivery.receiverPhone(), delivery.address(), delivery.note()));
+                    delivery.receiverName(), delivery.receiverPhone(), delivery.provinceCode(), delivery.districtCode(), delivery.address(), delivery.note()));
         } catch (IllegalArgumentException invalid) {
             throw new InvalidRequestException("INVALID_FULFILLMENT", invalid.getMessage());
         }

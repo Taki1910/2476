@@ -12,9 +12,17 @@ import PickupDetailView from './views/PickupDetailView.vue'
 import OrderStatusView from './views/OrderStatusView.vue'
 import PosView from './views/PosView.vue'
 import ReportsView from './views/ReportsView.vue'
+import PeopleAccessView from './views/PeopleAccessView.vue'
+import ShippingRulesView from './views/ShippingRulesView.vue'
+import PromotionsView from './views/PromotionsView.vue'
+import StorefrontManagementView from './views/StorefrontManagementView.vue'
+import ProductPresentationsView from './views/ProductPresentationsView.vue'
 import LoginView from './views/LoginView.vue'
 import RegisterView from './views/RegisterView.vue'
 import AccessDeniedView from './views/AccessDeniedView.vue'
+import OffersView from './views/OffersView.vue'
+import OfferDetailView from './views/OfferDetailView.vue'
+import VouchersView from './views/VouchersView.vue'
 import { hasPermission, loadSession, loginDestination, session } from './session'
 import './styles.css'
 
@@ -25,6 +33,9 @@ const router = createRouter({
     { path: '/cart', name: 'cart', component: CartView },
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true, permission: 'ORDER_PLACE' } },
     { path: '/products/:id', name: 'product', component: ProductView },
+    { path: '/promotions', name: 'offers', component: OffersView },
+    { path: '/promotions/:familyId', name: 'offer-detail', component: OfferDetailView },
+    { path: '/account/vouchers', name: 'my-vouchers', component: VouchersView, meta: { requiresAuth: true, permission: 'ORDER_PLACE' } },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/register', name: 'register', component: RegisterView },
     { path: '/forbidden', name: 'forbidden', component: AccessDeniedView },
@@ -36,9 +47,14 @@ const router = createRouter({
     { path: '/operations/pickups/:id', redirect: to => `/operations/fulfillments/${to.params.id}` },
     { path: '/operations/pos', name: 'pos', component: PosView, meta: { requiresAuth: true, permission: 'POS_SELL' } },
     { path: '/operations/reports', name: 'reports', component: ReportsView, meta: { requiresAuth: true, permission: 'REPORT_VIEW' } },
+    { path: '/operations/people', name: 'people-access', component: PeopleAccessView, meta: { requiresAuth: true, permissions: ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'] } },
+    { path: '/operations/shipping', name: 'shipping-rules', component: ShippingRulesView, meta: { requiresAuth: true, permission: 'SHIPPING_RATE_MANAGE' } },
+    { path: '/operations/promotions', name: 'promotions', component: PromotionsView, meta: { requiresAuth: true, permission: 'PROMOTION_MANAGE' } },
+    { path: '/operations/storefront', name: 'storefront-management', component: StorefrontManagementView, meta: { requiresAuth: true, permission: 'STOREFRONT_MANAGE' } },
+    { path: '/operations/product-presentations', name: 'product-presentations', component: ProductPresentationsView, meta: { requiresAuth: true, permission: 'STOREFRONT_MANAGE' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: to => to.hash ? { el: to.hash, top: 16 } : { top: 0 },
 })
 
 router.beforeEach(async to => {
@@ -46,7 +62,8 @@ router.beforeEach(async to => {
   if (session.unavailable) return false
   if ((to.name === 'login' || to.name === 'register') && session.account) return loginDestination(to.query.returnTo, session.account)
   if (to.meta.requiresAuth && !session.account) return { path: '/login', query: { returnTo: to.fullPath } }
-  if (session.account && !hasPermission(to.meta.permission as string | undefined)) return '/forbidden'
+  const anyPermission = to.meta.permissions as string[] | undefined
+  if (session.account && (!hasPermission(to.meta.permission as string | undefined) || anyPermission && !anyPermission.some(hasPermission))) return '/forbidden'
 })
 
 createApp(App).use(router).mount('#app')

@@ -1,3 +1,9 @@
+# Commerce fixtures perform many logins; LoginRateLimitExternalIT overrides these with production limits.
+security:
+  login-rate-limit:
+    pair-limit: 10000
+    source-limit: 100000
+
 spring:
   config:
     activate:

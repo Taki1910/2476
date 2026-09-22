@@ -1,3 +1,5 @@
+> Remediation authority: [CURRENT_BASELINE](CURRENT_BASELINE.md), [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md), [ADR-0035](ADR/0035-voucher-family-claim-usage.md), [ADR-0036](ADR/0036-bounded-single-instance-login-throttle.md) and [API contracts](API/README.md). Earlier phase descriptions below remain historical where explicitly superseded.
+
 # Architecture — Blueprint v1.1.1
 
 ## Status and baseline
@@ -672,3 +674,4 @@ Java CV, which returns a proposal. Product-owned fit profiles and per-size
 ranges are read from SQL Server; no image, analysis result or AI-generated
 business mutation is persisted. Fit recommendation is deliberately separate
 from catalog variant selection and inventory availability.
+

@@ -261,7 +261,7 @@ public class PickupFulfillmentService {
                 fulfillment.createdAt(), fulfillment.pickingStartedAt(), fulfillment.preparedAt(),
                 fulfillment.handedOverAt(), fulfillment.dispatchedAt(), fulfillment.deliveredAt(),
                 fulfillment.cancelledAt(), fulfillment.receiverName(), fulfillment.receiverPhone(),
-                fulfillment.deliveryAddress(), fulfillment.deliveryNote(), fulfillment.deliveryFeeAmount());
+                fulfillment.deliveryAddress(), fulfillment.deliveryNote(), fulfillment.order().shippingFeeAmount());
     }
 
     private static void validateKey(String key) {

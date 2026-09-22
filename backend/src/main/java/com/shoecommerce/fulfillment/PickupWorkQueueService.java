@@ -28,7 +28,7 @@ public class PickupWorkQueueService {
                    fulfillments.handed_over_at, fulfillments.dispatched_at, fulfillments.delivered_at,
                    fulfillments.cancelled_at, fulfillments.receiver_name, fulfillments.receiver_phone,
                    fulfillments.delivery_address, fulfillments.delivery_note,
-                   fulfillments.delivery_fee_amount, voids.status void_status
+                   orders.shipping_fee_amount delivery_fee_amount, voids.status void_status
             FROM commerce_order orders
             JOIN commerce_order_item items ON items.order_id = orders.id
             JOIN org_location locations ON locations.public_id = items.location_public_id
