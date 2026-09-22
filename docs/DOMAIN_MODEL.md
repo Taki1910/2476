@@ -1,5 +1,11 @@
 # Domain Model — Blueprint v1.1.1
 
+Current implemented scope: [CURRENT_BASELINE](CURRENT_BASELINE.md). For C3,
+[ADR-0035](ADR/0035-voucher-family-claim-usage.md) supersedes conceptual
+VoucherIssuance names below: Family/Revision define the benefit, customer Claim
+records acquisition, and promotion_redemption records usage. Paid component
+ownership and legacy reversal compatibility follow [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md).
+
 ## Status
 
 Ownership rules inherited from governance are `CONFIRMED`; the v1.1.1

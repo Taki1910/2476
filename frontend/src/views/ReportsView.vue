@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api, type InventoryReport, type NetSalesReport, type ProductSalesReport, type ReconciliationReport, type ReportScope } from '../api'
 import { errorCopy, formatDateTime, formatVnd } from '../format'
 import { messageLabel, statusLabel, t } from '../i18n'
@@ -12,14 +12,39 @@ const reconciliation = ref<ReconciliationReport>()
 const filters = reactive({ locationId: '', fromDate: '', toDate: '', sku: '' })
 const state = reactive({ loadingScope: true, refreshing: false, error: '' })
 const refreshAnnouncement = ref('')
+let generation = 0
+let active = true
+function clearReports() {
+  net.value = undefined
+  products.value = undefined
+  inventory.value = undefined
+  reconciliation.value = undefined
+  refreshAnnouncement.value = ''
+}
+watch(() => [filters.locationId, filters.fromDate, filters.toDate, filters.sku], () => {
+  generation++
+  clearReports()
+  state.refreshing = false
+}, { flush: 'sync' })
+onBeforeUnmount(() => { active = false; generation++ })
 
 const location = computed(() => net.value?.context.scope)
 const exceptions = computed(() => reconciliation.value?.entries.filter(entry => entry.exception) ?? [])
 const financialEntries = computed(() => reconciliation.value?.entries.filter(entry => !entry.exception) ?? [])
 const hasReports = computed(() => Boolean(net.value && products.value && inventory.value && reconciliation.value))
 const lowStock = computed(() => inventory.value?.rows.filter(row => row.available <= 2).length ?? 0)
+const breakdown = computed(() => net.value ? [
+  ['Merchandise before discounts', net.value.merchandiseGross],
+  ['Item discounts', net.value.itemDiscount], ['Order discounts', net.value.orderDiscount],
+  ['Voucher discounts', net.value.voucherDiscount], ['Paid merchandise before reversals', net.value.merchandiseNetBeforeReversal],
+  ['Shipping before discounts', net.value.shippingGross], ['Shipping discounts', net.value.shippingDiscount],
+  ['Paid shipping before reversals', net.value.shippingNetBeforeReversal], ['Merchandise reversals', net.value.merchandiseVoids],
+  ['Shipping reversals', net.value.shippingVoids], ['Unallocated legacy reversals', net.value.unallocatedLegacyVoids],
+] as [string, string][] : [])
 
 async function refresh() {
+  const request = ++generation
+  clearReports()
   if (!filters.locationId || !filters.fromDate || !filters.toDate) return
   if (filters.fromDate >= filters.toDate) {
     state.error = t('From date must be before the exclusive to date.')
@@ -34,15 +59,16 @@ async function refresh() {
       api.inventoryReport(filters.locationId, filters.sku.trim()),
       api.reconciliation(filters.fromDate, filters.toDate, filters.locationId),
     ])
+    if (request !== generation) return
     net.value = nextNet
     products.value = nextProducts
     inventory.value = nextInventory
     reconciliation.value = nextReconciliation
     refreshAnnouncement.value = t('Reports refreshed. Data is current as of {time}.', { time: formatDateTime(nextNet.context.asOf) })
   } catch (error) {
-    state.error = errorCopy(error)
+    if (request === generation) state.error = errorCopy(error)
   } finally {
-    state.refreshing = false
+    if (request === generation) state.refreshing = false
   }
 }
 
@@ -51,6 +77,7 @@ async function loadScope() {
   state.error = ''
   try {
     scope.value = await api.reportScope()
+    if (!active) return
     filters.fromDate = scope.value.defaultFromDate
     filters.toDate = scope.value.defaultToDate
     filters.locationId = scope.value.locations[0]?.locationId ?? ''
@@ -70,9 +97,9 @@ onMounted(loadScope)
     <header class="reports-heading">
       <div>
         <p class="eyebrow">{{ t('Operations / branch-scoped reporting') }}</p>
-        <h1>{{ t('Sales & stock proof.') }}</h1>
+        <h1>{{ t('Revenue & inventory reports') }}</h1>
       </div>
-      <p>{{ t('Trace net sales back to successful payment, accepted cash, successful void allocations, and location-owned inventory evidence.') }}</p>
+      <p>{{ t('Review revenue, product sales, current inventory, and payment reconciliation for the selected location.') }}</p>
     </header>
 
     <div v-if="state.loadingScope" class="report-loading" role="status" aria-live="polite">
@@ -140,7 +167,7 @@ onMounted(loadScope)
         </dl>
 
         <nav class="report-index" :aria-label="t('Report sections')">
-          <a href="#net-sales">01 {{ t('Net sales') }}</a><a href="#product-sales">02 {{ t('Product sales') }}</a><a href="#inventory">03 {{ t('Inventory') }}</a><a href="#reconciliation">04 {{ t('Reconciliation') }}</a>
+          <a href="#net-sales">01 {{ t('Revenue overview') }}</a><a href="#product-sales">02 {{ t('Revenue by product') }}</a><a href="#inventory">03 {{ t('Current inventory') }}</a><a href="#reconciliation">04 {{ t('Payment reconciliation') }}</a><a href="#exceptions">05 {{ t('Transactions requiring review') }}</a>
         </nav>
 
         <section id="net-sales" class="report-section">
@@ -148,7 +175,7 @@ onMounted(loadScope)
             <p>01</p>
             <div>
               <p class="eyebrow">{{ t('Net sales') }} / VND</p>
-              <h2>{{ t('Money equation') }}</h2>
+              <h2>{{ t('Revenue overview') }}</h2>
             </div>
           </header>
           <div class="sales-equation" :aria-label="t('Online sales plus point of sale cash minus successful voids equals net sales')">
@@ -160,8 +187,16 @@ onMounted(loadScope)
             <b aria-hidden="true">=</b>
             <div class="equation-net"><span>{{ t('Net sales') }}</span><strong>{{ formatVnd(net!.netSales) }}</strong></div>
           </div>
-          <p class="report-note">{{ t('Gross {gross}. Unresolved financial exceptions: {count}, worth {amount}, excluded from the equation.', { gross: formatVnd(net!.grossSales), count: net!.exceptionCount, amount: formatVnd(net!.exceptionAmount) }) }}</p>
+          <p class="report-note">{{ t('Settled receipts {gross}. Financial exceptions: {count}, worth {amount}, excluded from the equation.', { gross: formatVnd(net!.grossSales), count: net!.exceptionCount, amount: formatVnd(net!.exceptionAmount) }) }}</p>
+          <div class="report-table-wrap" tabindex="0" :aria-label="t('Merchandise and shipping breakdown')">
+            <table class="responsive-report-table">
+              <thead><tr><th>{{ t('Merchandise and shipping breakdown') }}</th><th class="number">VND</th></tr></thead>
+              <tbody><tr v-for="[label, amount] in breakdown" :key="label"><th scope="row">{{ t(label) }}</th><td class="number">{{ formatVnd(amount) }}</td></tr></tbody>
+            </table>
+          </div>
+          <p v-if="net!.unallocatedLegacyVoids !== '0'" class="report-note" role="status">{{ t('Legacy reversals are not assigned to products. Review the legacy amount when reconciling product totals.') }}</p>
           <p class="report-note">{{ t('Sales channels are not cash counts. Online payments do not add to register cash.') }}</p>
+          <details class="cash-explanation"><summary>{{ t('How net revenue is calculated') }}</summary><p>{{ t('Online sales plus point of sale cash minus successful voids equals net sales') }}</p></details>
           <details class="cash-explanation"><summary>{{ t('Cash reconciliation') }}</summary><p>{{ t('Expected cash is accepted cash within a cashier shift. Actual counted cash and the difference are not recorded by this workflow.') }}</p></details>
         </section>
 
@@ -169,19 +204,19 @@ onMounted(loadScope)
           <header class="report-section-heading">
             <p>02</p>
             <div>
-              <p class="eyebrow">{{ t('Product sales / historical snapshots') }}</p>
-              <h2>{{ t('By SKU and size') }}</h2>
+              <p class="eyebrow">{{ t('Confirmed order prices') }}</p>
+              <h2>{{ t('Revenue by product') }}</h2>
             </div>
           </header>
           <div v-if="products!.rows.length" class="report-table-wrap" tabindex="0" :aria-label="t('Product sales table')">
             <table class="responsive-report-table">
-              <thead><tr><th>SKU</th><th>{{ t('Size') }}</th><th class="number">{{ t('Online') }}</th><th class="number">POS</th><th class="number">{{ t('Gross') }}</th><th class="number">{{ t('Voids') }}</th><th class="number">{{ t('Net') }}</th></tr></thead>
+              <thead><tr><th>SKU</th><th>{{ t('Size') }}</th><th class="number">{{ t('Gross') }}</th><th class="number">{{ t('Item discounts') }}</th><th class="number">{{ t('Order discounts') }}</th><th class="number">{{ t('Voucher discounts') }}</th><th class="number">{{ t('Paid merchandise before reversals') }}</th><th class="number">{{ t('Voids') }}</th><th class="number">{{ t('Net') }}</th></tr></thead>
               <tbody>
                 <tr v-for="row in products!.rows" :key="row.variantId">
-                  <th scope="row" data-label="SKU">{{ row.sku }}</th><td :data-label="t('Size')">{{ row.size }}</td><td class="number" :data-label="t('Online')">{{ formatVnd(row.onlineGross) }}</td><td class="number" data-label="POS">{{ formatVnd(row.posGross) }}</td><td class="number" :data-label="t('Gross')">{{ formatVnd(row.grossSales) }}</td><td class="number" :data-label="t('Voids')">{{ formatVnd(row.successfulVoids) }}</td><td class="number report-total" :data-label="t('Net')">{{ formatVnd(row.netSales) }}</td>
+                  <th scope="row" data-label="SKU">{{ row.sku }}</th><td :data-label="t('Size')">{{ row.size }}</td><td class="number" :data-label="t('Gross')">{{ formatVnd(row.grossSales) }}</td><td class="number" :data-label="t('Item discounts')">{{ formatVnd(row.itemDiscount) }}</td><td class="number" :data-label="t('Order discounts')">{{ formatVnd(row.orderDiscount) }}</td><td class="number" :data-label="t('Voucher discounts')">{{ formatVnd(row.voucherDiscount) }}</td><td class="number" :data-label="t('Paid merchandise before reversals')">{{ formatVnd(row.merchandiseNetBeforeReversal) }}</td><td class="number" :data-label="t('Voids')">{{ formatVnd(row.successfulVoids) }}</td><td class="number report-total" :data-label="t('Net')">{{ formatVnd(row.netSales) }}</td>
                 </tr>
               </tbody>
-              <tfoot><tr><th colspan="4" scope="row">{{ t('All reported products') }}</th><td class="number" :data-label="t('Gross')">{{ formatVnd(products!.grossSales) }}</td><td class="number" :data-label="t('Voids')">{{ formatVnd(products!.successfulVoids) }}</td><td class="number" :data-label="t('Net')">{{ formatVnd(products!.netSales) }}</td></tr></tfoot>
+              <tfoot><tr><th colspan="2" scope="row">{{ t('All reported products') }}</th><td class="number" :data-label="t('Gross')">{{ formatVnd(products!.grossSales) }}</td><td class="number" :data-label="t('Item discounts')">{{ formatVnd(products!.itemDiscount) }}</td><td class="number" :data-label="t('Order discounts')">{{ formatVnd(products!.orderDiscount) }}</td><td class="number" :data-label="t('Voucher discounts')">{{ formatVnd(products!.voucherDiscount) }}</td><td class="number" :data-label="t('Paid merchandise before reversals')">{{ formatVnd(products!.merchandiseNetBeforeReversal) }}</td><td class="number" :data-label="t('Voids')">{{ formatVnd(products!.successfulVoids) }}</td><td class="number" :data-label="t('Net')">{{ formatVnd(products!.netSales) }}</td></tr></tfoot>
             </table>
           </div>
           <p v-else class="inline-empty">{{ t('No successful sales or voids fall inside this interval.') }}</p>
@@ -191,8 +226,8 @@ onMounted(loadScope)
           <header class="report-section-heading">
             <p>03</p>
             <div>
-              <p class="eyebrow">{{ t('Inventory / current at as-of') }}</p>
-              <h2>{{ t('Balance and evidence') }}</h2>
+              <p class="eyebrow">{{ t('Current at report time') }}</p>
+              <h2>{{ t('Current inventory') }}</h2>
             </div>
           </header>
           <div v-if="inventory!.rows.length" class="report-table-wrap" tabindex="0" :aria-label="t('Inventory balance table')">
@@ -232,12 +267,12 @@ onMounted(loadScope)
           <header class="report-section-heading">
             <p>04</p>
             <div>
-              <p class="eyebrow">{{ t('Financial Reconciliation') }}</p><h2>{{ t('Included facts & exceptions') }}</h2>
+              <p class="eyebrow">{{ t('Recorded payment sources') }}</p><h2>{{ t('Payment reconciliation') }}</h2>
             </div>
           </header>
-          <section class="exception-ledger" :data-empty="exceptions.length === 0">
-            <h3>{{ t('Needs attention') }} <span>{{ exceptions.length }}</span></h3>
-            <p v-if="!exceptions.length">{{ t('No UNKNOWN, RELEASED, or REVIEW_REQUIRED entries in this interval.') }}</p>
+          <section id="exceptions" class="exception-ledger" :data-empty="exceptions.length === 0">
+            <h3>{{ t('Transactions requiring review') }} <span>{{ exceptions.length }}</span></h3>
+            <p v-if="!exceptions.length">{{ t('No payment reconciliation issue requires review in this interval.') }}</p>
             <p v-else>{{ t('Exception evidence stays visible and does not count as a successful sale or void.') }}</p>
             <ol v-if="exceptions.length" class="reconciliation-list">
               <li v-for="entry in exceptions" :key="entry.referenceId">
@@ -247,12 +282,12 @@ onMounted(loadScope)
                 <details class="exception-details">
                   <summary>{{ t('Details and next action') }}</summary>
                   <dl>
-                    <div><dt>{{ t('Evidence reference') }}</dt><dd>{{ entry.referenceId }}</dd></div>
+                    <div><dt>{{ t('Transaction reference') }}</dt><dd>{{ entry.referenceId }}</dd></div>
                     <div><dt>{{ t('Order reference') }}</dt><dd>{{ entry.orderId }}</dd></div>
                     <div><dt>{{ t('Occurred') }}</dt><dd><time :datetime="entry.occurredAt">{{ formatDateTime(entry.occurredAt) }}</time> · Asia/Ho_Chi_Minh</dd></div>
-                    <div><dt>{{ t('Net effect') }}</dt><dd class="money">{{ formatVnd(entry.netEffect) }}</dd></div>
+                    <div><dt>{{ t('Revenue impact') }}</dt><dd class="money">{{ formatVnd(entry.netEffect) }}</dd></div>
                   </dl>
-                  <p><strong>{{ t('Status explanation') }}:</strong> {{ t(entry.category === 'PAYMENT_REVIEW' ? 'The provider reported payment, but the order was not confirmed. This amount is not recognized as a completed sale.' : 'The reversal outcome is unresolved or its allocation was released. It is not a successful void.') }}</p>
+                  <p><strong>{{ t('Reason for review') }}:</strong> {{ t(entry.category === 'PAYMENT_REVIEW' ? 'The provider reported payment, but the order was not confirmed. This amount is not recognized as a completed sale.' : 'The reversal outcome is unresolved or its allocation was released. It is not a successful void.') }}</p>
                   <p>{{ t('This report is read-only. A specific provider reason and a resolution action are not exposed. Keep both references for the authorized financial review.') }}</p>
                 </details>
               </li>
@@ -260,7 +295,7 @@ onMounted(loadScope)
           </section>
           <div v-if="financialEntries.length" class="report-table-wrap" tabindex="0" :aria-label="t('Financial reconciliation table')">
             <table class="responsive-report-table">
-              <thead><tr><th>{{ t('Source') }}</th><th>{{ t('Status') }}</th><th>{{ t('Order') }}</th><th>{{ t('Occurred') }}</th><th class="number">{{ t('Amount') }}</th><th class="number">{{ t('Net effect') }}</th></tr></thead>
+              <thead><tr><th>{{ t('Payment source') }}</th><th>{{ t('Status') }}</th><th>{{ t('Order') }}</th><th>{{ t('Occurred') }}</th><th class="number">{{ t('Amount') }}</th><th class="number">{{ t('Revenue impact') }}</th></tr></thead>
               <tbody><tr v-for="entry in financialEntries" :key="entry.referenceId"><th scope="row" :data-label="t('Source')">{{ statusLabel(entry.category) }}</th><td :data-label="t('Status')">{{ statusLabel(entry.status) }}</td><td :data-label="t('Order')"><code>{{ entry.orderId }}</code></td><td :data-label="t('Occurred')">{{ formatDateTime(entry.occurredAt) }}</td><td class="number" :data-label="t('Amount')">{{ formatVnd(entry.amount) }}</td><td class="number report-total" :data-label="t('Net effect')">{{ formatVnd(entry.netEffect) }}</td></tr></tbody>
             </table>
           </div>

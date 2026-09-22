@@ -43,6 +43,7 @@ class SqlServerContainerIT {
 
         assertThat(jdbcTemplate.queryForObject("SELECT DB_NAME()", String.class)).isNotBlank();
         assertThat(migrationCount).isEqualTo(15);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE version='24' AND success=1",Integer.class)).isOne();
         assertThat(clock.getZone()).isEqualTo(ZoneOffset.UTC);
     }
 }

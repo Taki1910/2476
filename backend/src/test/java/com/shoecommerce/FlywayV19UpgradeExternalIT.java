@@ -17,11 +17,11 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 class FlywayV19UpgradeExternalIT {
 
     @Test
-    void upgradesARealPopulatedV19DatabaseToV20() throws Exception {
+    void upgradesARealPopulatedV20DatabaseToV21() throws Exception {
         String sourceUrl = System.getenv("SPRING_DATASOURCE_URL");
         String username = System.getenv("SPRING_DATASOURCE_USERNAME");
         String password = System.getenv("SPRING_DATASOURCE_PASSWORD");
-        String databaseName = "shoe_commerce_phase17_v19_" + UUID.randomUUID().toString().replace("-", "");
+        String databaseName = "shoe_commerce_phaseb_v20_" + UUID.randomUUID().toString().replace("-", "");
         String masterUrl = withDatabase(sourceUrl, "master");
         String upgradeUrl = withDatabase(sourceUrl, databaseName);
         boolean created = false;
@@ -31,15 +31,14 @@ class FlywayV19UpgradeExternalIT {
                 statement.execute("CREATE DATABASE [" + databaseName + "]");
             }
             created = true;
-
             Flyway.configure().dataSource(upgradeUrl, username, password).locations("classpath:db/migration")
-                    .target("19").load().migrate();
+                    .target("20").load().migrate();
             assertThat(count(upgradeUrl, username, password,
                     "SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version IS NOT NULL"))
-                    .isEqualTo(19);
+                    .isEqualTo(20);
             assertThat(count(upgradeUrl, username, password,
                     "SELECT COUNT(*) FROM sys.tables WHERE name = 'catalog_shoe_fit_profile'"))
-                    .isZero();
+                    .isOne();
 
             UUID product = UUID.randomUUID();
             UUID variant = UUID.randomUUID();
@@ -63,6 +62,12 @@ class FlywayV19UpgradeExternalIT {
                     .load().migrate();
             assertThat(count(upgradeUrl, username, password,
                     "SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version = '20'"))
+                    .isOne();
+            assertThat(count(upgradeUrl, username, password,
+                    "SELECT COUNT(*) FROM dbo.flyway_schema_history WHERE success = 1 AND version = '21'"))
+                    .isOne();
+            assertThat(count(upgradeUrl, username, password,
+                    "SELECT COUNT(*) FROM iam_permission WHERE code = 'STAFF_MANAGE_SCOPED'"))
                     .isOne();
             assertThat(count(upgradeUrl, username, password,
                     "SELECT COUNT(*) FROM sys.tables WHERE name IN ('catalog_shoe_fit_profile', 'catalog_shoe_fit_size_range')"))

@@ -66,3 +66,12 @@ The acceptance gate required that:
 
 That progression is recorded in the MVP baseline acceptance history. Future
 changes to an accepted decision follow the supersession rules above.
+
+## Current remediation decisions
+
+- [0034 — Paid components, legacy reversal and reporting](0034-paid-component-reversal-and-reporting.md)
+- [0035 — Voucher family, claim and usage](0035-voucher-family-claim-usage.md)
+- [0036 — Bounded single-instance login throttle](0036-bounded-single-instance-login-throttle.md)
+
+Accepted through the current remediation plan approval; implementation evidence is recorded separately in CURRENT_BASELINE.
+

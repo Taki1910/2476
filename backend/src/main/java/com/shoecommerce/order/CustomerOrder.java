@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import com.shoecommerce.pricing.VariantPrice;
+import java.math.BigDecimal;
 
 import jakarta.persistence.*;
 
@@ -30,6 +31,19 @@ public class CustomerOrder {
     @Column(name = "price_version_public_id") private UUID priceVersionPublicId;
     @Column(name = "cart_quote_public_id") private UUID cartQuotePublicId;
     @Column(name = "checkout_fingerprint", length = 64) private String checkoutFingerprint;
+    @Column(name = "merchandise_amount", nullable = false, precision = 19, scale = 0) private BigDecimal merchandiseAmount;
+    @Column(name = "calculation_policy", nullable = false, length = 16) private String calculationPolicy = "VND_V1";
+    @Column(name = "merchandise_discount_amount", nullable = false, precision = 19, scale = 0) private BigDecimal merchandiseDiscountAmount = BigDecimal.ZERO;
+    @Column(name = "shipping_fee_amount", nullable = false, precision = 19, scale = 0) private BigDecimal shippingFeeAmount;
+    @Column(name = "shipping_discount_amount", nullable = false, precision = 19, scale = 0) private BigDecimal shippingDiscountAmount = BigDecimal.ZERO;
+    @Column(name = "total_amount", nullable = false, precision = 19, scale = 0) private BigDecimal total;
+    @Column(name = "shipping_rule_public_id") private UUID shippingRulePublicId;
+    @Column(name = "shipping_zone_code", length = 32) private String shippingZoneCode;
+    @Column(name = "shipping_origin_location_public_id") private UUID shippingOriginLocationId;
+    @Column(name = "shipping_origin_branch_public_id") private UUID shippingOriginBranchId;
+    @Column(name = "destination_province_code", length = 12) private String destinationProvinceCode;
+    @Column(name = "destination_district_code", length = 12) private String destinationDistrictCode;
+    @Column(name = "shipping_quoted_at") private Instant shippingQuotedAt;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("id ASC") private List<OrderItem> items = new ArrayList<>();
 
@@ -48,6 +62,7 @@ public class CustomerOrder {
         order.status = Status.PENDING_PAYMENT;
         order.createdAt = now;
         order.items.add(OrderItem.create(order, variantPublicId, locationPublicId, quantity, unitPriceAmount));
+        order.setMoney(Math.multiplyExact(quantity, unitPriceAmount), 0);
         return order;
     }
 
@@ -67,6 +82,7 @@ public class CustomerOrder {
         order.status = Status.PENDING_PAYMENT;
         order.createdAt = now;
         order.items.add(OrderItem.createCheckout(order, variantPublicId, locationPublicId, sku, size, quantity, unitPriceAmount));
+        order.setMoney(Math.multiplyExact(quantity, unitPriceAmount), 0);
         return order;
     }
 
@@ -86,11 +102,14 @@ public class CustomerOrder {
         order.paidAt = now;
         order.items.add(OrderItem.createCheckout(order, variantPublicId, locationPublicId,
                 sku, size, 1, unitPriceAmount));
+        order.setMoney(unitPriceAmount, 0);
         return order;
     }
 
     static CustomerOrder createCart(UUID ownerId, UUID branchId, UUID quoteId, String key, String fingerprint,
-            List<ItemFacts> lines, List<UUID> priceVersionIds, Instant now) {
+            List<ItemFacts> lines, List<UUID> priceVersionIds, long merchandise,long merchandiseDiscount, long shippingFee,long shippingDiscount,
+            UUID shippingRuleId, String shippingZone, UUID shippingOriginLocation, UUID shippingOriginBranch,
+            String destinationProvince, String destinationDistrict, Instant shippingQuotedAt, Instant now) {
         if (ownerId == null || branchId == null || quoteId == null || now == null || lines.isEmpty()
                 || lines.size() != priceVersionIds.size()
                 || lines.stream().map(ItemFacts::variantId).distinct().count() != lines.size()
@@ -106,8 +125,22 @@ public class CustomerOrder {
         for (int index = 0; index < lines.size(); index++) {
             order.items.add(OrderItem.createCart(order, lines.get(index), priceVersionIds.get(index)));
         }
+        order.shippingRulePublicId=shippingRuleId; order.shippingZoneCode=shippingZone;
+        order.shippingOriginLocationId=shippingOriginLocation; order.shippingOriginBranchId=shippingOriginBranch;
+        order.destinationProvinceCode=destinationProvince; order.destinationDistrictCode=destinationDistrict;
+        order.shippingQuotedAt=shippingRuleId==null?null:shippingQuotedAt;
+        order.setMoney(merchandise,merchandiseDiscount,shippingFee,shippingDiscount);
         order.totalAmount();
         return order;
+    }
+
+    private void setMoney(long merchandise,long shipping){
+        setMoney(merchandise,0,shipping,0);
+    }
+    private void setMoney(long merchandise,long merchandiseDiscount,long shipping,long shippingDiscount){
+        long payable=Math.addExact(merchandise-merchandiseDiscount,shipping-shippingDiscount);
+        if(merchandise<=0||shipping<0||payable>VariantPrice.MAX_AMOUNT) throw new IllegalArgumentException("Order total exceeds supported range");
+        merchandiseAmount=BigDecimal.valueOf(merchandise);merchandiseDiscountAmount=BigDecimal.valueOf(merchandiseDiscount); shippingFeeAmount=BigDecimal.valueOf(shipping);shippingDiscountAmount=BigDecimal.valueOf(shippingDiscount); total=BigDecimal.valueOf(payable);
     }
 
     boolean cancel(Instant now) { if (status == Status.CANCELLED) return false; if (status != Status.PENDING_PAYMENT) throw new IllegalStateException("Order is not cancellable"); status = Status.CANCELLED; cancelledAt = now; return true; }
@@ -132,17 +165,22 @@ public class CustomerOrder {
     public boolean cartCheckout() { return cartQuotePublicId != null; }
     String checkoutFingerprint() { return checkoutFingerprint; }
     long totalAmount() {
-        long total = 0;
-        for (OrderItem item : items) total = Math.addExact(total, item.totalAmount());
-        if (total <= 0 || total > VariantPrice.MAX_AMOUNT) throw new IllegalArgumentException("Order total exceeds supported range");
-        return total;
+        long itemsTotal = 0;
+        for (OrderItem item : items) itemsTotal = Math.addExact(itemsTotal, item.totalAmount());
+        if (merchandiseAmount.longValueExact()!=itemsTotal || total.longValueExact()!=Math.addExact(itemsTotal-merchandiseDiscountAmount.longValueExact(),shippingFeeAmount.longValueExact()-shippingDiscountAmount.longValueExact()))
+            throw new IllegalStateException("Order monetary snapshot is inconsistent");
+        return total.longValueExact();
     }
+    public long merchandiseAmount(){return merchandiseAmount.longValueExact();}
+    public long shippingFeeAmount(){return shippingFeeAmount.longValueExact();}
+    public long merchandiseDiscountAmount(){return merchandiseDiscountAmount.longValueExact();}
+    public long shippingDiscountAmount(){return shippingDiscountAmount.longValueExact();}
     UUID priceQuotePublicId() { return priceQuotePublicId; }
     String checkoutIdempotencyKey() { return checkoutIdempotencyKey; }
     UUID priceVersionPublicId() { return priceVersionPublicId; }
     public PaymentFacts paymentFacts() { return new PaymentFacts(publicId, ownerAccountPublicId, responsibleBranchPublicId,
             items.stream().map(OrderItem::facts).toList(), status == Status.PENDING_PAYMENT, status == Status.PAID,
-            totalAmount(), currency, paidAt); }
+            merchandiseAmount(), shippingFeeAmount(), totalAmount(), currency, paidAt); }
     public ReceiptFacts receiptFacts() { OrderItem item = item(); return new ReceiptFacts(publicId, responsibleBranchPublicId,
             priceVersionPublicId, channel.name(), status.name(), createdAt, paidAt, item.variantPublicId(),
             item.locationPublicId(), item.skuSnapshot(), item.sizeSnapshot(), item.quantity(),
@@ -150,7 +188,8 @@ public class CustomerOrder {
     public record ItemFacts(UUID orderItemId, UUID reservationId, UUID variantId, UUID locationId,
             long quantity, String sku, String size, String color, long unitPriceAmount, long totalAmount) { }
     public record PaymentFacts(UUID orderId, UUID ownerAccountId, UUID responsibleBranchId, List<ItemFacts> items,
-            boolean pendingPayment, boolean paid, long totalAmount, String currency, Instant paidAt) {
+            boolean pendingPayment, boolean paid, long merchandiseAmount, long shippingFeeAmount, long totalAmount,
+            String currency, Instant paidAt) {
         public List<UUID> reservationIds() { return items.stream().map(ItemFacts::reservationId).toList(); }
         public UUID locationId() { return items.getFirst().locationId(); }
         private ItemFacts single() { if (items.size() != 1) throw new IllegalStateException("Single-item contract requires one line"); return items.getFirst(); }

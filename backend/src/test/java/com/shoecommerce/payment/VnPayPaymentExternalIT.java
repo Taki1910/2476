@@ -67,6 +67,7 @@ import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.pricing.PriceQuoteService;
 import com.shoecommerce.pricing.CartQuoteService;
+import com.shoecommerce.promotion.PromotionService;
 import org.slf4j.MDC;
 import com.shoecommerce.platform.api.CorrelationIdFilter;
 
@@ -92,6 +93,7 @@ class VnPayPaymentExternalIT {
     @Autowired CatalogService catalog;
     @Autowired PriceQuoteService pricing;
     @Autowired CartQuoteService cartPricing;
+    @Autowired PromotionService promotions;
     @Autowired CustomerOrderService orders;
     @Autowired CustomerOrderRepository orderRepository;
     @Autowired InventoryReservationService reservations;
@@ -105,6 +107,8 @@ class VnPayPaymentExternalIT {
     @Autowired PickupCancellationService cancellations;
     @Autowired PickupCancellationTransactionService cancellationTransactions;
     @Autowired VoidService voids;
+    @Autowired com.shoecommerce.order.OrderPaidComponents paidComponents;
+    @Autowired com.shoecommerce.reporting.ReportingService reports;
     @Autowired VoidResultService voidResults;
     @Autowired TestVoidProvider voidProvider;
     @Autowired TransactionTemplate transactions;
@@ -113,7 +117,7 @@ class VnPayPaymentExternalIT {
     @LocalServerPort int port;
 
     @BeforeEach
-    void resetClock() { clock.set(TEST_NOW); }
+    void resetClock() { clock.set(TEST_NOW);jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE status='PUBLISHED'",Timestamp.from(TEST_NOW)); }
 
     @Test
     void verifiedSuccessCommitsInventoryExactlyOnceAndPaidHoldCannotExpire() {
@@ -193,6 +197,202 @@ class VnPayPaymentExternalIT {
                         + "JOIN commerce_order orders ON orders.id = payments.order_id "
                         + "WHERE orders.public_id = ? AND attempts.status = 'PENDING'",
                 Integer.class, flow.orderId())).isOne();
+    }
+
+    @Test
+    void limitedPromotionUsageMovesReservedToRedeemedOnceAndFailedAttemptKeepsItReserved() {
+        Flow paid=promotedFlow("promo-paid",2); var success=verified(paid,"8211000001",115_000,"00","00");
+        assertThat(redemption(paid)).isEqualTo("RESERVED");
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.ALREADY_PROCESSED);
+        assertThat(redemption(paid)).isEqualTo("REDEEMED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,paid.orderId())).isOne();
+
+        Flow failed=promotedFlow("promo-failed",1);
+        assertThat(results.apply(verified(failed,"8211000002",115_000,"24","02"))).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(redemption(failed)).isEqualTo("RESERVED");
+    }
+
+    @Test
+    void successfulFinancialVoidDoesNotReturnConsumedPromotionCapacity() {
+        Flow flow=promotedFlow("promo-void",1);
+        assertThat(results.apply(verified(flow,"8211000003",115_000,"00","00"))).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        var pickup=fulfillments.create(flow.operations(),flow.orderId());fulfillments.startPicking(flow.operations(),pickup.id());fulfillments.prepare(flow.operations(),pickup.id());
+        assertThat(cancellations.cancel(flow.customer(),flow.orderId(),"promo-void").financialVoid().status()).isEqualTo("SUCCEEDED");
+        assertThat(redemption(flow)).isEqualTo("REDEEMED");
+    }
+
+    @Test
+    void paymentAndUnpaidCancellationRaceKeepsOrderAndPromotionLifecycleConsistent() throws Exception {
+        Flow flow=promotedFlow("promo-race",1);var verified=verified(flow,"8211000004",115_000,"00","00");
+        CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){
+            var payment=executor.submit(()->race(ready,start,()->results.apply(verified)));
+            var cancellation=executor.submit(()->race(ready,start,()->orders.cancelOwn(flow.customer(),flow.orderId())));
+            assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();start.countDown();outcomes=List.of(payment.get(20,TimeUnit.SECONDS),cancellation.get(20,TimeUnit.SECONDS));
+        } finally {start.countDown();}
+        String order=orders.readOwn(flow.customer(),flow.orderId()).status(),usage=redemption(flow);
+        assertThat((order.equals("PAID")&&usage.equals("REDEEMED"))||(order.equals("CANCELLED")&&usage.equals("RELEASED"))).isTrue();
+        assertThat(outcomes).hasSize(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,flow.orderId())).isOne();
+    }
+
+    @Test
+    void selectedClaimFailureRetryAndDuplicateSuccessUseOneRedemptionAcrossRevisions() {
+        VoucherFlow voucher=voucherFlow("claim-lifecycle","CLAIMABLE",null,null,10_000);
+        assertThat(redemption(voucher.flow())).isEqualTo("RESERVED");
+        var failed=provider.verify(signedCallback(voucher.flow().attempt().merchantTransactionReference(),Long.toUnsignedString(UUID.randomUUID().getLeastSignificantBits()),voucher.flow().facts().totalAmount(),"24","02"));
+        assertThat(results.apply(failed)).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(redemption(voucher.flow())).isEqualTo("RESERVED");
+        assertThatThrownBy(()->cartPricing.quote(voucher.flow().customer(),voucher.lines(),null,PromotionService.VoucherSelection.claim(voucher.claim())))
+                .isInstanceOfAny(BusinessConflictException.class,com.shoecommerce.platform.api.InvalidRequestException.class);
+        var retry=payments.initiate(voucher.flow().customer(),voucher.flow().facts().orderId(),"claim-retry").attempt();
+        var success=provider.verify(signedCallback(retry.merchantTransactionReference(),Long.toUnsignedString(UUID.randomUUID().getLeastSignificantBits()),voucher.flow().facts().totalAmount(),"00","00"));
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.ALREADY_PROCESSED);
+        assertThat(redemption(voucher.flow())).isEqualTo("REDEEMED");
+        jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE public_id=?",Timestamp.from(clock.instant()),voucher.revision());
+        voucherRevision(voucher.flow().customer(),voucher.family(),2,20_000,null);
+        assertThatThrownBy(()->cartPricing.quote(voucher.flow().customer(),voucher.lines(),null,PromotionService.VoucherSelection.claim(voucher.claim())))
+                .isInstanceOfAny(BusinessConflictException.class,com.shoecommerce.platform.api.InvalidRequestException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,voucher.flow().facts().orderId())).isOne();
+    }
+
+    @Test
+    void selectedCodeCancellationAndExpiryReleaseCapacityWithoutDeletingEvidence() {
+        VoucherFlow first=voucherFlow("code-release","CODE","RELEASE-C3",1L,10_000);
+        orders.cancelOwn(first.flow().customer(),first.flow().facts().orderId());
+        orders.cancelOwn(first.flow().customer(),first.flow().facts().orderId());
+        assertThat(redemption(first.flow())).isEqualTo("RELEASED");
+        VoucherFlow second=voucherOrder(first,"code-after-cancel");
+        clock.set(second.flow().attempt().expiresAt());
+        expiry.expireForVariant(second.flow().facts().items().getFirst().variantId());
+        expiry.expireForVariant(second.flow().facts().items().getFirst().variantId());
+        assertThat(redemption(second.flow())).isEqualTo("RELEASED");
+        VoucherFlow third=voucherOrder(first,"code-after-expiry");
+        assertThat(redemption(third.flow())).isEqualTo("RESERVED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE promotion_revision_public_id=?",Integer.class,first.revision())).isEqualTo(3);
+    }
+
+    @Test
+    void expiredCallbackReleasesClaimAndReplayIsSafe() {
+        assertExpiredCallbackReleasesVoucher("CLAIMABLE", null);
+    }
+
+    @Test
+    void expiredCallbackReleasesLimitedCodeAndReplayIsSafe() {
+        assertExpiredCallbackReleasesVoucher("CODE", "LATE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(java.util.Locale.ROOT));
+    }
+
+    private void assertExpiredCallbackReleasesVoucher(String mode, String code) {
+        VoucherFlow voucher = voucherFlow("late-" + mode, mode, code, 1L, 10_000);
+        CartFlow flow = voucher.flow();
+        UUID orderId = flow.facts().orderId();
+        var before = cartBalances(flow);
+        var callback = cartSuccess(flow);
+        assertCartState(flow, "PENDING_PAYMENT", "ADOPTED");
+        assertThat(payments.readOwn(flow.customer(), flow.attempt().id()).status()).isEqualTo("PENDING");
+        assertThat(redemption(flow)).isEqualTo("RESERVED");
+
+        // Callback, not the normal expiry service, must discover the expired hold.
+        clock.set(flow.attempt().expiresAt().plusSeconds(1));
+        assertThat(results.apply(callback)).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertCartState(flow, "CANCELLED", "EXPIRED");
+        assertThat(cartBalances(flow)).isEqualTo(before.stream()
+                .map(balance -> new Balance(balance.onHand(), 0, balance.onHand())).toList());
+        assertThat(payments.readOwn(flow.customer(), flow.attempt().id()).status()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='PAYMENT_REVIEW_REQUIRED' AND resource_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_stock_movement WHERE order_public_id=?", Integer.class, orderId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_void_operation WHERE order_public_id=?", Integer.class, orderId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment WHERE order_id=(SELECT id FROM commerce_order WHERE public_id=?)",
+                Integer.class, orderId)).isOne();
+        var attemptEvidence = jdbc.queryForMap("SELECT * FROM payment_attempt WHERE public_id=?", flow.attempt().id());
+        var usageEvidence = jdbc.queryForMap("SELECT * FROM promotion_redemption WHERE order_public_id=?", orderId);
+        var orderEvidence = orders.readOwn(flow.customer(), orderId);
+
+        assertThat(results.apply(callback)).isEqualTo(VerifiedPaymentResultService.Result.ALREADY_PROCESSED);
+        expiry.expireForVariant(voucher.lines().getFirst().variantId());
+        assertThat(orders.readOwn(flow.customer(), orderId)).isEqualTo(orderEvidence);
+        assertCartState(flow, "CANCELLED", "EXPIRED");
+        assertThat(cartBalances(flow)).isEqualTo(before.stream()
+                .map(balance -> new Balance(balance.onHand(), 0, balance.onHand())).toList());
+        assertThat(jdbc.queryForMap("SELECT * FROM payment_attempt WHERE public_id=?", flow.attempt().id())).isEqualTo(attemptEvidence);
+        assertThat(jdbc.queryForMap("SELECT * FROM promotion_redemption WHERE order_public_id=?", orderId)).isEqualTo(usageEvidence);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='PAYMENT_REVIEW_REQUIRED' AND resource_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM inventory_stock_movement WHERE order_public_id=?", Integer.class, orderId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_void_operation WHERE order_public_id=?", Integer.class, orderId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt WHERE payment_id=(SELECT id FROM payment WHERE order_id=(SELECT id FROM commerce_order WHERE public_id=?))",
+                Integer.class, orderId)).isOne();
+        assertThat(redemption(flow)).isEqualTo("RELEASED");
+        assertThat(usageEvidence.get("released_at")).isNotNull();
+
+        VoucherFlow reused = voucherOrder(voucher, "callback-expiry-reuse-" + mode);
+        assertThat(redemption(reused.flow())).isEqualTo("RESERVED");
+        var success = cartSuccess(reused.flow());
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(results.apply(success)).isEqualTo(VerifiedPaymentResultService.Result.ALREADY_PROCESSED);
+        assertCartState(reused.flow(), "PAID", "COMMITTED");
+        assertThat(redemption(reused.flow())).isEqualTo("REDEEMED");
+        assertThat(redemption(flow)).isEqualTo("RELEASED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE promotion_revision_public_id=?",
+                Integer.class, voucher.revision())).isEqualTo(2);
+    }
+
+    @Test
+    void unlimitedSelectedCodePaysWithoutCreatingRedemption() {
+        VoucherFlow voucher=voucherFlow("code-unlimited","CODE","UNLIMITED-C3",null,10_000);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,voucher.flow().facts().orderId())).isZero();
+        assertThat(results.apply(cartSuccess(voucher.flow()))).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,voucher.flow().facts().orderId())).isZero();
+    }
+
+    @Test
+    void selectedClaimPaymentAndCancellationRaceEndsInOneCoherentState() throws Exception {
+        VoucherFlow voucher=voucherFlow("claim-pay-cancel","CLAIMABLE",null,null,10_000);var success=cartSuccess(voucher.flow());
+        CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){var payment=executor.submit(()->race(ready,start,()->results.apply(success)));var cancel=executor.submit(()->race(ready,start,()->orders.cancelOwn(voucher.flow().customer(),voucher.flow().facts().orderId())));assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();start.countDown();outcomes=List.of(payment.get(20,TimeUnit.SECONDS),cancel.get(20,TimeUnit.SECONDS));}finally{start.countDown();}
+        String order=orders.readOwn(voucher.flow().customer(),voucher.flow().facts().orderId()).status(),usage=redemption(voucher.flow());
+        assertThat(("PAID".equals(order)&&"REDEEMED".equals(usage))||("CANCELLED".equals(order)&&"RELEASED".equals(usage))).isTrue();
+        assertThat(outcomes).hasSize(2);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption WHERE order_public_id=?",Integer.class,voucher.flow().facts().orderId())).isOne();
+    }
+
+    @Test
+    void claimReleaseAndNewCheckoutRaceNeverCreatesTwoConsumingRows() throws Exception {
+        VoucherFlow voucher=voucherFlow("claim-release-race","CLAIMABLE",null,null,10_000);CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);List<Object> outcomes;
+        try(var executor=Executors.newFixedThreadPool(2)){
+            var release=executor.submit(()->race(ready,start,()->orders.cancelOwn(voucher.flow().customer(),voucher.flow().facts().orderId())));
+            var checkout=executor.submit(()->{ready.countDown();await(start);try{var quote=cartPricing.quote(voucher.flow().customer(),voucher.lines(),null,PromotionService.VoucherSelection.claim(voucher.claim()));return orders.checkoutCart(voucher.flow().customer(),quote.id(),voucher.lines(),"claim-release-race-b");}catch(RuntimeException rejected){return rejected;}});
+            assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();start.countDown();outcomes=List.of(release.get(20,TimeUnit.SECONDS),checkout.get(20,TimeUnit.SECONDS));
+        }finally{start.countDown();}
+        int consuming=jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption r JOIN promotion p ON p.public_id=r.promotion_revision_public_id WHERE p.family_public_id=? AND r.customer_account_public_id=? AND r.status IN ('RESERVED','REDEEMED')",Integer.class,voucher.family(),voucher.flow().customer().publicId());
+        assertThat(consuming).isLessThanOrEqualTo(1);assertThat(outcomes).hasSize(2);
+        if(consuming==0){var quote=cartPricing.quote(voucher.flow().customer(),voucher.lines(),null,PromotionService.VoucherSelection.claim(voucher.claim()));orders.checkoutCart(voucher.flow().customer(),quote.id(),voucher.lines(),"claim-after-release-race");}
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM promotion_redemption r JOIN promotion p ON p.public_id=r.promotion_revision_public_id WHERE p.family_public_id=? AND r.customer_account_public_id=? AND r.status IN ('RESERVED','REDEEMED')",Integer.class,voucher.family(),voucher.flow().customer().publicId())).isOne();
+    }
+
+    @Test
+    void selectedClaimPaidVoidStaysRedeemedAndCannotBeHeldAgain() {
+        VoucherFlow voucher=voucherFlow("claim-void","CLAIMABLE",null,null,10_000);
+        assertThat(results.apply(cartSuccess(voucher.flow()))).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(cancellations.cancel(voucher.flow().customer(),voucher.flow().facts().orderId(),"claim-void").financialVoid().status()).isEqualTo("SUCCEEDED");
+        assertThat(redemption(voucher.flow())).isEqualTo("REDEEMED");
+        assertThatThrownBy(()->cartPricing.quote(voucher.flow().customer(),voucher.lines(),null,PromotionService.VoucherSelection.claim(voucher.claim())))
+                .isInstanceOfAny(BusinessConflictException.class,com.shoecommerce.platform.api.InvalidRequestException.class);
+    }
+
+    @Test
+    void selectedVoucherHistoryUsesOwnedOrderSnapshotsAfterCurrentStateMutates() {
+        VoucherFlow voucher=voucherFlow("claim-history","CLAIMABLE",null,null,10_000);
+        var before=orders.readOwn(voucher.flow().customer(),voucher.flow().facts().orderId()).adjustments();
+        jdbc.update("UPDATE promotion SET status='INVALIDATED',invalidated_at=?,name='MUTATED' WHERE public_id=?",Timestamp.from(clock.instant()),voucher.revision());
+        jdbc.update("UPDATE voucher_claim SET status='REVOKED',revoked_at=?,revoked_by_account_public_id=? WHERE public_id=?",Timestamp.from(clock.instant()),voucher.flow().customer().publicId(),voucher.claim());
+        jdbc.update("UPDATE promotion_family SET is_publicly_discoverable=0 WHERE public_id=?",voucher.family());
+        voucherRevision(voucher.flow().customer(),voucher.family(),2,99_000,null);
+        assertThat(orders.readOwn(voucher.flow().customer(),voucher.flow().facts().orderId()).adjustments()).isEqualTo(before);
+        assertThat(before).singleElement().satisfies(a->{assertThat(a.revisionId()).isEqualTo(voucher.revision());assertThat(a.acquisitionMode()).isEqualTo("CLAIMABLE");assertThat(a.claimId()).isEqualTo(voucher.claim());assertThat(a.maskedCode()).isNull();});
+        assertThatThrownBy(()->orders.readOwn(principal(voucher.otherLogin()),voucher.flow().facts().orderId())).isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
     @Test
@@ -317,6 +517,9 @@ class VnPayPaymentExternalIT {
         assertThatThrownBy(() -> fulfillments.prepare(outsider, pickup.id()))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
 
+        assertThatThrownBy(() -> fulfillments.prepare(flow.operations(), pickup.id()))
+                .isInstanceOf(BusinessConflictException.class);
+        assertThat(fulfillments.startPicking(flow.operations(), pickup.id()).status()).isEqualTo("PICKING");
         assertThat(fulfillments.prepare(flow.operations(), pickup.id()).status()).isEqualTo("PREPARED");
         var handedOver = fulfillments.handover(flow.operations(), pickup.id(), "handover-key");
         var replay = fulfillments.handover(flow.operations(), pickup.id(), "handover-key");
@@ -334,6 +537,7 @@ class VnPayPaymentExternalIT {
     void postHandoverCancellationWithNewKeyIsRejectedWithoutMutation() {
         Flow flow = paidFlow("late", 1);
         var pickup = fulfillments.create(flow.operations(), flow.orderId());
+        fulfillments.startPicking(flow.operations(), pickup.id());
         fulfillments.prepare(flow.operations(), pickup.id());
         assertThat(fulfillments.handover(flow.operations(), pickup.id(), "post-handover-key").status())
                 .isEqualTo("HANDED_OVER");
@@ -372,6 +576,7 @@ class VnPayPaymentExternalIT {
     void confirmedCancellationRestoresOnlyReservedAndReplaysWithoutProviderCall() {
         Flow flow = paidFlow("cancel", 1);
         var pickup = fulfillments.create(flow.operations(), flow.orderId());
+        fulfillments.startPicking(flow.operations(), pickup.id());
         fulfillments.prepare(flow.operations(), pickup.id());
         int beforeCalls = voidProvider.calls();
 
@@ -418,6 +623,7 @@ class VnPayPaymentExternalIT {
     void realSqlHandoverAndCancellationEachWinOneForcedOrdering() throws Exception {
         Flow handoverWins = paidFlow("race-handover", 1);
         var firstPickup = fulfillments.create(handoverWins.operations(), handoverWins.orderId());
+        fulfillments.startPicking(handoverWins.operations(), firstPickup.id());
         fulfillments.prepare(handoverWins.operations(), firstPickup.id());
         CountDownLatch handedOver = new CountDownLatch(1);
         CountDownLatch allowHandoverCommit = new CountDownLatch(1);
@@ -439,6 +645,7 @@ class VnPayPaymentExternalIT {
 
         Flow cancellationWins = paidFlow("race-cancel", 1);
         var secondPickup = fulfillments.create(cancellationWins.operations(), cancellationWins.orderId());
+        fulfillments.startPicking(cancellationWins.operations(), secondPickup.id());
         fulfillments.prepare(cancellationWins.operations(), secondPickup.id());
         CountDownLatch cancelled = new CountDownLatch(1);
         CountDownLatch allowCancellationCommit = new CountDownLatch(1);
@@ -476,6 +683,202 @@ class VnPayPaymentExternalIT {
         assertThat(cartBalances(cart)).isEqualTo(before);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action = 'PAYMENT_SUCCEEDED' AND resource_public_id = ?",
                 Integer.class, cart.attempt().id())).isOne();
+    }
+
+    @Test
+    void paidComponentsReadImmutableVoucherAndSeparateShippingSnapshots() {
+        VoucherFlow voucher = voucherFlow("paid-snapshot", "CODE", "SNAPSHOT_" + shortId().toUpperCase(java.util.Locale.ROOT), null, 50_000);
+        var itemId = voucher.flow().facts().items().getFirst().orderItemId();
+        var original = paidComponents.read(voucher.flow().facts().orderId());
+        assertThat(original).singleElement().satisfies(component -> {
+            assertThat(component.key().type().name()).isEqualTo("ORDER_ITEM");
+            assertThat(component.key().publicId()).isEqualTo(itemId);
+            assertThat(component.amount()).isEqualByComparingTo("75000");
+        });
+        jdbc.update("UPDATE promotion SET name='Changed current promotion',fixed_amount=1000 WHERE public_id=?", voucher.revision());
+        assertThat(paidComponents.read(voucher.flow().facts().orderId())).isEqualTo(original);
+
+        CartFlow delivery = deliveryCartFlow("paid-shipping", 2);
+        var components = paidComponents.read(delivery.facts().orderId());
+        assertThat(components).hasSize(3);
+        assertThat(components.stream().filter(c -> c.key().type().name().equals("SHIPPING")).toList())
+                .singleElement().satisfies(c -> {
+                    assertThat(c.key().publicId()).isEqualTo(delivery.facts().orderId());
+                    assertThat(c.amount()).isEqualByComparingTo("80000");
+                });
+        assertThat(components.stream().filter(c -> c.key().type().name().equals("ORDER_ITEM"))
+                .map(c -> c.amount().longValueExact()).toList()).containsExactlyInAnyOrder(1_490_000L, 1_800_000L);
+        transactions.executeWithoutResult(status -> {
+            jdbc.update("DELETE FROM commerce_order_item_adjustment WHERE order_item_public_id=?", itemId);
+            assertThatThrownBy(() -> paidComponents.read(voucher.flow().facts().orderId()))
+                    .isInstanceOfSatisfying(BusinessConflictException.class,
+                            failure -> assertThat(failure.code()).isEqualTo("PAID_COMPONENT_SNAPSHOT_INVALID"));
+            status.setRollbackOnly();
+        });
+    }
+
+    @Test
+    void paidComponentSnapshotIntegrityFixturesCoverItemDiscountFreeShippingFreeLineAndRounding() {
+        CartFlow cart = deliveryCartFlow("component-matrix", 3);
+        var ids = cart.facts().items().stream().map(CustomerOrder.ItemFacts::orderItemId).toList();
+        record Example(long[] gross, long[] itemDiscount, long[] orderAllocation, long shipping,
+                long shippingDiscount, long total, List<Long> paid) { }
+        var examples = List.of(
+                new Example(new long[]{100_000,100_000,1},new long[]{50_000,0,0},new long[]{0,0,0},0,0,150_001,List.of(50_000L,100_000L,1L)),
+                new Example(new long[]{100_000,1,1},new long[]{0,0,0},new long[]{0,0,0},30_000,30_000,100_002,List.of(100_000L,1L,1L)),
+                new Example(new long[]{100_000,100_000,1},new long[]{100_000,0,0},new long[]{0,0,0},0,0,100_001,List.of(100_000L,1L)),
+                new Example(new long[]{1,1,1},new long[]{0,0,0},new long[]{1,1,0},0,0,1,List.of(1L)));
+        for (var example : examples) transactions.executeWithoutResult(status -> {
+            UUID orderId = cart.facts().orderId(), family=UUID.randomUUID(), revision=UUID.randomUUID();
+            long gross=java.util.Arrays.stream(example.gross()).sum();
+            long orderDiscount=java.util.Arrays.stream(example.orderAllocation()).sum();
+            long discount=java.util.Arrays.stream(example.itemDiscount()).sum()+orderDiscount;
+            jdbc.update("UPDATE commerce_order SET merchandise_amount=?,merchandise_discount_amount=?,shipping_fee_amount=?,shipping_discount_amount=?,total_amount=? WHERE public_id=?",
+                    gross,discount,example.shipping(),example.shippingDiscount(),example.total(),orderId);
+            UUID parent=UUID.randomUUID();
+            if(orderDiscount>0) componentParent(orderId,parent,family,revision,"ORDER_AUTOMATIC",gross,orderDiscount);
+            if(example.shippingDiscount()>0) componentParent(orderId,UUID.randomUUID(),family,revision,"SHIPPING",example.shipping(),example.shippingDiscount());
+            for(int i=0;i<ids.size();i++) {
+                jdbc.update("UPDATE commerce_order_item SET quantity=1,unit_price_amount=? WHERE public_id=?",example.gross()[i],ids.get(i));
+                if(example.itemDiscount()[i]>0) componentChild(ids.get(i),null,family,revision,"ITEM",example.gross()[i],example.itemDiscount()[i]);
+                if(orderDiscount>0) componentChild(ids.get(i),parent,family,revision,"ORDER_ALLOCATION",example.gross()[i],example.orderAllocation()[i]);
+            }
+            assertThat(paidComponents.read(orderId).stream().map(c -> c.amount().longValueExact()).toList())
+                    .containsExactlyInAnyOrderElementsOf(example.paid());
+            if(orderDiscount>0) {
+                jdbc.update("UPDATE commerce_order_adjustment SET applied_amount=1 WHERE public_id=?",parent);
+                assertThatThrownBy(()->paidComponents.read(orderId)).isInstanceOf(BusinessConflictException.class);
+            }
+            status.setRollbackOnly();
+        });
+    }
+
+    private void componentParent(UUID order,UUID id,UUID family,UUID revision,String layer,long base,long amount) {
+        jdbc.update("INSERT INTO commerce_order_adjustment(public_id,order_public_id,promotion_family_public_id,promotion_revision_public_id,revision_number,name_snapshot,effect_type,layer,qualifying_base_amount,applied_amount,priority,applied_at) VALUES(?,?,?,?,1,'Integrity fixture',?,?,?, ?,1,?)",
+                id,order,family,revision,"SHIPPING".equals(layer)?"FREE_SHIPPING":"ORDER_FIXED",layer,base,amount,Timestamp.from(clock.instant()));
+    }
+
+    private void componentChild(UUID item,UUID parent,UUID family,UUID revision,String layer,long base,long amount) {
+        jdbc.update("INSERT INTO commerce_order_item_adjustment(public_id,order_item_public_id,parent_order_adjustment_public_id,promotion_family_public_id,promotion_revision_public_id,revision_number,name_snapshot,effect_type,layer,qualifying_base_amount,applied_amount,priority,applied_at) VALUES(?,?,?,?,?,1,'Integrity fixture',?,?,?, ?,1,?)",
+                UUID.randomUUID(),item,parent,family,revision,"ITEM".equals(layer)?"ITEM_FIXED":"ORDER_FIXED",layer,base,amount,Timestamp.from(clock.instant()));
+    }
+
+    @Test
+    void deliveryVoidStoresShippingSeparatelyFromMerchandise() {
+        CartFlow cart=deliveryCartFlow("separate-void",2);
+        results.apply(cartSuccess(cart));
+        voidProvider.next(VoidProvider.Outcome.SUCCEEDED);
+        assertThat(cancellations.cancel(cart.customer(),cart.facts().orderId(),"separate-void").financialVoid().status())
+                .isEqualTo("SUCCEEDED");
+        var amounts=jdbc.query("""
+                SELECT a.component_type,a.amount FROM payment_void_allocation a
+                JOIN payment_void_operation o ON o.id=a.void_operation_id WHERE o.order_public_id=?
+                """,(rs,n)->rs.getString(1)+":"+rs.getLong(2),cart.facts().orderId());
+        assertThat(amounts).containsExactlyInAnyOrder("ORDER_ITEM:1490000","ORDER_ITEM:1800000","SHIPPING:80000");
+    }
+
+    @Test
+    void discountedAndFreeItemsVoidTheirPaidAmountsAndRestoreEveryReservation() {
+        for(long discount:List.of(50_000L,1_490_000L)) {
+            CartFlow cart=cartFlow("item-paid-"+discount,2,null,discount);
+            results.apply(cartSuccess(cart));
+            voidProvider.next(VoidProvider.Outcome.DEFINITIVE_FAILED);
+            assertThat(cancellations.cancel(cart.customer(),cart.facts().orderId(),"discount-cancel").financialVoid().status()).isEqualTo("FAILED_RETRYABLE");
+            assertThat(cancellations.retry(cart.customer(),cart.facts().orderId(),"discount-retry").status()).isEqualTo("SUCCEEDED");
+            var amounts=jdbc.queryForList("""
+                    SELECT a.amount FROM payment_void_allocation a JOIN payment_void_operation o ON o.id=a.void_operation_id
+                    WHERE o.order_public_id=? AND a.status='SUCCEEDED'
+                    """,Long.class,cart.facts().orderId());
+            assertThat(amounts).containsExactlyInAnyOrderElementsOf(discount==50_000?List.of(1_440_000L,1_800_000L):List.of(1_800_000L));
+            assertCartMovements(cart,"CANCELLATION_RESTORE",2);
+            assertCartState(cart,"CANCELLED","CANCELLED_RESTORED");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_void_attempt a JOIN payment_void_operation o ON o.id=a.void_operation_id WHERE o.order_public_id=? AND calculation_version='SNAPSHOT_V2'",Integer.class,cart.facts().orderId())).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void legacyCreatedAttemptAppliesAndRetriesWithItsStoredCalculationVersion() {
+        CartFlow cart=deliveryCartFlow("legacy-retry",2);
+        results.apply(cartSuccess(cart));
+        var local=cancellationTransactions.cancel(cart.customer(),cart.facts().orderId(),"legacy-cancel");
+        // Compatibility fixture represents a pre-upgrade attempt; no production history is rewritten.
+        transactions.executeWithoutResult(status -> {
+            jdbc.update("UPDATE payment_void_attempt SET calculation_version='LEGACY_V1' WHERE public_id=?",local.financial().attemptId());
+            jdbc.update("DELETE FROM payment_void_allocation WHERE void_attempt_id=(SELECT id FROM payment_void_attempt WHERE public_id=?) AND component_type='SHIPPING'",local.financial().attemptId());
+            var first=cart.facts().items().stream().map(CustomerOrder.ItemFacts::orderItemId).sorted(java.util.Comparator.comparing(UUID::toString)).findFirst().orElseThrow();
+            jdbc.update("UPDATE payment_void_allocation SET amount=amount+80000 WHERE component_public_id=? AND void_attempt_id=(SELECT id FROM payment_void_attempt WHERE public_id=?)",first,local.financial().attemptId());
+        });
+        voidProvider.next(VoidProvider.Outcome.DEFINITIVE_FAILED);
+        assertThat(voids.execute(local.financial()).status()).isEqualTo("FAILED_RETRYABLE");
+        var original=jdbc.queryForList("SELECT amount FROM payment_void_allocation WHERE void_attempt_id=(SELECT id FROM payment_void_attempt WHERE public_id=?) ORDER BY component_public_id",Long.class,local.financial().attemptId());
+        var retry=cancellations.retry(cart.customer(),cart.facts().orderId(),"legacy-retry");
+        assertThat(retry.status()).isEqualTo("SUCCEEDED");
+        assertThat(jdbc.queryForObject("SELECT calculation_version FROM payment_void_attempt WHERE public_id=?",String.class,retry.attemptId())).isEqualTo("LEGACY_V1");
+        assertThat(jdbc.queryForList("SELECT amount FROM payment_void_allocation WHERE void_attempt_id=(SELECT id FROM payment_void_attempt WHERE public_id=?) ORDER BY component_public_id",Long.class,retry.attemptId())).isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_void_allocation WHERE void_attempt_id=(SELECT id FROM payment_void_attempt WHERE public_id=?) AND status='RELEASED'",Integer.class,local.financial().attemptId())).isEqualTo(2);
+        var from=clock.instant().atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+        var net=reports.netSales(cart.operations(),from,from.plusDays(1),cart.facts().locationId());
+        var products=reports.productSales(cart.operations(),from,from.plusDays(1),cart.facts().locationId());
+        assertThat(net.netSales()).isEqualTo("0");
+        assertThat(net.unallocatedLegacyVoids()).isEqualTo("3370000");
+        assertThat(net.merchandiseVoids()).isEqualTo("0");
+        assertThat(net.shippingVoids()).isEqualTo("0");
+        assertThat(products.netSales()).isEqualTo("3290000");
+        assertThat(products.unallocatedLegacyVoids()).isEqualTo("3370000");
+        assertThat(reports.reconciliation(cart.operations(),from,from.plusDays(1),cart.facts().locationId()).entries())
+                .filteredOn(entry->entry.category().equals("VOID_LEGACY")).hasSize(2);
+    }
+
+    @Test
+    void stackedItemOrderAndClaimDiscountsReconcileWithPaidAndFreeShippingAfterVoid() {
+        for (boolean freeShipping : List.of(false, true)) {
+            var delivery = new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
+                    new CustomerOrderService.DeliveryRequest("Test receiver", "0900000000", "79", "760", "Test address", null));
+            CartFlow setup = cartFlow("stacked-" + freeShipping, 2, delivery, 50_000);
+            orders.cancelOwn(setup.customer(), setup.facts().orderId());
+            Timestamp now = Timestamp.from(clock.instant());
+            UUID automaticFamily = UUID.randomUUID(), claimFamily = UUID.randomUUID(), claim = UUID.randomUUID();
+            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',0,?)", automaticFamily, now);
+            voucherRevision(setup.customer(), automaticFamily, 1, 20_000, null, null);
+            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'CLAIMABLE',0,?)", claimFamily, now);
+            UUID revision = voucherRevision(setup.customer(), claimFamily, 1, 10_000, null, 1L);
+            jdbc.update("INSERT INTO voucher_claim(public_id,promotion_family_public_id,claimed_revision_public_id,customer_account_public_id,status,claimed_at) VALUES(?,?,?,?,'CLAIMED',?)", claim, claimFamily, revision, setup.customer().publicId(), now);
+            if (freeShipping) {
+                UUID shippingFamily = UUID.randomUUID();
+                jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',0,?)", shippingFamily, now);
+                jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'Stacked free shipping','PUBLISHED','SHIPPING','FREE_SHIPPING',100,?,?,?,?)",
+                        shippingFamily, UUID.randomUUID(), Timestamp.from(clock.instant().minusSeconds(1)), setup.customer().publicId(), now, now);
+            }
+            var lines = setup.facts().items().stream().map(i -> new CartQuoteService.LineRequest(i.variantId(), i.quantity())).toList();
+            var quote = cartPricing.quote(setup.customer(), lines, new CartQuoteService.FulfillmentQuote("DELIVERY", "79", "760"), PromotionService.VoucherSelection.claim(claim));
+            var order = orders.checkoutCart(setup.customer(), quote.id(), lines, delivery, "stacked-checkout-" + freeShipping);
+            var facts = transactions.execute(status -> orderRepository.findLockedByPublicId(order.id()).orElseThrow().paymentFacts());
+            var attempt = payments.initiate(setup.customer(), order.id(), "stacked-pay-" + freeShipping).attempt();
+            CartFlow cart = new CartFlow(setup.customer(), setup.operations(), facts, attempt);
+            assertThat(facts.totalAmount()).isEqualTo(freeShipping ? 3_210_000 : 3_290_000);
+            results.apply(cartSuccess(cart));
+            voidProvider.next(VoidProvider.Outcome.SUCCEEDED);
+            assertThat(cancellations.cancel(cart.customer(), order.id(), "stacked-cancel").financialVoid().status()).isEqualTo("SUCCEEDED");
+            var allocated = jdbc.query("SELECT a.component_type,a.amount FROM payment_void_allocation a JOIN payment_void_operation o ON o.id=a.void_operation_id WHERE o.order_public_id=?",
+                    (rs, row) -> rs.getString(1) + ":" + rs.getLong(2), order.id());
+            assertThat(allocated).containsExactlyInAnyOrderElementsOf(freeShipping
+                    ? List.of("ORDER_ITEM:1426667", "ORDER_ITEM:1783333")
+                    : List.of("ORDER_ITEM:1426667", "ORDER_ITEM:1783333", "SHIPPING:80000"));
+            assertThat(jdbc.queryForList("SELECT status FROM promotion_redemption WHERE order_public_id=?", String.class, order.id()))
+                    .isNotEmpty().allMatch("REDEEMED"::equals);
+            assertCartState(cart, "CANCELLED", "CANCELLED_RESTORED");
+            assertCartMovements(cart, "CANCELLATION_RESTORE", 2);
+            var from = clock.instant().atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+            var report = reports.netSales(cart.operations(), from, from.plusDays(1), facts.locationId());
+            assertThat(report.itemDiscount()).isEqualTo("50000");
+            assertThat(report.orderDiscount()).isEqualTo("20000");
+            assertThat(report.voucherDiscount()).isEqualTo("10000");
+            assertThat(report.shippingDiscount()).isEqualTo(freeShipping ? "80000" : "0");
+            assertThat(report.shippingVoids()).isEqualTo(freeShipping ? "0" : "80000");
+            assertThat(report.netSales()).isEqualTo("0");
+            assertThat(reports.productSales(cart.operations(), from, from.plusDays(1), facts.locationId()).rows())
+                    .hasSize(2).allSatisfy(row -> assertThat(row.netSales()).isEqualTo("0"));
+        }
     }
 
     @Test
@@ -614,6 +1017,7 @@ class VnPayPaymentExternalIT {
             CartFlow cart = cartFlow("cart-terminal-" + handoverWins, 2);
             results.apply(cartSuccess(cart));
             var pickup = fulfillments.create(cart.operations(), cart.facts().orderId());
+            fulfillments.startPicking(cart.operations(), pickup.id());
             fulfillments.prepare(cart.operations(), pickup.id());
             CountDownLatch changed = new CountDownLatch(1);
             CountDownLatch commit = new CountDownLatch(1);
@@ -675,6 +1079,7 @@ class VnPayPaymentExternalIT {
         CartFlow cart = deliveryCartFlow("delivery-cancel", 2);
         results.apply(cartSuccess(cart));
         var delivery = fulfillments.create(cart.operations(), cart.facts().orderId());
+        fulfillments.startPicking(cart.operations(), delivery.id());
         fulfillments.prepare(cart.operations(), delivery.id());
 
         cancellations.cancel(cart.customer(), cart.facts().orderId(), "delivery-cancel");
@@ -692,6 +1097,7 @@ class VnPayPaymentExternalIT {
         CartFlow cart = cartFlow("cart-lock", 2);
         assertThat(results.apply(cartSuccess(cart))).isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
         var pickup = fulfillments.create(cart.operations(), cart.facts().orderId());
+        fulfillments.startPicking(cart.operations(), pickup.id());
         fulfillments.prepare(cart.operations(), pickup.id());
         var before = cartBalances(cart);
         var reader = Executors.newSingleThreadExecutor();
@@ -735,15 +1141,25 @@ class VnPayPaymentExternalIT {
 
     private CartFlow deliveryCartFlow(String suffix, int count) {
         return cartFlow(suffix, count, new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
-                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "12 Nguyen Hue, Quan 1", null)));
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "12 Nguyen Hue, Quan 1", null)));
     }
 
     private CartFlow cartFlow(String suffix, int count, CustomerOrderService.FulfillmentRequest fulfillment) {
+        return cartFlow(suffix,count,fulfillment,0);
+    }
+
+    private CartFlow cartFlow(String suffix, int count, CustomerOrderService.FulfillmentRequest fulfillment, long firstItemDiscount) {
         Pending setup = pending(suffix, 8);
         orders.cancelOwn(setup.customer(), setup.order().id());
         // Repricing at the frozen fixture instant would become effective one microsecond later.
         clock.set(clock.instant().plusSeconds(1));
         catalog.setPrice(setup.operations(), setup.variantId(), 1_490_000);
+        if(firstItemDiscount>0) {
+            UUID family=UUID.randomUUID(),revision=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());
+            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',0,?)",family,now);
+            jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'Paid component fixture','PUBLISHED','ITEM','ITEM_FIXED',?,100,?,?,?,?)",family,revision,firstItemDiscount,Timestamp.from(clock.instant().minusSeconds(1)),setup.customer().publicId(),now,now);
+            jdbc.update("INSERT INTO promotion_product_scope(promotion_id,product_public_id) SELECT p.id,c.public_id FROM promotion p CROSS JOIN catalog_product c JOIN catalog_product_variant v ON v.product_id=c.id WHERE p.public_id=? AND v.public_id=?",revision,setup.variantId());
+        }
         List<CartQuoteService.LineRequest> lines = new ArrayList<>();
         lines.add(new CartQuoteService.LineRequest(setup.variantId(), 1));
         UUID product = catalog.createProduct(setup.operations(), "Cart companion " + suffix);
@@ -754,7 +1170,10 @@ class VnPayPaymentExternalIT {
             catalog.publish(setup.operations(), variant);
             lines.add(new CartQuoteService.LineRequest(variant, index == 1 ? 2 : 1));
         }
-        var quote = cartPricing.quote(setup.customer(), lines);
+        if(fulfillment!=null) jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
+                UUID.randomUUID(),UUID.randomUUID(),java.sql.Timestamp.from(clock.instant().minusSeconds(1)),setup.customer().publicId(),java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
+        var quote = fulfillment==null ? cartPricing.quote(setup.customer(), lines)
+                : cartPricing.quote(setup.customer(),lines,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
         var order = fulfillment == null
                 ? orders.checkoutCart(setup.customer(), quote.id(), lines, "checkout-cart-" + suffix)
                 : orders.checkoutCart(setup.customer(), quote.id(), lines, fulfillment, "checkout-cart-" + suffix);
@@ -762,6 +1181,31 @@ class VnPayPaymentExternalIT {
         var attempt = payments.initiate(setup.customer(), order.id(), "pay-" + suffix).attempt();
         return new CartFlow(setup.customer(), setup.operations(), facts, attempt);
     }
+
+    private VoucherFlow voucherFlow(String suffix,String mode,String code,Long global,long amount) {
+        Pending setup=pending(suffix,4);orders.cancelOwn(setup.customer(),setup.order().id());clock.set(clock.instant().plusSeconds(1));
+        UUID family=UUID.randomUUID(),claim=null;
+        jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,?,?,?,?)",family,mode,code,false,Timestamp.from(clock.instant()));
+        UUID revision=voucherRevision(setup.customer(),family,1,amount,global,"CLAIMABLE".equals(mode)?1L:null);
+        if("CLAIMABLE".equals(mode)){claim=UUID.randomUUID();jdbc.update("INSERT INTO voucher_claim(public_id,promotion_family_public_id,claimed_revision_public_id,customer_account_public_id,status,claimed_at) VALUES(?,?,?,?,'CLAIMED',?)",claim,family,revision,setup.customer().publicId(),Timestamp.from(clock.instant()));}
+        var lines=List.of(new CartQuoteService.LineRequest(setup.variantId(),1));
+        var selection="CODE".equals(mode)?PromotionService.VoucherSelection.code(code):PromotionService.VoucherSelection.claim(claim);
+        var quote=cartPricing.quote(setup.customer(),lines,null,selection);var order=orders.checkoutCart(setup.customer(),quote.id(),lines,"voucher-"+suffix);
+        var facts=transactions.execute(status->orderRepository.findLockedByPublicId(order.id()).orElseThrow().paymentFacts());
+        var attempt=payments.initiate(setup.customer(),order.id(),"voucher-pay-"+suffix).attempt();
+        return new VoucherFlow(new CartFlow(setup.customer(),setup.operations(),facts,attempt),family,revision,claim,code,lines,setup.otherLogin());
+    }
+
+    private VoucherFlow voucherOrder(VoucherFlow source,String suffix) {
+        var selection=source.code()==null?PromotionService.VoucherSelection.claim(source.claim()):PromotionService.VoucherSelection.code(source.code());
+        var quote=cartPricing.quote(source.flow().customer(),source.lines(),null,selection);var order=orders.checkoutCart(source.flow().customer(),quote.id(),source.lines(),"voucher-"+suffix);
+        var facts=transactions.execute(status->orderRepository.findLockedByPublicId(order.id()).orElseThrow().paymentFacts());
+        var attempt=payments.initiate(source.flow().customer(),order.id(),"voucher-pay-"+suffix).attempt();
+        return new VoucherFlow(new CartFlow(source.flow().customer(),source.flow().operations(),facts,attempt),source.family(),source.revision(),source.claim(),source.code(),source.lines(),source.otherLogin());
+    }
+
+    private UUID voucherRevision(SessionPrincipal customer,UUID family,int number,long amount,Long global){return voucherRevision(customer,family,number,amount,global,1L);}
+    private UUID voucherRevision(SessionPrincipal customer,UUID family,int number,long amount,Long global,Long customerLimit){UUID revision=UUID.randomUUID();Timestamp now=Timestamp.from(clock.instant());jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,global_usage_limit,per_customer_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at,customer_summary,customer_terms) VALUES(?,?,?,?,'PUBLISHED','ORDER_AUTOMATIC','ORDER_FIXED',?,?,?,100,?,?,?,?,?,?)",family,revision,number,"Voucher snapshot "+number,amount,global,customerLimit,Timestamp.from(clock.instant().minusSeconds(1)),customer.publicId(),now,now,"Historical summary","Historical terms");return revision;}
 
     private PaymentProvider.VerifiedResult cartSuccess(CartFlow cart) {
         return provider.verify(signedCallback(cart.attempt().merchantTransactionReference(),
@@ -803,12 +1247,17 @@ class VnPayPaymentExternalIT {
     private record Component(UUID id, long amount, String status) { }
     private record CartFlow(SessionPrincipal customer, SessionPrincipal operations, CustomerOrder.PaymentFacts facts,
             PaymentAttemptService.PaymentAttemptView attempt) { }
+    private record VoucherFlow(CartFlow flow,UUID family,UUID revision,UUID claim,String code,List<CartQuoteService.LineRequest> lines,String otherLogin){}
 
     private Flow flow(String suffix, long stock) {
-        Pending pending = pending(suffix, stock);
+        Pending pending = pending(suffix, stock,false);
         var attempt = payments.initiate(pending.customer(), pending.order().id(), "pay-" + suffix).attempt();
         return new Flow(pending.variantId(), pending.locationId(), pending.customer(), pending.operations(), pending.order().id(),
                 pending.order().reservationId(), pending.order().reservationExpiresAt(), attempt);
+    }
+    private Flow promotedFlow(String suffix,long stock){
+        Pending pending=pending(suffix,stock,true);var attempt=payments.initiate(pending.customer(),pending.order().id(),"pay-"+suffix).attempt();
+        return new Flow(pending.variantId(),pending.locationId(),pending.customer(),pending.operations(),pending.order().id(),pending.order().reservationId(),pending.order().reservationExpiresAt(),attempt);
     }
 
     private Flow paidFlow(String suffix, long stock) {
@@ -819,6 +1268,9 @@ class VnPayPaymentExternalIT {
     }
 
     private Pending pending(String suffix, long stock) {
+        return pending(suffix,stock,false);
+    }
+    private Pending pending(String suffix, long stock,boolean promoted) {
         SessionPrincipal admin = bootstrapAdmin();
         String operationsLogin = "v10-" + suffix + "-ops-" + UUID.randomUUID() + "@example.com";
         String customerLogin = "v10-" + suffix + "-customer-" + UUID.randomUUID() + "@example.com";
@@ -836,10 +1288,15 @@ class VnPayPaymentExternalIT {
         catalog.setPrice(operations, variant, 125_000);
         adjustments.adjust(operations, variant, location, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variant);
-        var quote = pricing.quote(customer, variant);
-        var order = orders.checkout(customer, quote.id(), "checkout-" + suffix);
+        if(promoted){Timestamp now=Timestamp.from(clock.instant());UUID promotion=UUID.randomUUID(),family=UUID.randomUUID();jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',NULL,0,?)",family,now);jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,global_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,?,'PUBLISHED','ITEM','ITEM_FIXED',10000,1,100,?,?,?,?)",family,promotion,"Payment promotion "+suffix,Timestamp.from(clock.instant().minusSeconds(1)),customer.publicId(),now,now);jdbc.update("INSERT INTO promotion_product_scope(promotion_id,product_public_id) SELECT id,? FROM promotion WHERE public_id=?",product,promotion);}
+        CustomerOrderService.OrderView order;
+        if(promoted){var lines=List.of(new CartQuoteService.LineRequest(variant,1));var quote=cartPricing.quote(customer,lines);order=orders.checkoutCart(customer,quote.id(),lines,"checkout-"+suffix);}
+        else {var quote=pricing.quote(customer, variant);order=orders.checkout(customer,quote.id(),"checkout-"+suffix);}
         return new Pending(variant, location, customer, operations, customerLogin, otherLogin, order);
     }
+    private String redemption(Flow flow){return jdbc.queryForObject("SELECT status FROM promotion_redemption WHERE order_public_id=?",String.class,flow.orderId());}
+    private String redemption(CartFlow flow){return jdbc.queryForObject("SELECT status FROM promotion_redemption WHERE order_public_id=?",String.class,flow.facts().orderId());}
+    private Object race(CountDownLatch ready,CountDownLatch start,java.util.concurrent.Callable<?> action)throws Exception{ready.countDown();await(start);try{return action.call();}catch(BusinessConflictException conflict){return conflict;}}
 
     private PaymentProvider.VerifiedResult verified(Flow flow, String transactionNo, long amount,
             String response, String status) {

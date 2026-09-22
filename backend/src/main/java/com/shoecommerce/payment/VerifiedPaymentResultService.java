@@ -14,6 +14,7 @@ import com.shoecommerce.branch.LocationRepository;
 import com.shoecommerce.inventory.InventoryReservationService;
 import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.order.CustomerOrderRepository;
+import com.shoecommerce.promotion.PromotionService;
 
 @Service
 public class VerifiedPaymentResultService {
@@ -24,12 +25,14 @@ public class VerifiedPaymentResultService {
     private final LocationRepository locations;
     private final AuditWriter audit;
     private final Clock clock;
+    private final PromotionService promotions;
 
     VerifiedPaymentResultService(PaymentAttemptRepository attempts, PaymentRepository payments,
             CustomerOrderRepository orders, InventoryReservationService reservations,
-            LocationRepository locations, AuditWriter audit, Clock clock) {
+            LocationRepository locations, AuditWriter audit, Clock clock,PromotionService promotions) {
         this.attempts = attempts; this.payments = payments; this.orders = orders;
         this.reservations = reservations; this.locations = locations; this.audit = audit; this.clock = clock;
+        this.promotions=promotions;
     }
 
     @Transactional
@@ -76,15 +79,18 @@ public class VerifiedPaymentResultService {
             return Result.APPLIED;
         }
 
+        promotions.lockUsage(orderId);
         InventoryReservationService.PaymentCommit commitment =
                 reservations.commitForSuccessfulPayment(facts.reservationIds(), now);
         if (commitment == InventoryReservationService.PaymentCommit.COMMITTED) {
             attempt.applySuccess(result, now);
+            promotions.redeem(orderId,now);
             order.markPaid(now);
             audit(location, attempt, orderId, "PAYMENT_SUCCEEDED", result);
             return Result.APPLIED;
         }
 
+        if (commitment == InventoryReservationService.PaymentCommit.EXPIRED_RELEASED) promotions.release(orderId, now);
         if (order.paymentFacts().pendingPayment()) order.expire(now);
         attempt.requireReview(result, now);
         audit(location, attempt, orderId, "PAYMENT_REVIEW_REQUIRED", result);

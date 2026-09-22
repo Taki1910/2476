@@ -3,7 +3,6 @@ package com.shoecommerce.payment;
 import java.time.Clock;
 import java.time.Instant;
 import java.math.BigDecimal;
-import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +15,7 @@ import com.shoecommerce.branch.Location;
 import com.shoecommerce.branch.LocationRepository;
 import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.order.CustomerOrderRepository;
+import com.shoecommerce.order.OrderPaidComponents;
 
 @Service
 class VoidResultService {
@@ -27,13 +27,15 @@ class VoidResultService {
     private final LocationRepository locations;
     private final AuditWriter audit;
     private final Clock clock;
+    private final OrderPaidComponents paidComponents;
 
     VoidResultService(CustomerOrderRepository orders, PaymentRepository payments,
             VoidOperationRepository operations, VoidAttemptRepository attempts,
             VoidAllocationRepository allocations, LocationRepository locations,
-            AuditWriter audit, Clock clock) {
+            AuditWriter audit, Clock clock, OrderPaidComponents paidComponents) {
         this.orders = orders; this.payments = payments; this.operations = operations; this.attempts = attempts;
         this.allocations = allocations; this.locations = locations; this.audit = audit; this.clock = clock;
+        this.paidComponents = paidComponents;
     }
 
     @Transactional
@@ -50,13 +52,12 @@ class VoidResultService {
             throw new IllegalStateException("Void attempt has no active component capacity");
         }
         CustomerOrder.PaymentFacts facts = order.paymentFacts();
-        var expected = facts.items().stream().collect(Collectors.toMap(CustomerOrder.ItemFacts::orderItemId,
-                item -> BigDecimal.valueOf(item.totalAmount())));
+        var expected = VoidService.expectedComponents(facts, attempt.calculationVersion(), paidComponents);
         BigDecimal allocated = reserved.stream().map(VoidAllocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         if (reserved.size() != expected.size()
-                || reserved.stream().map(VoidAllocation::componentPublicId).distinct().count() != expected.size()
-                || reserved.stream().anyMatch(allocation -> !expected.containsKey(allocation.componentPublicId())
-                    || expected.get(allocation.componentPublicId()).compareTo(allocation.amount()) != 0)
+                || reserved.stream().map(VoidAllocation::componentKey).distinct().count() != expected.size()
+                || reserved.stream().anyMatch(allocation -> !expected.containsKey(allocation.componentKey())
+                    || expected.get(allocation.componentKey()).compareTo(allocation.amount()) != 0)
                 || allocated.compareTo(attempt.amount()) != 0
                 || allocated.compareTo(operation.requestedAmount()) != 0
                 || allocated.compareTo(BigDecimal.valueOf(facts.totalAmount())) != 0) {

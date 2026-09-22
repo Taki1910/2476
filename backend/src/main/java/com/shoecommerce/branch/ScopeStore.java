@@ -47,7 +47,7 @@ public class ScopeStore {
         return count != null && count > 0;
     }
 
-    boolean setAssignment(
+    public boolean setAssignment(
             long accountId,
             long branchId,
             Long locationId,

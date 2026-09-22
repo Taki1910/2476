@@ -1,3 +1,5 @@
+> Remediation authority: [CURRENT_BASELINE](CURRENT_BASELINE.md), [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md), [ADR-0035](ADR/0035-voucher-family-claim-usage.md), [ADR-0036](ADR/0036-bounded-single-instance-login-throttle.md) and [API contracts](API/README.md). Earlier phase descriptions below remain historical where explicitly superseded.
+
 # Frontend Architecture — Blueprint v1.1.1
 
 > Architecture status: **ACCEPTED FOR THE APPROVED MVP BASELINE**
@@ -160,6 +162,11 @@ amounts; it does not calculate or cache an authoritative price beyond the
 quote's returned expiry.
 
 Phase 15B product detail adds variants to a browser-persisted multi-line cart.
+The browser stores separate guest and account-owned cart envelopes. Login merges
+the guest cart into the authenticated cart by variant, caps each merged quantity
+at 10, and consumes the guest cart. Logout switches active state to a clean guest
+cart; another account never loads the prior account's cart. Unowned legacy cart
+data is discarded because its customer cannot be determined (ADR-0029).
 The cart requests one server CartQuote, displays each confirmed subtotal and
 the full total, then submits only `quoteId`, normalized variant/quantity demands
 and an opaque `Idempotency-Key` to `/orders/cart-checkout` (ADR-0026).
@@ -190,3 +197,4 @@ selects only the matching size/color variant; it never adds to cart or silently
 changes color. Retake, unsupported-profile, unavailable-stock and retry states
 remain explicit in English and Vietnamese, with live status/error announcements
 and keyboard-accessible controls.
+

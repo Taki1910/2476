@@ -1,5 +1,8 @@
 # Shoe Commerce
 
+Current source/verification status and remediation decisions: [CURRENT_BASELINE](docs/CURRENT_BASELINE.md).
+Historical phase certificates do not replace the working-tree manifest or current test evidence.
+
 Spring Boot modular-monolith and Vue SPA for a deliberately limited shoe-commerce MVP. It keeps pricing, checkout, inventory, payment, pickup, cash POS, and reporting authoritative on the server.
 
 ## Implemented

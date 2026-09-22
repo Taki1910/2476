@@ -3,6 +3,7 @@ import { createSSRApp, type Component } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { api, type Order, type PickupTask, type PaymentAttempt } from './api'
+import { session } from './session'
 import { commerceCount, setLocale, t } from './i18n'
 import CommerceItems from './components/CommerceItems.vue'
 import OrdersView from './views/OrdersView.vue'
@@ -10,6 +11,7 @@ import OrderStatusView from './views/OrderStatusView.vue'
 import PaymentResultView from './views/PaymentResultView.vue'
 import PickupQueueView from './views/PickupQueueView.vue'
 import PickupDetailView from './views/PickupDetailView.vue'
+import PeopleAccessView from './views/PeopleAccessView.vue'
 
 // Run the views' normal initial loads during SSR for component-level checks.
 // These are unit fixtures, not browser or transaction acceptance evidence.
@@ -20,7 +22,7 @@ vi.mock('vue', async importOriginal => {
 
 const order: Order = {
   id: 'aaaaaaaa-0000-0000-0000-000000000010', orderReference: 'SC-AAAAAAAA',
-  itemCount: 3, quantity: 4, totalAmount: 3390000, currency: 'VND', status: 'PAID',
+  itemCount: 3, quantity: 4,merchandiseAmount:3390000,merchandiseDiscountAmount:0,shippingDiscountAmount:0,adjustments:[], totalAmount: 3390000, currency: 'VND', status: 'PAID',
   reservationId: null, reservationExpiresAt: null, priceQuoteId: null, priceVersionId: null,
   ownerAccountId: 'owner', responsibleBranchId: 'branch', createdAt: '2026-08-31T10:00:00Z',
   variantId: null, sku: null, size: null, locationId: 'location', locationCode: 'FLOOR', locationName: 'Demo Sales Floor',
@@ -48,6 +50,10 @@ beforeEach(() => {
   vi.spyOn(api, 'pickupQueue').mockResolvedValue([task])
   vi.spyOn(api, 'pickupTask').mockResolvedValue(task)
   vi.spyOn(api, 'paymentAttempt').mockResolvedValue({ id: 'attempt', orderId: order.id, status: 'SUCCEEDED', amount: order.totalAmount, expiresAt: '2026-08-31T10:15:00Z' } as PaymentAttempt)
+  session.account = { accountId: 'manager', login: 'manager.demo', roles: ['OPERATIONS'], permissions: ['STAFF_MANAGE_SCOPED', 'POS_SELL', 'FULFILL_ORDER'] }
+  vi.spyOn(api, 'staffAccess').mockResolvedValue([{ accountId: 'staff', login: 'staff.demo', status: 'ENABLED', baseRole: 'OPERATIONS', inheritedPermissions: ['FULFILL_ORDER'], directCapabilities: ['POS_SELL'], assignments: [{ branchId: 'branch', branchCode: 'DEMO', branchName: 'Demo Branch A', locationId: 'location', locationCode: 'DEMO-FLOOR', locationName: 'Demo Sales Floor' }] }])
+  vi.spyOn(api, 'staffLocations').mockResolvedValue([{ branchId: 'branch', branchCode: 'DEMO', branchName: 'Demo Branch A', locationId: 'location', locationCode: 'DEMO-FLOOR', locationName: 'Demo Sales Floor' }])
+  vi.spyOn(api, 'staffCapabilities').mockResolvedValue([{ code: 'POS_SELL' }, { code: 'FULFILL_ORDER' }])
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
@@ -113,5 +119,17 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
     const detail = await render(PickupDetailView, `/operations/fulfillments/${order.id}`)
     for (const item of order.items) { expect(queue).toContain(item.sku); expect(detail).toContain(item.sku) }
     expect(detail).toContain(t('Hand over the whole order?'))
+  })
+  it('separates legacy recovery records from normal fulfillment totals', async () => {
+    vi.mocked(api.pickupQueue).mockResolvedValue([task, { ...task, orderId: 'legacy-order', fulfillmentId: undefined, fulfillmentStatus: 'NOT_CREATED' }])
+    const html = await render(PickupQueueView, '/operations/fulfillments')
+    expect(html).toContain(t('Missing fulfillment records'))
+    expect(html).toContain(t('{shown} shown · {total} normal tasks', { shown: 1, total: 1 }))
+  })
+  it('renders scoped People & Access with inherited and direct authority separated', async () => {
+    const html = await render(PeopleAccessView, '/operations/people')
+    expect(html).toContain('staff.demo')
+    expect(html).toContain(t('Base role'))
+    expect(html).toContain('POS_SELL')
   })
 })

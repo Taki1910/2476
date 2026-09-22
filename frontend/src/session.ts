@@ -1,11 +1,13 @@
 import { reactive } from 'vue'
 import { api, ApiError, type Account } from './api'
+import { activateCart } from './cart'
 
 export const SESSION_CHANGE_CHANNEL = 'shoe-commerce:session-change'
 export const SESSION_CHANGE_SOURCE = crypto.randomUUID()
 export const session = reactive<{ loaded: boolean; unavailable: boolean; generation: number; account?: Account }>({ loaded: false, unavailable: false, generation: 0 })
 
 export function clearPrivateSession() {
+  activateCart(null)
   session.account = undefined
   session.generation++
 }
@@ -21,19 +23,24 @@ export async function loadSession() {
   session.unavailable = false
   try {
     const account = await api.me()
-    if (generation === session.generation) session.account = account
+    if (generation === session.generation) {
+      activateCart(account.accountId)
+      session.account = account
+    }
   }
   catch (error) {
     if (generation !== session.generation) return
     session.account = undefined
     session.unavailable = !(error instanceof ApiError && error.status === 401)
+    activateCart(null)
   }
   finally { if (generation === session.generation) session.loaded = !session.unavailable }
 }
 
 export async function signIn(login: string, password: string) {
   const account = await api.login(login, password)
-  clearPrivateSession()
+  session.generation++
+  activateCart(account.accountId)
   session.account = account
   session.unavailable = false
   session.loaded = true
@@ -60,6 +67,8 @@ export function homeFor(account: Account) {
   if (account.permissions.includes('CATALOG_BROWSE')) return '/'
   if (account.permissions.includes('FULFILL_ORDER')) return '/operations/fulfillments'
   if (account.permissions.includes('POS_SELL')) return '/operations/pos'
+  if (account.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))) return '/operations/people'
+  if (account.permissions.includes('STOREFRONT_MANAGE')) return '/operations/storefront'
   return '/operations/reports'
 }
 

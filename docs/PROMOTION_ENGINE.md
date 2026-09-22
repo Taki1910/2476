@@ -1,5 +1,11 @@
 # Promotion and Voucher Architecture — Blueprint v1.1.1
 
+Current C2/C3 scope supersedes the initial base-price-only Stage 3 scope below.
+Use [ADR-0032](ADR/0032-automatic-promotion-engine.md) for automatic rules and
+[ADR-0035](ADR/0035-voucher-family-claim-usage.md) for selected CODE/CLAIMABLE,
+ownership, eligibility and usage. Zero-total MVP scope and immutable paid
+components follow [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md).
+
 ## Status
 
 Central deterministic evaluation and historical snapshots are `CONFIRMED`
@@ -222,3 +228,7 @@ are demonstration/optional slices, not core checkout prerequisites.
 5. Advanced same-layer stacking/exclusive groups and rule types beyond the
    initial calculation slice.
 6. Legal tax/e-invoice behavior and a future taxed calculation-policy version.
+
+## C2 implemented boundary
+
+ADR-0032 implements the five automatic ONLINE effects and immutable revision, snapshot, staleness, usage reservation and deterministic winner rules. Voucher codes, claims, wallets, manual application, collection/category scope, branch/location scope and exclusivity remain outside C2.

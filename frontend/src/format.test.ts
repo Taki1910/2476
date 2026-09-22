@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from './api'
-import { errorCopy, formatDateTime, formatVnd, isExpired, pickupDisplayState, posErrorCopy } from './format'
+import { cartErrorCopy, errorCopy, formatDateTime, formatVnd, isExpired, pickupDisplayState, posErrorCopy } from './format'
 import { setLocale, t } from './i18n'
 
 describe('storefront presentation rules', () => {
+  it('localizes login throttling without disclosing server details', () => {
+    const error = new ApiError(429, 'AUTH_RATE_LIMITED', 'private account information', undefined, 900)
+    setLocale('vi-VN')
+    expect(errorCopy(error)).toContain('900 giây')
+    setLocale('en')
+    expect(errorCopy(error)).toContain('900 seconds')
+    expect(errorCopy(new ApiError(429, 'AUTH_RATE_LIMITED', 'private'))).toContain('try again later')
+  })
+  it('explains unsupported zero-total carts in both locales without suggesting an exceeded limit', () => {
+    const error = new ApiError(400, 'ZERO_PAYABLE_NOT_SUPPORTED', 'internal')
+    setLocale('vi-VN')
+    expect(cartErrorCopy(error, [])).toContain('0 đồng')
+    setLocale('en')
+    expect(cartErrorCopy(error, [])).toContain('zero total')
+  })
+
   it('formats exact integer đồng without decimal money', () => {
     setLocale('vi-VN')
     expect(formatVnd(125000)).toMatch(/125[.\s]000/)

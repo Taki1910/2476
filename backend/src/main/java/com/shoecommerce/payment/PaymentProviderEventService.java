@@ -18,6 +18,7 @@ import com.shoecommerce.identity.SessionPrincipal;
 import com.shoecommerce.inventory.InventoryReservationService;
 import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.order.CustomerOrderRepository;
+import com.shoecommerce.promotion.PromotionService;
 
 @Service
 @Profile("test")
@@ -35,13 +36,15 @@ public class PaymentProviderEventService {
     private final AuthorizationPolicy authorization;
     private final AuditWriter audit;
     private final Clock clock;
+    private final PromotionService promotions;
 
     public PaymentProviderEventService(PaymentProviderEventRepository events, PaymentAttemptRepository attempts,
             PaymentRepository payments, CustomerOrderRepository orders, InventoryReservationService reservations,
-            LocationRepository locations, AuthorizationPolicy authorization, AuditWriter audit, Clock clock) {
+            LocationRepository locations, AuthorizationPolicy authorization, AuditWriter audit, Clock clock,PromotionService promotions) {
         this.events = events; this.attempts = attempts; this.payments = payments; this.orders = orders;
         this.reservations = reservations; this.locations = locations; this.authorization = authorization;
         this.audit = audit; this.clock = clock;
+        this.promotions=promotions;
     }
 
     @Transactional
@@ -75,8 +78,10 @@ public class PaymentProviderEventService {
         }
 
         if (outcome == PaymentProviderEvent.Outcome.SUCCESS) {
+            promotions.lockUsage(orderId);
             var consumed = reservations.consumeForSuccessfulPayment(actor, facts.reservationIds());
             attempt.succeed(now);
+            promotions.redeem(orderId,now);
             order.markPaid(now);
             PaymentProviderEvent event = events.save(PaymentProviderEvent.applied(actor.publicId(), providerEventId,
                     attemptId, outcome, attempt.status(), orderStatus(order), now));

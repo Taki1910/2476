@@ -86,7 +86,7 @@ const commandTitle = computed(() => {
   if (displayState.value === 'OUT_FOR_DELIVERY') return 'Out for delivery'
   if (['HANDED_OVER', 'DELIVERED'].includes(displayState.value)) return 'Fulfillment complete'
   if (displayState.value === 'CANCELLED') return 'No longer actionable'
-  return displayState.value === 'PICKING' ? 'Prepare the whole order' : 'Accept this request'
+  return displayState.value === 'PICKING' ? 'Finish preparing the whole order' : 'Accept this request'
 })
 const dialogAction = computed(() => pendingAction.value ?? (canHandover.value ? 'HANDOVER' : canDispatch.value ? 'DISPATCH' : 'DELIVER'))
 const dialogTitle = computed(() => dialogAction.value === 'HANDOVER' ? 'Hand over the whole order?'

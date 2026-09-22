@@ -1,6 +1,6 @@
 # Core MVP demo
 
-Use a fresh disposable SQL Server database; never edit schema or reporting rows manually. Start the backend with `SPRING_PROFILES_ACTIVE=demo`. Flyway applies V1–V20 and the isolated demo bootstrap creates the baseline once; a second startup recognizes the same stable codes/SKUs without duplication.
+Use a fresh disposable SQL Server database; never edit schema or reporting rows manually. Start the backend with `SPRING_PROFILES_ACTIVE=demo`. Flyway applies all versioned migrations (V1–V26 at the remediation baseline; check `backend/src/main/resources/db/migration` for additions). The isolated demo bootstrap creates the baseline once; a second startup recognizes the same stable codes/SKUs without duplication. See [CURRENT_BASELINE](CURRENT_BASELINE.md) for current verification status.
 
 ## Start from a fresh database
 
@@ -41,7 +41,7 @@ Demo profile only — every account uses the disposable password `DemoPass!2026`
 - Second customer: `customer.second`
 - Fulfillment: `operations.demo`
 - Cashier: `cashier.demo`
-- Reporting manager: `manager.demo`
+- Delegated operations account: `manager.demo` (base role `OPERATIONS` with direct `STAFF_MANAGE_SCOPED`; this is not a Manager role)
 
 The bootstrap creates Demo Branch A with sales-floor and stockroom locations, three registers, 18 shoe stories / 73 published size variants, merchandising metadata, current and historical prices, and a healthy/low/zero stock mix. It also creates deterministic historical evidence: paid, failed, cancelled, voided, and `REVIEW_REQUIRED` online orders; pickup states plus delivery examples in `OUT_FOR_DELIVERY` and `DELIVERED`; closed shifts with baseline POS sales; and an intentional 7/30-day sales story. `GET /api/v1/storefront/hero` exposes data-driven merchandising candidates without fixing a product in the UI. New transactions can still be run through the steps below.
 
@@ -110,3 +110,23 @@ Create a new database using the authorized account, then run
 `.\mvnw.cmd -Pacceptance clean verify`. Keep the SQL-backed Failsafe results separate
 from the default fast Surefire unit tests and from optional container suites. Use
 only reports produced by the current run; do not sum old XML files.
+# Shipping C1 demo
+
+`manager.demo` remains an `OPERATIONS` account with the direct `SHIPPING_RATE_MANAGE` capability. The demo seeds authoritative rates for Ba Đình, Đông Anh and District 1 using the documented GSO-2024 code snapshot. Delivery checkout requires Province, District and detailed address; the server selects origin and computes the fee.
+
+## C2 automatic promotions
+
+Demo data includes selected-Product 10 percent and 100,000 VND per-unit offers, a 150,000 VND order offer at 3,000,000 VND, and free shipping at 3,000,000 VND. manager.demo can administer revisions; operations.demo is denied.
+
+## S1 storefront fixture
+
+On a fresh disposable database, start the backend with the `demo` profile, then prepare the canonical HOME draft through the existing APIs:
+
+```powershell
+$env:S1_DEMO_PASSWORD = 'DemoPass!2026'
+.\scripts\setup-s1-storefront.ps1 -ConfirmDisposableDemo
+```
+
+The script verifies `manager.demo`, the 18-product demo catalog and the four S1 media mappings. It creates and publishes `City Edit 15` only when absent, rejects a same-name semantic conflict, and creates or reconciles one canonical HOME draft. A matching second run performs no write.
+
+The draft contains, in order: the After Dark hero, Court Originals (`Court Classic`, `Court High`, `Basket Retro`), the City Edit 15 spotlight, and Beyond the pavement (`Trail Form`, `Urban Hiker`, `Trail Edge`). Review both locale previews in Storefront administration and publish the draft there; final publication is intentionally a manager UI action. On the customer HOME, verify that order, the After Dark and promotion-detail links, a Court or Trail collection search followed by Clear search, and the 390px layout.

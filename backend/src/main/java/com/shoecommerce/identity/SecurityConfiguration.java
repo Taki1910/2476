@@ -1,6 +1,8 @@
 package com.shoecommerce.identity;
 
 import java.util.Map;
+import java.time.Clock;
+import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
@@ -20,6 +23,16 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
+
+    @Bean
+    LoginRateLimiter loginRateLimiter(Clock clock,
+            @Value("${security.login-rate-limit.pair-limit}") int pairLimit,
+            @Value("${security.login-rate-limit.pair-window}") Duration pairWindow,
+            @Value("${security.login-rate-limit.source-limit}") int sourceLimit,
+            @Value("${security.login-rate-limit.source-window}") Duration sourceWindow,
+            @Value("${security.login-rate-limit.max-buckets}") int maxBuckets) {
+        return new LoginRateLimiter(clock, new LoginRateLimiter.Policy(pairLimit, pairWindow, sourceLimit, sourceWindow, maxBuckets));
+    }
 
     @Bean
     PasswordEncoder passwordEncoder(@Value("${security.password.bcrypt-strength:10}") int strength) {
@@ -32,6 +45,7 @@ public class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             CurrentAuthorityFilter currentAuthorityFilter,
+            LoginRateLimiter loginRateLimiter,
             RestSecurityErrorWriter errorWriter,
             ObjectMapper objectMapper) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
@@ -46,7 +60,9 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/api/v1/auth/register",
                                 "/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return", "/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/storefront/products", "/api/v1/storefront/products/**", "/api/v1/storefront/hero").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/storefront/products", "/api/v1/storefront/products/**", "/api/v1/storefront/hero",
+                                "/api/v1/storefront/promotions", "/api/v1/storefront/promotions/**",
+                                "/api/v1/storefront/homepage").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/storefront/products/*/fit-analysis").permitAll()
                         .anyRequest().authenticated())
@@ -85,7 +101,8 @@ public class SecurityConfiguration {
                                 HttpStatus.FORBIDDEN,
                                 "ACCESS_DENIED",
                                 "The authenticated account is not authorized for this action.")))
-                .addFilterAfter(currentAuthorityFilter, SecurityContextHolderFilter.class);
+                .addFilterAfter(currentAuthorityFilter, SecurityContextHolderFilter.class)
+                .addFilterBefore(new LoginRateLimitFilter(loginRateLimiter, errorWriter), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

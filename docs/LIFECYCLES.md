@@ -1,5 +1,11 @@
 # Lifecycles — Blueprint v1.1.1
 
+Current C3 lifecycle authority is [ADR-0035](ADR/0035-voucher-family-claim-usage.md):
+Claim CLAIMED → REVOKED; usage RESERVED → REDEEMED or RELEASED. Claim availability
+is not a claim lifecycle state. Conceptual VoucherIssuance states below are deferred
+outside this C3 mapping. Paid void does not release redeemed voucher usage.
+Void allocation version compatibility follows [ADR-0034](ADR/0034-paid-component-reversal-and-reporting.md).
+
 ## Status and conventions
 
 State-machine boundaries used by the
