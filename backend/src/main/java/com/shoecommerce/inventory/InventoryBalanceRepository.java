@@ -19,9 +19,9 @@ public interface InventoryBalanceRepository extends JpaRepository<InventoryBalan
             where balance.variant = :variant
               and balance.location.enabled = true
               and balance.location.branch.enabled = true
-              and balance.onHand > balance.reserved
+              and balance.onHand > 0
             """)
-    boolean existsPublishableStock(@Param("variant") ProductVariant variant);
+    boolean existsPositiveOnHand(@Param("variant") ProductVariant variant);
     @Query("""
             select count(balance) from InventoryBalance balance
             where balance.variant.publicId = :variantId

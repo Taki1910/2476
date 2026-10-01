@@ -45,6 +45,7 @@ import com.shoecommerce.branch.Location;
 import com.shoecommerce.branch.LocationRepository;
 import com.shoecommerce.branch.ScopeAdministrationService;
 import com.shoecommerce.catalog.CatalogService;
+import com.shoecommerce.catalog.CatalogManagementService;
 import com.shoecommerce.identity.AccountUserDetailsService;
 import com.shoecommerce.identity.IdentityAdministrationService;
 import com.shoecommerce.identity.RoleCode;
@@ -72,6 +73,7 @@ class VerticalSlice6PosExternalIT {
     @Autowired IdentityAdministrationService identities;
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
+    @Autowired CatalogManagementService managedCatalog;
     @Autowired InventoryAdjustmentService adjustments;
     @Autowired LocationRepository locations;
     @Autowired PosRegisterRepository registers;
@@ -103,6 +105,7 @@ class VerticalSlice6PosExternalIT {
         assertThat(first.receipt()).extracting(PosService.ReceiptView::total,
                 PosService.ReceiptView::tender, PosService.ReceiptView::fulfillmentStatus)
                 .containsExactly(125_000L, "CASH", "HANDED_OVER");
+        assertThat(first.receipt().color()).isEqualTo("Black");
         assertThat(balance(fixture)).isEqualTo(new Balance(0, 0, 0));
         assertCounts(fixture, 1, 1, 1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order WHERE public_id = ? AND channel = 'POS' AND status = 'PAID' AND owner_account_public_id IS NULL AND reservation_public_id IS NULL", Integer.class, first.receipt().orderId())).isOne();
@@ -115,6 +118,108 @@ class VerticalSlice6PosExternalIT {
         assertThat(closed.expectedCash()).isEqualTo(125_000);
         assertThat(pos.closeShift(fixture.cashier(), shift.id()).expectedCash()).isEqualTo(125_000);
         assertThat(pos.sell(fixture.cashier(), shift.id(), fixture.variantId(), "sale-normal").receipt()).isEqualTo(first.receipt());
+    }
+
+    @Test
+    void barcodeSkuAndBoundedOperationalSearchReturnExactLocalCandidatesWithoutAutoSale() {
+        Fixture fixture = fixture("identify", 1);
+        UUID shiftId = pos.openShift(fixture.cashier(), fixture.registerId()).id();
+
+        var scanned = pos.lookupBarcode(fixture.cashier(), shiftId, "  " + fixture.barcode() + "  ");
+        assertThat(scanned).extracting(PosService.VariantView::id, PosService.VariantView::barcode,
+                PosService.VariantView::saleState, PosService.VariantView::onHand,
+                PosService.VariantView::reserved, PosService.VariantView::available)
+                .containsExactly(fixture.variantId(), fixture.barcode(), PosService.SaleState.SELLABLE, 1L, 0L, 1L);
+        assertThat(pos.lookup(fixture.cashier(), shiftId, fixture.sku()).id()).isEqualTo(fixture.variantId());
+        assertThat(pos.search(fixture.cashier(), shiftId, "POS Runner identify 42"))
+                .extracting(PosService.VariantView::id).contains(fixture.variantId());
+        assertThat(pos.search(fixture.cashier(), shiftId, "Black")).hasSizeLessThanOrEqualTo(20)
+                .extracting(PosService.VariantView::id).contains(fixture.variantId());
+        assertThat(pos.search(fixture.cashier(), shiftId, "42"))
+                .extracting(PosService.VariantView::id).contains(fixture.variantId());
+        assertCounts(fixture, 0, 0, 0);
+
+        assertThatThrownBy(() -> pos.lookupBarcode(fixture.cashier(), shiftId, "000-UNKNOWN"))
+                .isInstanceOfSatisfying(ResourceNotFoundException.class,
+                        notFound -> assertThat(notFound.code()).isEqualTo("POS_BARCODE_NOT_FOUND"));
+    }
+
+    @Test
+    void exactIdentificationExplainsDraftRetiredMissingPriceAndLocalSoldOutStates() {
+        Fixture draftBase = fixture("draft-state", 1);
+        String draftBarcode = "000" + shortId();
+        UUID draft = catalog.createVariant(draftBase.operations(), draftBase.productId(),
+                "DRAFT-" + shortId(), "44", "Blue", draftBarcode);
+        UUID draftShift = pos.openShift(draftBase.cashier(), draftBase.registerId()).id();
+        assertThat(pos.lookupBarcode(draftBase.cashier(), draftShift, draftBarcode).saleState())
+                .isEqualTo(PosService.SaleState.NOT_PUBLISHED);
+
+        Fixture retired = fixture("retired-state", 1);
+        UUID retiredShift = pos.openShift(retired.cashier(), retired.registerId()).id();
+        catalog.retire(retired.operations(), retired.variantId(), version(retired.variantId()));
+        assertThat(pos.lookupBarcode(retired.cashier(), retiredShift, retired.barcode()).saleState())
+                .isEqualTo(PosService.SaleState.RETIRED);
+
+        Fixture noPrice = fixture("no-price", 1);
+        UUID noPriceShift = pos.openShift(noPrice.cashier(), noPrice.registerId()).id();
+        jdbc.update("UPDATE pricing_variant_price SET valid_to=? WHERE variant_id=(SELECT id FROM catalog_product_variant WHERE public_id=?) AND valid_to IS NULL",
+                Timestamp.from(clock.instant()), noPrice.variantId());
+        assertThat(pos.lookupBarcode(noPrice.cashier(), noPriceShift, noPrice.barcode()).saleState())
+                .isEqualTo(PosService.SaleState.PRICE_UNAVAILABLE);
+
+        Fixture localSoldOut = fixture("local-stock", 0);
+        UUID otherLocation = scopes.createLocation(localSoldOut.admin(), localSoldOut.branchId(),
+                "OTHER-" + shortId(), "Other floor");
+        scopes.setAssignment(localSoldOut.admin(), localSoldOut.operations().publicId(),
+                localSoldOut.branchId(), otherLocation, true);
+        adjustments.adjust(localSoldOut.operations(), localSoldOut.variantId(), otherLocation, 4,
+                "Other location stock", UUID.randomUUID().toString());
+        UUID soldOutShift = pos.openShift(localSoldOut.cashier(), localSoldOut.registerId()).id();
+        var local = pos.lookupBarcode(localSoldOut.cashier(), soldOutShift, localSoldOut.barcode());
+        assertThat(local.saleState()).isEqualTo(PosService.SaleState.SOLD_OUT_HERE);
+        assertThat(local.available()).isZero();
+    }
+
+    @Test
+    void expiredOnlineHoldIsReleasedBeforeLookupAndFinalPosSale() {
+        Fixture fixture = fixture("expired-hold", 1);
+        var online = orders.checkout(fixture.customer(), pricing.quote(fixture.customer(), fixture.variantId()).id(),
+                "expired-online-hold");
+        assertThat(balance(fixture)).isEqualTo(new Balance(1, 1, 0));
+        clock.set(online.reservationExpiresAt());
+        UUID shiftId = pos.openShift(fixture.cashier(), fixture.registerId()).id();
+
+        var candidate = pos.lookupBarcode(fixture.cashier(), shiftId, fixture.barcode());
+        assertThat(candidate.available()).isOne();
+        var sale = pos.sell(fixture.cashier(), shiftId, fixture.variantId(), candidate.priceVersionId(),
+                "expired-hold-pos").receipt();
+
+        assertThat(balance(fixture)).isEqualTo(new Balance(0, 0, 0));
+        assertThat(jdbc.queryForObject("SELECT status FROM commerce_order WHERE public_id=?", String.class,
+                online.id())).isEqualTo("CANCELLED");
+        assertThat(jdbc.queryForObject("SELECT status FROM inventory_reservation WHERE public_id=?", String.class,
+                online.reservationId())).isEqualTo("EXPIRED");
+        assertThat(sale.total()).isEqualTo(125_000);
+        assertCounts(fixture, 1, 1, 1);
+    }
+
+    @Test
+    void saleRejectsAChangedPriceVersionAndSucceedsAfterCashierRefresh() {
+        Fixture fixture = fixture("price-revalidate", 1);
+        UUID shiftId = pos.openShift(fixture.cashier(), fixture.registerId()).id();
+        var first = pos.lookupBarcode(fixture.cashier(), shiftId, fixture.barcode());
+        clock.advance(Duration.ofSeconds(1));
+        catalog.setPrice(fixture.operations(), fixture.variantId(), 150_000);
+
+        assertThatThrownBy(() -> pos.sell(fixture.cashier(), shiftId, fixture.variantId(),
+                first.priceVersionId(), "stale-price"))
+                .isInstanceOfSatisfying(BusinessConflictException.class,
+                        conflict -> assertThat(conflict.code()).isEqualTo("POS_PRICE_CHANGED"));
+        assertCounts(fixture, 0, 0, 0);
+
+        var refreshed = pos.lookupBarcode(fixture.cashier(), shiftId, fixture.barcode());
+        assertThat(pos.sell(fixture.cashier(), shiftId, fixture.variantId(), refreshed.priceVersionId(),
+                "fresh-price").receipt().total()).isEqualTo(150_000);
     }
 
     @Test
@@ -271,6 +376,75 @@ class VerticalSlice6PosExternalIT {
     }
 
     @Test
+    void variantRetirementSerializesWithNewPosAndCheckoutTransactions() throws Exception {
+        Fixture retireBeforePos = fixture("retire-before-pos", 1);
+        UUID blockedShift = pos.openShift(retireBeforePos.cashier(), retireBeforePos.registerId()).id();
+        CountDownLatch retired = new CountDownLatch(1), allowRetireCommit = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var winner = executor.submit(() -> transactions.execute(status -> {
+                catalog.retire(retireBeforePos.operations(), retireBeforePos.variantId(), version(retireBeforePos.variantId()));
+                retired.countDown(); await(allowRetireCommit); return true;
+            }));
+            assertThat(retired.await(10, TimeUnit.SECONDS)).isTrue();
+            var loser = executor.submit(() -> pos.sell(retireBeforePos.cashier(), blockedShift,
+                    retireBeforePos.variantId(), "retired-pos"));
+            allowRetireCommit.countDown();
+            assertThat(winner.get(15, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> loser.get(15, TimeUnit.SECONDS)).hasCauseInstanceOf(BusinessConflictException.class);
+        }
+        assertCounts(retireBeforePos, 0, 0, 0);
+
+        Fixture posBeforeRetire = fixture("pos-before-retire", 1);
+        UUID saleShift = pos.openShift(posBeforeRetire.cashier(), posBeforeRetire.registerId()).id();
+        CountDownLatch sold = new CountDownLatch(1), allowSaleCommit = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var winner = executor.submit(() -> transactions.execute(status -> {
+                var sale = pos.sell(posBeforeRetire.cashier(), saleShift, posBeforeRetire.variantId(), "pos-before-retire");
+                sold.countDown(); await(allowSaleCommit); return sale;
+            }));
+            assertThat(sold.await(10, TimeUnit.SECONDS)).isTrue();
+            var retirement = executor.submit(() -> catalog.retire(posBeforeRetire.operations(),
+                    posBeforeRetire.variantId(), version(posBeforeRetire.variantId())));
+            allowSaleCommit.countDown();
+            assertThat(winner.get(15, TimeUnit.SECONDS).receipt().orderId()).isNotNull();
+            retirement.get(15, TimeUnit.SECONDS);
+        }
+        assertCounts(posBeforeRetire, 1, 1, 1);
+
+        Fixture retireBeforeCheckout = fixture("retire-before-checkout", 1);
+        var blockedQuote = pricing.quote(retireBeforeCheckout.customer(), retireBeforeCheckout.variantId());
+        CountDownLatch checkoutRetired = new CountDownLatch(1), allowCheckoutRetireCommit = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var winner = executor.submit(() -> transactions.execute(status -> {
+                catalog.retire(retireBeforeCheckout.operations(), retireBeforeCheckout.variantId(), version(retireBeforeCheckout.variantId()));
+                checkoutRetired.countDown(); await(allowCheckoutRetireCommit); return true;
+            }));
+            assertThat(checkoutRetired.await(10, TimeUnit.SECONDS)).isTrue();
+            var loser = executor.submit(() -> orders.checkout(retireBeforeCheckout.customer(), blockedQuote.id(), "retired-checkout"));
+            allowCheckoutRetireCommit.countDown();
+            assertThat(winner.get(15, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> loser.get(15, TimeUnit.SECONDS)).hasCauseInstanceOf(BusinessConflictException.class);
+        }
+
+        Fixture checkoutBeforeRetire = fixture("checkout-before-retire", 1);
+        var acceptedQuote = pricing.quote(checkoutBeforeRetire.customer(), checkoutBeforeRetire.variantId());
+        CountDownLatch reserved = new CountDownLatch(1), allowCheckoutCommit = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var winner = executor.submit(() -> transactions.execute(status -> {
+                var order = orders.checkout(checkoutBeforeRetire.customer(), acceptedQuote.id(), "checkout-before-retire");
+                reserved.countDown(); await(allowCheckoutCommit); return order;
+            }));
+            assertThat(reserved.await(10, TimeUnit.SECONDS)).isTrue();
+            var retirement = executor.submit(() -> catalog.retire(checkoutBeforeRetire.operations(),
+                    checkoutBeforeRetire.variantId(), version(checkoutBeforeRetire.variantId())));
+            allowCheckoutCommit.countDown();
+            assertThat(winner.get(15, TimeUnit.SECONDS).status()).isEqualTo("PENDING_PAYMENT");
+            retirement.get(15, TimeUnit.SECONDS);
+        }
+        assertThat(balance(checkoutBeforeRetire)).isEqualTo(new Balance(1, 1, 0));
+    }
+
+    @Test
     void twoIndependentSalesConsumeTwoUnitsWithoutFalseConflict() throws Exception {
         Fixture fixture = fixture("two-stock", 2);
         UUID shiftId = pos.openShift(fixture.cashier(), fixture.registerId()).id();
@@ -285,6 +459,31 @@ class VerticalSlice6PosExternalIT {
         }
         assertThat(balance(fixture)).isEqualTo(new Balance(0, 0, 0));
         assertCounts(fixture, 2, 2, 2);
+    }
+
+    @Test
+    void retirementPreservesCompletedSalePriceInventoryAndFulfillmentEvidence() {
+        Fixture fixture = fixture("retired-history", 2);
+        UUID shiftId = pos.openShift(fixture.cashier(), fixture.registerId()).id();
+        var sale = pos.sell(fixture.cashier(), shiftId, fixture.variantId(), "retired-history").receipt();
+        catalog.setPrice(fixture.operations(), fixture.variantId(), 150_000);
+        catalog.retire(fixture.operations(), fixture.variantId(), version(fixture.variantId()));
+
+        assertThat(pos.receipt(fixture.cashier(), sale.orderId()).unitPrice()).isEqualTo(125_000);
+        var variant = managedCatalog.product(fixture.operations(), fixture.productId()).variants().getFirst();
+        assertThat(variant.status()).isEqualTo("RETIRED");
+        assertThat(variant.currentPrice()).isEqualTo(150_000);
+        assertThat(variant.inventory().onHand()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM pricing_variant_price prices
+                JOIN catalog_product_variant variants ON variants.id=prices.variant_id
+                WHERE variants.public_id=?
+                """, Integer.class, fixture.variantId())).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT fulfillments.status FROM pickup_fulfillment fulfillments
+                JOIN commerce_order orders ON orders.id=fulfillments.order_id
+                WHERE orders.public_id=?
+                """, String.class, sale.orderId())).isEqualTo("HANDED_OVER");
     }
 
     @Test
@@ -361,6 +560,11 @@ class VerticalSlice6PosExternalIT {
         return pos.sell(fixture.cashier(), shiftId, fixture.variantId(), key);
     }
 
+    private long version(UUID variantId) {
+        return jdbc.queryForObject("SELECT entity_version FROM catalog_product_variant WHERE public_id=?",
+                Long.class, variantId);
+    }
+
     private Object openAfterBarrier(SessionPrincipal cashier, UUID registerId,
             CountDownLatch ready, CountDownLatch start) throws InterruptedException {
         ready.countDown(); start.await();
@@ -383,26 +587,28 @@ class VerticalSlice6PosExternalIT {
         SessionPrincipal operations = principal(operationsLogin);
         UUID product = catalog.createProduct(operations, "POS Runner " + suffix);
         String sku = "V12-" + suffix + "-" + shortId();
-        UUID variant = catalog.createVariant(operations, product, sku, "42", "Black");
+        String barcode = "000" + shortId();
+        UUID variant = catalog.createVariant(operations, product, sku, "42", "Black", barcode);
         catalog.setPrice(operations, variant, 125_000);
         adjustments.adjust(operations, variant, location, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variant);
         Location locationEntity = locations.findByPublicId(location).orElseThrow();
         PosRegister register = registers.save(PosRegister.create("REG-" + shortId(), locationEntity, clock.instant()));
         return new Fixture(admin, operations, principal(cashierLogin), principal(customerLogin), cashierId,
-                cashierLogin, branch, location, register.publicId(), product, variant, sku);
+                cashierLogin, branch, location, register.publicId(), product, variant, sku, barcode);
     }
 
     private Fixture addVariant(Fixture fixture, String suffix, long stock) {
         String sku = "V12-" + suffix + "-" + shortId();
-        UUID variant = catalog.createVariant(fixture.operations(), fixture.productId(), sku, "43", "White");
+        String barcode = "000" + shortId();
+        UUID variant = catalog.createVariant(fixture.operations(), fixture.productId(), sku, "43", "White", barcode);
         catalog.setPrice(fixture.operations(), variant, 130_000);
         adjustments.adjust(fixture.operations(), variant, fixture.locationId(), stock,
                 "Test fixture", UUID.randomUUID().toString());
         catalog.publish(fixture.operations(), variant);
         return new Fixture(fixture.admin(), fixture.operations(), fixture.cashier(), fixture.customer(),
                 fixture.cashierId(), fixture.cashierLogin(), fixture.branchId(), fixture.locationId(),
-                fixture.registerId(), fixture.productId(), variant, sku);
+                fixture.registerId(), fixture.productId(), variant, sku, barcode);
     }
 
     private SessionPrincipal createCashier(Fixture fixture, String suffix) {
@@ -469,7 +675,7 @@ class VerticalSlice6PosExternalIT {
     private record Balance(long onHand, long reserved, long available) { }
     private record Fixture(SessionPrincipal admin, SessionPrincipal operations, SessionPrincipal cashier,
             SessionPrincipal customer, UUID cashierId, String cashierLogin, UUID branchId, UUID locationId,
-            UUID registerId, UUID productId, UUID variantId, String sku) { }
+            UUID registerId, UUID productId, UUID variantId, String sku, String barcode) { }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class TestClockConfiguration {

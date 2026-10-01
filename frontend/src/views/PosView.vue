@@ -3,12 +3,17 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { api, ApiError, type PosReceipt, type PosRegister, type PosShift, type PosVariant } from '../api'
 import { formatDateTime, formatVnd, posErrorCopy } from '../format'
 import { messageLabel, t } from '../i18n'
+import { acceptScannedCandidate, candidateStateLabel, moveCandidateSelection, selectedCandidate } from '../pos-workflow'
 
 const registers = ref<PosRegister[]>([])
 const shift = ref<PosShift>()
 const selectedRegister = ref('')
-const sku = ref('')
+const lookupMode = ref<'scan' | 'search'>('scan')
+const lookupText = ref('')
 const variant = ref<PosVariant>()
+const candidates = ref<PosVariant[]>([])
+const activeCandidate = ref(-1)
+const searched = ref(false)
 const receipt = ref<PosReceipt>()
 const loading = ref(true)
 const opening = ref(false)
@@ -20,11 +25,24 @@ const lookupError = ref('')
 const saleError = ref('')
 const shiftWarning = ref('')
 const saleKey = ref('')
-const skuInput = ref<HTMLInputElement>()
+const lookupInput = ref<HTMLInputElement>()
 const receiptPanel = ref<HTMLElement>()
 const confirmDialog = ref<HTMLDialogElement>()
 
-const canSell = computed(() => variant.value && variant.value.available > 0 && !selling.value)
+const canSell = computed(() => variant.value?.saleState === 'SELLABLE'
+  && variant.value.amount !== null && !!variant.value.priceVersionId && !selling.value)
+const stateHelp: Record<PosVariant['saleState'], string> = {
+  SELLABLE: 'This pair can be sold from the active register location.',
+  SOLD_OUT_HERE: 'This item exists, but it is sold out at this register location.',
+  RETIRED: 'This size/color has been retired.',
+  NOT_PUBLISHED: 'This size/color is not published for sale.',
+  PRICE_UNAVAILABLE: 'This size/color has no current selling price.',
+}
+
+async function focusLookup() {
+  await nextTick()
+  lookupInput.value?.focus()
+}
 
 async function load() {
   loading.value = true
@@ -39,8 +57,7 @@ async function load() {
   } finally {
     loading.value = false
     if (shift.value) {
-      await nextTick()
-      skuInput.value?.focus()
+      await focusLookup()
     }
   }
 }
@@ -51,8 +68,7 @@ async function openShift() {
   error.value = ''
   try {
     shift.value = await api.openPosShift(selectedRegister.value)
-    await nextTick()
-    skuInput.value?.focus()
+    await focusLookup()
   } catch (reason) {
     error.value = posErrorCopy(reason)
   } finally {
@@ -60,21 +76,75 @@ async function openShift() {
   }
 }
 
-async function lookup() {
-  if (!shift.value || !sku.value.trim()) return
-  lookingUp.value = true
+function resetLookupResult() {
   lookupError.value = ''
   saleError.value = ''
   receipt.value = undefined
   shiftWarning.value = ''
   variant.value = undefined
+  candidates.value = []
+  activeCandidate.value = -1
+  searched.value = false
+  saleKey.value = ''
+}
+
+async function setLookupMode(mode: 'scan' | 'search') {
+  lookupMode.value = mode
+  lookupText.value = ''
+  resetLookupResult()
+  await focusLookup()
+}
+
+function chooseCandidate(candidate: PosVariant) {
+  variant.value = candidate
+  saleKey.value = crypto.randomUUID()
+}
+
+async function resolveBarcode() {
+  if (!shift.value || !lookupText.value.trim()) return
+  lookingUp.value = true
+  resetLookupResult()
   try {
-    variant.value = await api.posVariant(shift.value.id, sku.value.trim())
-    saleKey.value = crypto.randomUUID()
+    const resolved = await api.posBarcode(shift.value.id, lookupText.value.trim())
+    chooseCandidate(acceptScannedCandidate(variant.value, resolved).candidate)
+    lookupText.value = ''
   } catch (reason) {
     lookupError.value = posErrorCopy(reason)
   } finally {
     lookingUp.value = false
+  }
+}
+
+async function searchProducts() {
+  if (!shift.value || !lookupText.value.trim()) return
+  lookingUp.value = true
+  resetLookupResult()
+  try {
+    candidates.value = await api.searchPosVariants(shift.value.id, lookupText.value.trim())
+    activeCandidate.value = candidates.value.length ? 0 : -1
+    searched.value = true
+  } catch (reason) {
+    lookupError.value = posErrorCopy(reason)
+  } finally {
+    lookingUp.value = false
+  }
+}
+
+function submitLookup() {
+  return lookupMode.value === 'scan' ? resolveBarcode() : searchProducts()
+}
+
+function handleSearchKeydown(event: KeyboardEvent) {
+  if (lookupMode.value !== 'search' || !candidates.value.length) return
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    activeCandidate.value = moveCandidateSelection(activeCandidate.value, candidates.value.length, event.key)
+  } else {
+    const selected = selectedCandidate(candidates.value, activeCandidate.value, event.key)
+    if (selected) {
+      event.preventDefault()
+      chooseCandidate(selected)
+    }
   }
 }
 
@@ -84,22 +154,25 @@ function askSale() {
 }
 function closeDialog() { confirmDialog.value?.close() }
 async function sell() {
-  if (!shift.value || !variant.value || !saleKey.value) return
+  if (!shift.value || !variant.value?.priceVersionId || !saleKey.value) return
   closeDialog()
   selling.value = true
   saleError.value = ''
   try {
-    receipt.value = await api.sellPos(shift.value.id, variant.value.id, saleKey.value)
+    receipt.value = await api.sellPos(shift.value.id, variant.value.id, variant.value.priceVersionId, saleKey.value)
     await nextTick()
     receiptPanel.value?.focus()
   } catch (reason) {
     saleError.value = posErrorCopy(reason)
     const code = reason instanceof ApiError ? reason.code : ''
-    if (['INSUFFICIENT_INVENTORY', 'IDEMPOTENCY_KEY_CONFLICT'].includes(code)) {
+    if (['POS_VARIANT_NOT_FOUND', 'POS_SOLD_OUT_HERE', 'POS_PRICE_CHANGED', 'POS_VARIANT_RETIRED', 'POS_VARIANT_NOT_PUBLISHED',
+      'POS_PRICE_UNAVAILABLE', 'IDEMPOTENCY_KEY_CONFLICT'].includes(code)) {
       variant.value = undefined
+      candidates.value = []
+      activeCandidate.value = -1
+      searched.value = false
       saleKey.value = ''
-      await nextTick()
-      skuInput.value?.focus()
+      await focusLookup()
     } else if (['SHIFT_CLOSED', 'REGISTER_UNAVAILABLE'].includes(code)) {
       error.value = saleError.value
       shift.value = undefined
@@ -126,8 +199,9 @@ async function closeShift() {
     shift.value = undefined
     variant.value = undefined
     receipt.value = undefined
-    sku.value = ''
+    lookupText.value = ''
     saleKey.value = ''
+    candidates.value = []
     error.value = t('Shift closed. Expected cash: {amount}.', { amount: formatVnd(closed.expectedCash) })
   } catch (reason) {
     error.value = posErrorCopy(reason)
@@ -137,15 +211,16 @@ async function closeShift() {
 }
 
 async function nextSale() {
-  sku.value = ''
+  lookupText.value = ''
   variant.value = undefined
+  candidates.value = []
+  activeCandidate.value = -1
   receipt.value = undefined
   saleKey.value = ''
   lookupError.value = ''
   saleError.value = ''
   shiftWarning.value = ''
-  await nextTick()
-  skuInput.value?.focus()
+  await focusLookup()
 }
 
 onMounted(load)
@@ -191,26 +266,43 @@ onMounted(load)
         <section class="sale-station" aria-labelledby="sale-title">
           <div class="station-heading"><h2 id="sale-title">{{ t('Find the pair') }}</h2><span>{{ t('Quantity') }} 1</span></div>
           <template v-if="!receipt">
-            <form class="sku-search" @submit.prevent="lookup">
-              <label for="sku">{{ t('Scan or enter the exact SKU') }}</label>
+            <div class="lookup-modes" role="group" :aria-label="t('Lookup mode')">
+              <button type="button" :aria-pressed="lookupMode === 'scan'" @click="setLookupMode('scan')">{{ t('Scan barcode') }}</button>
+              <button type="button" :aria-pressed="lookupMode === 'search'" @click="setLookupMode('search')">{{ t('Search product') }}</button>
+            </div>
+            <form class="sku-search" @submit.prevent="submitLookup">
+              <label for="pos-lookup">{{ t(lookupMode === 'scan' ? 'Barcode' : 'Product name, SKU, color, or EU size') }}</label>
               <div>
-                <input id="sku" ref="skuInput" v-model="sku" name="sku" autocomplete="off" autocapitalize="characters" maxlength="64" :disabled="lookingUp || selling" aria-describedby="sku-help" required />
-                <button type="submit" :disabled="lookingUp || selling || !sku.trim()">{{ t(lookingUp ? 'Checking…' : 'Check price & stock') }}</button>
+                <input id="pos-lookup" ref="lookupInput" v-model="lookupText" name="lookup" autocomplete="off" :maxlength="lookupMode === 'scan' ? 128 : 80" :disabled="lookingUp || selling" aria-describedby="lookup-help" required @input="resetLookupResult" @keydown="handleSearchKeydown" />
+                <button type="submit" :disabled="lookingUp || selling || !lookupText.trim()">{{ t(lookingUp ? 'Checking…' : lookupMode === 'scan' ? 'Resolve barcode' : 'Search') }}</button>
               </div>
-              <p id="sku-help" class="field-help">{{ t('Use the complete variant SKU on the label, for example DEMO-CC-39. Product names and partial SKUs are not supported.') }}</p>
+              <p id="lookup-help" class="field-help">{{ t(lookupMode === 'scan' ? 'Scan a barcode and press Enter. Sale never starts automatically.' : 'Search by product name, SKU, color, EU size, or combined text.') }}</p>
             </form>
             <p v-if="lookupError" class="form-error" role="alert">{{ messageLabel(lookupError) }}</p>
 
+            <section v-if="lookupMode === 'search' && candidates.length" class="pos-candidates" aria-labelledby="candidate-title">
+              <h3 id="candidate-title">{{ t('Search results') }}</h3>
+              <div class="candidate-list">
+                <button v-for="(candidate, index) in candidates" :key="candidate.id" type="button"
+                  :aria-pressed="variant?.id === candidate.id" :data-active="activeCandidate === index"
+                  @focus="activeCandidate = index" @click="chooseCandidate(candidate)">
+                  <span><strong>{{ candidate.productName }}</strong><small>{{ candidate.sku }} · {{ t('Size') }} {{ candidate.size }} · {{ t(candidate.color) }}</small></span>
+                  <span><strong>{{ t(candidateStateLabel(candidate.saleState)) }}</strong><small>{{ candidate.locationCode }}</small></span>
+                </button>
+              </div>
+            </section>
+            <p v-else-if="lookupMode === 'search' && searched && !lookingUp && !lookupError" class="field-help">{{ t('No matching products.') }}</p>
+
             <article v-if="variant" class="sale-line" aria-live="polite">
               <div class="sale-product"><strong>{{ variant.productName }}</strong><small>{{ variant.sku }}</small><small>{{ t('Size') }} {{ variant.size }} · {{ t(variant.color) }}</small></div>
-              <div><span>{{ t('Available here') }}</span><strong>{{ variant.available }}</strong><small>{{ t('Authoritative now') }}</small></div>
-              <div class="sale-price"><span>{{ t('Exact cash') }}</span><strong>{{ formatVnd(variant.amount) }}</strong><small>{{ t('Server price · VND') }}</small></div>
+              <div><span>{{ t('Sale status') }}</span><strong>{{ t(candidateStateLabel(variant.saleState)) }}</strong><small>{{ t(stateHelp[variant.saleState]) }}</small></div>
+              <div class="sale-price"><span>{{ t('Exact cash') }}</span><strong>{{ variant.amount === null ? '—' : formatVnd(variant.amount) }}</strong><small>{{ t('Server price · VND') }}</small></div>
             </article>
 
             <div v-if="variant" class="sale-commit">
-              <p v-if="variant.available > 0"><strong>{{ t('Confirm only after receiving exact cash.') }}</strong><span>{{ t('This completes a paid order and hands over one pair immediately.') }}</span></p>
-              <p v-else><strong>{{ t('Out of stock at this register.') }}</strong><span>{{ t('No cash was taken and no order was created.') }}</span></p>
-              <button type="button" :disabled="!canSell" @click="askSale">{{ selling ? t('Completing sale…') : t('Take {amount} & complete sale', { amount: formatVnd(variant.amount) }) }}</button>
+              <p v-if="canSell"><strong>{{ t('Confirm only after receiving exact cash.') }}</strong><span>{{ t('This completes a paid order and hands over one pair immediately.') }}</span></p>
+              <p v-else><strong>{{ t(candidateStateLabel(variant.saleState)) }}</strong><span>{{ t(stateHelp[variant.saleState]) }} {{ t('No cash was taken and no order was created.') }}</span></p>
+              <button type="button" :disabled="!canSell" @click="askSale">{{ selling ? t('Completing sale…') : t('Take {amount} & complete sale', { amount: variant.amount === null ? '—' : formatVnd(variant.amount) }) }}</button>
             </div>
             <p v-if="saleError" class="form-error" role="alert">{{ messageLabel(saleError) }}</p>
           </template>
@@ -219,10 +311,17 @@ onMounted(load)
             <div class="receipt-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg></div>
             <div>
               <h2 id="receipt-title">{{ t('Sale complete.') }}</h2>
-              <p>{{ t('{sku} · Size {size} has been handed over.', { sku: receipt.sku, size: receipt.size }) }}</p>
+              <p>{{ t('{sku} · Size {size} · {color} has been handed over.', { sku: receipt.sku, size: receipt.size, color: receipt.color }) }}</p>
               <dl>
+                <div><dt>{{ t('Register lane') }}</dt><dd>{{ receipt.registerCode }}</dd></div>
+                <div><dt>{{ t('Location name') }}</dt><dd>{{ receipt.locationCode }} · {{ t(receipt.locationName) }}</dd></div>
+                <div><dt>{{ t('SKU') }}</dt><dd>{{ receipt.sku }}</dd></div>
+                <div><dt>{{ t('Color') }}</dt><dd>{{ t(receipt.color) }}</dd></div>
+                <div><dt>{{ t('EU size') }}</dt><dd>{{ receipt.size }}</dd></div>
+                <div><dt>{{ t('Quantity') }}</dt><dd>{{ receipt.quantity }}</dd></div>
+                <div><dt>{{ t('Unit price') }}</dt><dd>{{ formatVnd(receipt.unitPrice) }}</dd></div>
                 <div><dt>{{ t('Total') }}</dt><dd>{{ formatVnd(receipt.total) }}</dd></div>
-                <div><dt>{{ t('Tender') }}</dt><dd>{{ t('Exact cash') }}</dd></div>
+                <div><dt>{{ t('Tender') }}</dt><dd>{{ t('Cash payment') }}</dd></div>
                 <div><dt>{{ t('Sold') }}</dt><dd>{{ formatDateTime(receipt.soldAt) }}</dd></div>
                 <div><dt>{{ t('Order') }}</dt><dd>{{ receipt.orderId }}</dd></div>
               </dl>
@@ -255,7 +354,7 @@ onMounted(load)
     <dialog v-if="variant" ref="confirmDialog" class="terminal-dialog" aria-labelledby="pos-dialog-title" aria-describedby="pos-dialog-description" @cancel="closeDialog">
       <form method="dialog" @submit.prevent>
         <h2 id="pos-dialog-title">{{ t('Confirm cash sale') }}</h2>
-        <p id="pos-dialog-description">{{ t('Confirm exact cash of {amount} for {sku}, size {size}? This immediately hands over one pair.', { amount: formatVnd(variant.amount), sku: variant.sku, size: variant.size }) }}</p>
+        <p id="pos-dialog-description">{{ t('Confirm exact cash of {amount} for {sku}, size {size}? This immediately hands over one pair.', { amount: variant.amount === null ? '—' : formatVnd(variant.amount), sku: variant.sku, size: variant.size }) }}</p>
         <div><button class="text-button" type="button" @click="closeDialog">{{ t('Cancel') }}</button><button class="primary-button" type="button" @click="sell">{{ t('Complete sale') }}</button></div>
       </form>
     </dialog>

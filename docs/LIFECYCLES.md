@@ -24,17 +24,35 @@ Operational state is mutable through guarded transitions. Order/price/product
 snapshots and financial/inventory movement facts are immutable. UI summary
 states such as “paid and delivered” are derived read-model values.
 
-## ProductVariant — Vertical Slice 1
+## ProductVariant — P2B
 
 ```text
 DRAFT -> PUBLISHED
+DRAFT -> RETIRED
+PUBLISHED -> RETIRED
+RETIRED -> DRAFT
 ```
 
 - Actor: account with `CATALOG_MANAGE`.
+- Every command requires the expected Variant entity version and locks the
+  Variant before changing sale eligibility.
+- Barcode may change only while the Variant is `DRAFT` and has never reached
+  `PUBLISHED`. First publication records that history, so retirement and restore
+  do not reopen barcode editing.
 - `PUBLISHED` requires an existing positive VND current price and positive
-  on-hand stock at at least one enabled Location.
-- This slice has no archive, unpublish, price history, reservation, or stock
-  movement transition; those require their own admitted lifecycle/use case.
+  on-hand stock at at least one enabled Location. Reserved stock does not block
+  publication when `onHand > 0`; immediate customer availability remains a
+  separate `available = onHand - reserved` projection.
+- `RETIRED` blocks new checkout and POS sale. It does not delete or rewrite
+  price history, inventory, reservations, orders, editorial content,
+  merchandising or audit evidence.
+- `RETIRED -> PUBLISHED` and `PUBLISHED -> DRAFT` are forbidden. Restore first
+  returns to `DRAFT`, then ordinary readiness validation is required.
+- Retirement and checkout/POS serialize on the authoritative Variant lock. A
+  transaction established before retirement continues normally; one starting
+  after retirement is rejected.
+- Hold expiry ignores current Variant lifecycle so a later retirement cannot
+  strand reserved inventory.
 
 Voucher transitions and locks below apply only if the optional Voucher slice is
 admitted. Core MVP checkout uses deterministic base price without Voucher.

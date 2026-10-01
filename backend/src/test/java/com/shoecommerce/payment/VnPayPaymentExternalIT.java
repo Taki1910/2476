@@ -833,7 +833,7 @@ class VnPayPaymentExternalIT {
     void stackedItemOrderAndClaimDiscountsReconcileWithPaidAndFreeShippingAfterVoid() {
         for (boolean freeShipping : List.of(false, true)) {
             var delivery = new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
-                    new CustomerOrderService.DeliveryRequest("Test receiver", "0900000000", "79", "760", "Test address", null));
+                    new CustomerOrderService.DeliveryRequest("Test receiver", "0900000000", "79", "760", "DEMO-760-01", "Test address", null));
             CartFlow setup = cartFlow("stacked-" + freeShipping, 2, delivery, 50_000);
             orders.cancelOwn(setup.customer(), setup.facts().orderId());
             Timestamp now = Timestamp.from(clock.instant());
@@ -850,7 +850,7 @@ class VnPayPaymentExternalIT {
                         shippingFamily, UUID.randomUUID(), Timestamp.from(clock.instant().minusSeconds(1)), setup.customer().publicId(), now, now);
             }
             var lines = setup.facts().items().stream().map(i -> new CartQuoteService.LineRequest(i.variantId(), i.quantity())).toList();
-            var quote = cartPricing.quote(setup.customer(), lines, new CartQuoteService.FulfillmentQuote("DELIVERY", "79", "760"), PromotionService.VoucherSelection.claim(claim));
+            var quote = cartPricing.quote(setup.customer(), lines, new CartQuoteService.FulfillmentQuote("DELIVERY", "79", "760", "DEMO-760-01"), PromotionService.VoucherSelection.claim(claim));
             var order = orders.checkoutCart(setup.customer(), quote.id(), lines, delivery, "stacked-checkout-" + freeShipping);
             var facts = transactions.execute(status -> orderRepository.findLockedByPublicId(order.id()).orElseThrow().paymentFacts());
             var attempt = payments.initiate(setup.customer(), order.id(), "stacked-pay-" + freeShipping).attempt();
@@ -1141,7 +1141,7 @@ class VnPayPaymentExternalIT {
 
     private CartFlow deliveryCartFlow(String suffix, int count) {
         return cartFlow(suffix, count, new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
-                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "12 Nguyen Hue, Quan 1", null)));
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "DEMO-760-01", "12 Nguyen Hue", null)));
     }
 
     private CartFlow cartFlow(String suffix, int count, CustomerOrderService.FulfillmentRequest fulfillment) {
@@ -1173,7 +1173,7 @@ class VnPayPaymentExternalIT {
         if(fulfillment!=null) jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
                 UUID.randomUUID(),UUID.randomUUID(),java.sql.Timestamp.from(clock.instant().minusSeconds(1)),setup.customer().publicId(),java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
         var quote = fulfillment==null ? cartPricing.quote(setup.customer(), lines)
-                : cartPricing.quote(setup.customer(),lines,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
+                : cartPricing.quote(setup.customer(),lines,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760","DEMO-760-01"));
         var order = fulfillment == null
                 ? orders.checkoutCart(setup.customer(), quote.id(), lines, "checkout-cart-" + suffix)
                 : orders.checkoutCart(setup.customer(), quote.id(), lines, fulfillment, "checkout-cart-" + suffix);

@@ -302,23 +302,23 @@ class VerticalSlice2CustomerCatalogExternalIT {
     }
 
     @Test
-    void exposesDataDrivenHeroCandidatesWithoutFixingAProduct() throws Exception {
+    void exposesOnlyCustomerSafeHeroProducts() throws Exception {
         Fixture fixture = fixture("hero");
         var hero = storefront.hero();
 
-        assertThat(hero.candidates()).filteredOn(product -> product.id().equals(fixture.product())).singleElement()
+        assertThat(hero.products()).filteredOn(product -> product.id().equals(fixture.product())).singleElement()
                 .satisfies(product -> {
-                    assertThat(product.featured()).isFalse();
-                    assertThat(product.newArrival()).isFalse();
-                    assertThat(product.campaignEligible()).isTrue();
-                    assertThat(product.merchandisingRank()).isEqualTo(100);
+                    assertThat(product.name()).isNotBlank();
+                    assertThat(product.category()).isNotBlank();
                 });
         Browser anonymous = new Browser();
         HttpResponse<String> response = anonymous.client.send(
                 HttpRequest.newBuilder(uri("/api/v1/storefront/hero")).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("candidates").contains("topSeller");
+        assertThat(response.body()).contains("\"products\"")
+                .doesNotContain("candidates", "topSeller", "trending", "recent30DayUnits",
+                        "recent30DayRevenue", "last7DayUnits", "previous7DayUnits", "growthUnits");
     }
 
     private Fixture fixture(String suffix) {

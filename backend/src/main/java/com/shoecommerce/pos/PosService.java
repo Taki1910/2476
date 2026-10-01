@@ -2,12 +2,17 @@ package com.shoecommerce.pos;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +34,7 @@ import com.shoecommerce.inventory.StockMovement;
 import com.shoecommerce.inventory.StockMovementRepository;
 import com.shoecommerce.order.CustomerOrder;
 import com.shoecommerce.order.CustomerOrderRepository;
+import com.shoecommerce.order.CheckoutHoldExpiryService;
 import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.InvalidRequestException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
@@ -50,6 +56,8 @@ public class PosService {
     private final UserAccountRepository accounts;
     private final AuthorizationPolicy authorization;
     private final AuditWriter audit;
+    private final CheckoutHoldExpiryService checkoutExpiry;
+    private final JdbcTemplate jdbc;
     private final Clock clock;
 
     public PosService(PosRegisterRepository registers, CashierShiftRepository shifts,
@@ -57,11 +65,12 @@ public class PosService {
             PriceQuoteService pricing, InventoryBalanceRepository balances, CustomerOrderRepository orders,
             PickupFulfillmentRepository fulfillments, StockMovementRepository movements,
             BranchRepository branches, UserAccountRepository accounts, AuthorizationPolicy authorization,
-            AuditWriter audit, Clock clock) {
+            AuditWriter audit, CheckoutHoldExpiryService checkoutExpiry, JdbcTemplate jdbc, Clock clock) {
         this.registers = registers; this.shifts = shifts; this.sales = sales; this.tenders = tenders;
         this.variants = variants; this.pricing = pricing; this.balances = balances; this.orders = orders;
         this.fulfillments = fulfillments; this.movements = movements; this.branches = branches;
-        this.accounts = accounts; this.authorization = authorization; this.audit = audit; this.clock = clock;
+        this.accounts = accounts; this.authorization = authorization; this.audit = audit;
+        this.checkoutExpiry = checkoutExpiry; this.jdbc = jdbc; this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +123,7 @@ public class PosService {
                 .orElse(null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public VariantView lookup(SessionPrincipal actor, UUID shiftId, String sku) {
         authorization.requirePermission(actor, PermissionCode.POS_SELL);
         CashierShift shift = ownedShift(actor, shiftId);
@@ -124,17 +133,66 @@ public class PosService {
             throw new InvalidRequestException("INVALID_SKU", "SKU must contain 1 to 64 characters.");
         }
         ProductVariant variant = variants.findBySku(normalized)
-                .orElseThrow(() -> new ResourceNotFoundException("POS_VARIANT_NOT_FOUND", "Sellable variant not found."));
-        var price = pricing.currentForPos(actor, variant.publicId());
-        Location location = shift.register().location();
-        long available = balances.findByVariantAndLocation(variant, location).map(InventoryBalance::available).orElse(0L);
-        return new VariantView(variant.publicId(), variant.product().name(), variant.sku(), variant.size(),
-                variant.color(), price.priceVersionId(), price.amount(), price.currency(), available,
-                shift.register().publicId(), location.publicId());
+                .orElseThrow(() -> new ResourceNotFoundException("POS_SKU_NOT_FOUND", "SKU not found."));
+        checkoutExpiry.expireForVariant(variant.publicId());
+        return candidate(shift, variant.publicId());
+    }
+
+    @Transactional
+    public VariantView lookupBarcode(SessionPrincipal actor, UUID shiftId, String barcode) {
+        authorization.requirePermission(actor, PermissionCode.POS_SELL);
+        CashierShift shift = ownedShift(actor, shiftId);
+        requireOpen(shift);
+        String normalized = barcode == null ? "" : barcode.trim();
+        if (normalized.isEmpty() || normalized.length() > 128) {
+            throw new InvalidRequestException("INVALID_BARCODE", "Barcode must contain 1 to 128 characters.");
+        }
+        ProductVariant variant = variants.findByBarcode(normalized)
+                .orElseThrow(() -> new ResourceNotFoundException("POS_BARCODE_NOT_FOUND", "Barcode not found."));
+        checkoutExpiry.expireForVariant(variant.publicId());
+        return candidate(shift, variant.publicId());
+    }
+
+    @Transactional
+    public List<VariantView> search(SessionPrincipal actor, UUID shiftId, String query) {
+        authorization.requirePermission(actor, PermissionCode.POS_SELL);
+        CashierShift shift = ownedShift(actor, shiftId);
+        requireOpen(shift);
+        String search = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (search.isEmpty() || search.length() > 80) {
+            throw new InvalidRequestException("INVALID_POS_SEARCH", "Search must contain 1 to 80 characters.");
+        }
+        List<String> terms = Arrays.stream(search.split("\\s+")).distinct().toList();
+        String haystack = "LOWER(CONCAT(products.name,N' ',variants.sku,N' ',variants.color,N' ',variants.size))";
+        String termFilter = terms.stream().map(ignored -> "CHARINDEX(?, " + haystack + ") > 0")
+                .collect(Collectors.joining(" AND "));
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(search);
+        parameters.addAll(terms);
+        parameters.add(search);
+        parameters.add(search);
+        List<UUID> ids = jdbc.query("""
+                SELECT TOP (20) variants.public_id
+                FROM catalog_product_variant variants
+                JOIN catalog_product products ON products.id=variants.product_id
+                WHERE LOWER(variants.sku)=?
+                   OR (variants.lifecycle_status='PUBLISHED' AND %s)
+                ORDER BY CASE WHEN LOWER(variants.sku)=? THEN 0 ELSE 1 END,
+                         CASE WHEN CHARINDEX(?, LOWER(products.name)) > 0 THEN 0 ELSE 1 END,
+                         products.name,variants.color,variants.normalized_size,variants.sku
+                """.formatted(termFilter), (row, index) -> row.getObject(1, UUID.class), parameters.toArray());
+        ids.forEach(checkoutExpiry::expireForVariant);
+        return ids.stream().map(id -> candidate(shift, id)).toList();
     }
 
     @Transactional
     public SaleResult sell(SessionPrincipal actor, UUID shiftId, UUID variantId, String idempotencyKey) {
+        return sell(actor, shiftId, variantId, null, idempotencyKey);
+    }
+
+    @Transactional
+    public SaleResult sell(SessionPrincipal actor, UUID shiftId, UUID variantId, UUID expectedPriceVersionId,
+            String idempotencyKey) {
         authorization.requirePermission(actor, PermissionCode.POS_SELL);
         String key = validateKey(idempotencyKey);
         CashierShift shift = ownedLockedShift(actor, shiftId);
@@ -148,23 +206,45 @@ public class PosService {
         requireOpen(shift);
         if (variantId == null) throw new InvalidRequestException("INVALID_POS_SALE", "A ProductVariant is required.");
 
-        var price = pricing.currentForPos(actor, variantId);
-        ProductVariant variant = price.variant();
+        ProductVariant variant = variants.findLockedByPublicId(variantId)
+                .orElseThrow(() -> new ResourceNotFoundException("POS_VARIANT_NOT_FOUND", "Sellable variant not found."));
+        checkoutExpiry.expireForVariant(variant.publicId());
+        if ("RETIRED".equals(variant.status())) {
+            throw new BusinessConflictException("POS_VARIANT_RETIRED",
+                    "This variant has been retired.", variant.publicId());
+        }
+        if (!variant.published()) {
+            throw new BusinessConflictException("POS_VARIANT_NOT_PUBLISHED",
+                    "This variant is not published for sale.", variant.publicId());
+        }
+        PriceQuoteService.CurrentPrice price;
+        try {
+            price = pricing.currentForPos(actor, variantId);
+        } catch (ResourceNotFoundException missingPrice) {
+            if (!"POS_VARIANT_NOT_FOUND".equals(missingPrice.code())) throw missingPrice;
+            throw new BusinessConflictException("POS_PRICE_UNAVAILABLE",
+                    "This variant has no current sale price.", variant.publicId());
+        }
+        if (expectedPriceVersionId != null && !expectedPriceVersionId.equals(price.priceVersionId())) {
+            throw new BusinessConflictException("POS_PRICE_CHANGED",
+                    "The price changed. Review the current price before completing the sale.", variant.publicId());
+        }
         PosRegister register = shift.register();
         Location location = register.location();
         requireUsable(actor, register);
         InventoryBalance balance = balances.findLockedByVariantAndLocation(variant, location)
-                .orElseThrow(() -> new BusinessConflictException("INSUFFICIENT_INVENTORY", "This variant is not available at the Register Location."));
+                .orElseThrow(() -> new BusinessConflictException("POS_SOLD_OUT_HERE", "This variant is sold out at the Register Location."));
         Instant now = clock.instant();
         try { balance.issueAvailable(1, now); }
         catch (IllegalStateException exception) {
-            throw new BusinessConflictException("INSUFFICIENT_INVENTORY", "The final unit was sold by another channel.");
+            throw new BusinessConflictException("POS_SOLD_OUT_HERE", "The final unit was sold by another channel.");
         }
 
         Branch branch = branches.findByPublicId(location.branchPublicId()).filter(Branch::enabled)
                 .orElseThrow(() -> new BusinessConflictException("REGISTER_UNAVAILABLE", "The Register Branch is unavailable."));
         CustomerOrder order = orders.save(CustomerOrder.createPos(branch.publicId(), price.priceVersionId(),
-                variant.publicId(), location.publicId(), variant.sku(), variant.size(), price.amount(), now));
+                variant.publicId(), location.publicId(), variant.sku(), variant.size(), variant.color(),
+                price.amount(), now));
         PosCashSale sale = sales.save(PosCashSale.create(order, shift, variant.publicId(), key, now));
         CashTender tender = tenders.save(CashTender.accept(order, shift, price.amount(), now));
         String operationKey = sale.publicId().toString();
@@ -226,7 +306,7 @@ public class PosService {
         Location location = register.location();
         return new ReceiptView(order.orderId(), sale.publicId(), tender.publicId(), sale.shift().publicId(),
                 register.publicId(), register.code(), location.publicId(), location.code(), location.name(),
-                order.createdAt(), order.sku(), order.size(), order.quantity(), order.unitPrice(), order.total(),
+                order.createdAt(), order.sku(), order.size(), order.color(), order.quantity(), order.unitPrice(), order.total(),
                 order.currency(), "CASH", "HANDED_OVER");
     }
 
@@ -249,15 +329,57 @@ public class PosService {
         return value;
     }
 
+    private VariantView candidate(CashierShift shift, UUID variantId) {
+        Location location = shift.register().location();
+        Instant now = clock.instant();
+        List<VariantView> rows = jdbc.query("""
+                SELECT variants.public_id,products.name product_name,
+                       COALESCE(products.primary_image,products.hero_image) thumbnail,
+                       variants.sku,variants.barcode,variants.size,variants.color,variants.lifecycle_status,
+                       prices.public_id price_version_id,prices.amount,
+                       COALESCE(balances.on_hand,0) on_hand,COALESCE(balances.reserved,0) reserved
+                FROM catalog_product_variant variants
+                JOIN catalog_product products ON products.id=variants.product_id
+                LEFT JOIN pricing_variant_price prices ON prices.variant_id=variants.id
+                     AND prices.valid_from<=? AND (prices.valid_to IS NULL OR prices.valid_to>?)
+                LEFT JOIN inventory_balance balances ON balances.variant_id=variants.id AND balances.location_id=?
+                WHERE variants.public_id=?
+                """, (row, index) -> {
+            Long amount = row.getBigDecimal("amount") == null ? null : row.getBigDecimal("amount").longValueExact();
+            long onHand = row.getLong("on_hand");
+            long reserved = row.getLong("reserved");
+            long available = onHand - reserved;
+            return new VariantView(row.getObject("public_id", UUID.class), row.getString("product_name"),
+                    row.getString("thumbnail"), row.getString("sku"), row.getString("barcode"),
+                    row.getString("size"), row.getString("color"), row.getString("lifecycle_status"),
+                    saleState(row.getString("lifecycle_status"), amount, available),
+                    row.getObject("price_version_id", UUID.class), amount, "VND", onHand, reserved, available,
+                    shift.register().publicId(), shift.register().code(), location.publicId(), location.code(),
+                    location.name());
+        }, Timestamp.from(now), Timestamp.from(now), location.id(), variantId);
+        if (rows.isEmpty()) throw new ResourceNotFoundException("POS_VARIANT_NOT_FOUND", "Variant not found.");
+        return rows.getFirst();
+    }
+
+    static SaleState saleState(String lifecycle, Long amount, long available) {
+        if ("RETIRED".equals(lifecycle)) return SaleState.RETIRED;
+        if (!"PUBLISHED".equals(lifecycle)) return SaleState.NOT_PUBLISHED;
+        if (amount == null) return SaleState.PRICE_UNAVAILABLE;
+        return available > 0 ? SaleState.SELLABLE : SaleState.SOLD_OUT_HERE;
+    }
+
     public record RegisterView(UUID id, String code, UUID locationId, String locationCode,
             String locationName, UUID branchId) { }
     public record ShiftView(UUID id, RegisterView register, String status, Instant openedAt,
             Instant closedAt, long expectedCash, String currency) { }
-    public record VariantView(UUID id, String productName, String sku, String size, String color,
-            UUID priceVersionId, long amount, String currency, long available, UUID registerId, UUID locationId) { }
+    public enum SaleState { SELLABLE, SOLD_OUT_HERE, RETIRED, NOT_PUBLISHED, PRICE_UNAVAILABLE }
+    public record VariantView(UUID id, String productName, String thumbnail, String sku, String barcode,
+            String size, String color, String lifecycleState, SaleState saleState, UUID priceVersionId,
+            Long amount, String currency, long onHand, long reserved, long available,
+            UUID registerId, String registerCode, UUID locationId, String locationCode, String locationName) { }
     public record ReceiptView(UUID orderId, UUID saleId, UUID tenderId, UUID shiftId, UUID registerId,
             String registerCode, UUID locationId, String locationCode, String locationName, Instant soldAt,
-            String sku, String size, long quantity, long unitPrice, long total, String currency,
+            String sku, String size, String color, long quantity, long unitPrice, long total, String currency,
             String tender, String fulfillmentStatus) { }
     public record SaleResult(ReceiptView receipt, boolean created) { }
 }

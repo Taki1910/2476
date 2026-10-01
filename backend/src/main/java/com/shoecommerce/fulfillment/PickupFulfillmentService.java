@@ -253,7 +253,10 @@ public class PickupFulfillmentService {
     public record PickupFulfillmentView(UUID id, UUID orderId, UUID branchId, UUID locationId, String type,
             String status, Instant createdAt, Instant pickingStartedAt, Instant preparedAt, Instant handedOverAt,
             Instant dispatchedAt, Instant deliveredAt, Instant cancelledAt, String receiverName,
-            String receiverPhone, String deliveryAddress, String deliveryNote, long deliveryFeeAmount) { }
+            String receiverPhone, String deliveryProvinceCode, String deliveryProvinceLabel,
+            String deliveryDistrictCode, String deliveryDistrictLabel, String deliveryWardCode,
+            String deliveryWardLabel, String deliveryAddressLine, String addressResolutionVersion,
+            String deliveryAddress, String deliveryNote, long deliveryFeeAmount) { }
 
     private static PickupFulfillmentView view(PickupFulfillment fulfillment) {
         return new PickupFulfillmentView(fulfillment.publicId(), fulfillment.order().paymentFacts().orderId(),
@@ -261,6 +264,10 @@ public class PickupFulfillmentService {
                 fulfillment.createdAt(), fulfillment.pickingStartedAt(), fulfillment.preparedAt(),
                 fulfillment.handedOverAt(), fulfillment.dispatchedAt(), fulfillment.deliveredAt(),
                 fulfillment.cancelledAt(), fulfillment.receiverName(), fulfillment.receiverPhone(),
+                fulfillment.deliveryProvinceCode(), fulfillment.deliveryProvinceLabel(),
+                fulfillment.deliveryDistrictCode(), fulfillment.deliveryDistrictLabel(),
+                fulfillment.deliveryWardCode(), fulfillment.deliveryWardLabel(),
+                fulfillment.deliveryAddressLine(), fulfillment.addressResolutionVersion(),
                 fulfillment.deliveryAddress(), fulfillment.deliveryNote(), fulfillment.order().shippingFeeAmount());
     }
 

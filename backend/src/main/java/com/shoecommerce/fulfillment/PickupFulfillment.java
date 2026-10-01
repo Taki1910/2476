@@ -41,6 +41,14 @@ public class PickupFulfillment {
     @Column(name = "receiver_phone", length = 32) private String receiverPhone;
     @Nationalized @Column(name = "delivery_address", length = 500) private String deliveryAddress;
     @Nationalized @Column(name = "delivery_note", length = 500) private String deliveryNote;
+    @Column(name = "delivery_province_code", length = 12) private String deliveryProvinceCode;
+    @Nationalized @Column(name = "delivery_province_label", length = 120) private String deliveryProvinceLabel;
+    @Column(name = "delivery_district_code", length = 12) private String deliveryDistrictCode;
+    @Nationalized @Column(name = "delivery_district_label", length = 120) private String deliveryDistrictLabel;
+    @Column(name = "delivery_ward_code", length = 12) private String deliveryWardCode;
+    @Nationalized @Column(name = "delivery_ward_label", length = 120) private String deliveryWardLabel;
+    @Nationalized @Column(name = "delivery_address_line", length = 500) private String deliveryAddressLine;
+    @Column(name = "address_resolution_version", length = 32) private String addressResolutionVersion;
     @Column(name = "dispatched_at") private Instant dispatchedAt;
     @Column(name = "dispatched_by_account_public_id") private UUID dispatchedByAccountPublicId;
     @Column(name = "dispatch_idempotency_key", length = 128) private String dispatchIdempotencyKey;
@@ -72,7 +80,15 @@ public class PickupFulfillment {
         if (delivery != null) {
             fulfillment.receiverName = delivery.receiverName();
             fulfillment.receiverPhone = delivery.receiverPhone();
-            fulfillment.deliveryAddress = delivery.address();
+            fulfillment.deliveryProvinceCode = delivery.provinceCode();
+            fulfillment.deliveryProvinceLabel = delivery.provinceLabel();
+            fulfillment.deliveryDistrictCode = delivery.districtCode();
+            fulfillment.deliveryDistrictLabel = delivery.districtLabel();
+            fulfillment.deliveryWardCode = delivery.wardCode();
+            fulfillment.deliveryWardLabel = delivery.wardLabel();
+            fulfillment.deliveryAddressLine = delivery.addressLine();
+            fulfillment.addressResolutionVersion = delivery.addressResolutionVersion();
+            fulfillment.deliveryAddress = delivery.canonicalAddress();
             fulfillment.deliveryNote = delivery.note();
         }
         return fulfillment;
@@ -176,9 +192,20 @@ public class PickupFulfillment {
     UUID cancelledByAccountPublicId() { return cancelledByAccountPublicId; }
     String receiverName() { return receiverName; }
     String receiverPhone() { return receiverPhone; }
+    String deliveryProvinceCode() { return deliveryProvinceCode; }
+    String deliveryProvinceLabel() { return deliveryProvinceLabel; }
+    String deliveryDistrictCode() { return deliveryDistrictCode; }
+    String deliveryDistrictLabel() { return deliveryDistrictLabel; }
+    String deliveryWardCode() { return deliveryWardCode; }
+    String deliveryWardLabel() { return deliveryWardLabel; }
+    String deliveryAddressLine() { return deliveryAddressLine; }
+    String addressResolutionVersion() { return addressResolutionVersion; }
     String deliveryAddress() { return deliveryAddress; }
     String deliveryNote() { return deliveryNote; }
-    public record DeliveryDetails(String receiverName, String receiverPhone, String provinceCode, String districtCode, String address, String note) {
+    public record DeliveryDetails(String receiverName, String receiverPhone,
+            String provinceCode, String provinceLabel, String districtCode, String districtLabel,
+            String wardCode, String wardLabel, String addressLine, String canonicalAddress,
+            String addressResolutionVersion, String note) {
         public DeliveryDetails {
             receiverName = required(receiverName, 120, "Receiver name");
             receiverPhone = required(receiverPhone, 32, "Receiver phone");
@@ -186,8 +213,14 @@ public class PickupFulfillment {
                 throw new IllegalArgumentException("Receiver phone is invalid");
             }
             provinceCode = required(provinceCode, 12, "Province");
+            provinceLabel = required(provinceLabel, 120, "Province label");
             districtCode = required(districtCode, 12, "District");
-            address = required(address, 500, "Delivery address");
+            districtLabel = required(districtLabel, 120, "District label");
+            wardCode = required(wardCode, 12, "Ward");
+            wardLabel = required(wardLabel, 120, "Ward label");
+            addressLine = required(addressLine, 500, "Delivery address line");
+            canonicalAddress = required(canonicalAddress, 500, "Canonical delivery address");
+            addressResolutionVersion = required(addressResolutionVersion, 32, "Address resolution version");
             note = note == null || note.isBlank() ? null : note.trim();
             if (note != null && note.length() > 500) throw new IllegalArgumentException("Delivery note is too long");
         }

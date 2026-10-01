@@ -62,6 +62,17 @@ class VnPayPaymentProviderTest {
                 .hasMessageContaining("range");
     }
 
+    @Test
+    void reportsMissingConfigurationAsProviderUnavailabilityWithoutEchoingSecrets() {
+        VnPayPaymentProvider unconfigured = new VnPayPaymentProvider(
+                "", "private-secret", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", "");
+
+        assertThatThrownBy(() -> unconfigured.paymentUrl(new PaymentProvider.Request("REF123", 125_000,
+                "127.0.0.1", Instant.parse("2026-08-27T08:00:00Z"), Instant.parse("2026-08-27T08:10:00Z"))))
+                .isInstanceOf(PaymentProviderUnavailableException.class)
+                .hasMessage("Payment provider is unavailable");
+    }
+
     private static Map<String, String> successCallback() {
         Map<String, String> callback = new LinkedHashMap<>();
         callback.put("vnp_TxnRef", "REF123");

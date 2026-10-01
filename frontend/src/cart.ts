@@ -65,6 +65,23 @@ function persist() {
   } catch { cart.storageError = true }
 }
 
+export function syncCartStorage(event: Pick<StorageEvent, 'key' | 'newValue'>) {
+  if (event.key !== storageKey(cart.owner)) return
+  if (event.newValue === null) {
+    cart.items = []
+    cart.storageError = false
+    return
+  }
+  try {
+    const saved = JSON.parse(event.newValue)
+    if (saved?.owner !== cart.owner || !Array.isArray(saved.items)) throw new Error()
+    const items = restoreCart(JSON.stringify(saved.items))
+    if (saved.items.length && !items.length) throw new Error()
+    cart.items = items
+    cart.storageError = false
+  } catch { cart.storageError = true }
+}
+
 export function addToCart(item: Omit<CartItem, 'quantity'>): 'added' | 'max-quantity' | 'max-lines' | 'checkout-pending' {
   if (checkoutLocked.value) return 'checkout-pending'
   const variantId = item.variantId.toLowerCase()

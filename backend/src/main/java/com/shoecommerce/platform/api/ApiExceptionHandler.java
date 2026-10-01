@@ -17,6 +17,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.shoecommerce.fitting.ShoeFitService.FitCapacityException;
+import com.shoecommerce.payment.PaymentProviderUnavailableException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -30,6 +31,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request content.");
         problem.setProperty("code", "VALIDATION_FAILED");
+        java.util.Map<String, String> fieldErrors = new java.util.TreeMap<>();
+        exception.getBindingResult().getFieldErrors().forEach(error -> {
+            java.util.List<String> codes = error.getCodes() == null ? java.util.List.of() : java.util.List.of(error.getCodes());
+            String identifier = codes.stream().anyMatch(code -> code.startsWith("NotNull")
+                    || code.startsWith("NotBlank") || code.startsWith("NotEmpty")) ? "REQUIRED" : "INVALID";
+            fieldErrors.putIfAbsent(error.getField(), identifier);
+        });
+        if (!fieldErrors.isEmpty()) problem.setProperty("fieldErrors", fieldErrors);
         return createResponseEntity(problem, headers, HttpStatus.BAD_REQUEST, request);
     }
 
@@ -71,6 +80,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setProperty("code", exception.code());
         if (exception.variantId() != null) problem.setProperty("variantId", exception.variantId());
+        if (!exception.fieldErrors().isEmpty()) problem.setProperty("fieldErrors", exception.fieldErrors());
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.CONFLICT, request);
     }
 
@@ -78,7 +88,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<Object> handleInvalidRequest(InvalidRequestException exception, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
         problem.setProperty("code", exception.code());
+        if (!exception.fieldErrors().isEmpty()) problem.setProperty("fieldErrors", exception.fieldErrors());
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(PaymentProviderUnavailableException.class)
+    ResponseEntity<Object> handlePaymentProviderUnavailable(PaymentProviderUnavailableException exception, WebRequest request) {
+        logger.error("Payment provider unavailable", exception);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+                "Payment is temporarily unavailable. Please retry or choose another method.");
+        problem.setProperty("code", "PAYMENT_PROVIDER_UNAVAILABLE");
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

@@ -18,13 +18,13 @@ final class VnPayCrypto {
     VnPayCrypto(@Value("${payment.vnpay.hash-secret:}") String secret) { this.secret = secret; }
 
     String hmac(String value) {
-        if (secret.isEmpty()) throw new IllegalStateException("VNPAY hash secret is not configured");
+        if (secret.isEmpty()) throw new PaymentProviderUnavailableException("VNPAY signing secret is missing");
         try {
             Mac mac = Mac.getInstance("HmacSHA512");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException exception) {
-            throw new IllegalStateException("HMAC-SHA512 is unavailable", exception);
+            throw new PaymentProviderUnavailableException("VNPAY signing is unavailable");
         }
     }
 

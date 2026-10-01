@@ -104,6 +104,8 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
   it('shows every line after verified payment', async () => {
     const html = await render(PaymentResultView, '/payment/result?attemptId=attempt')
     expect(html).toContain(t('Payment confirmed.'))
+    expect(html).toContain(commerceCount(order.itemCount, order.quantity))
+    expect(html).not.toContain(t('Variants'))
     for (const item of order.items) expect(html).toContain(item.sku)
   })
   it.each(['PAID', 'CANCELLED'] as const)('does not offer another payment from an old failed attempt when the order is %s', async status => {

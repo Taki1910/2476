@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { api, type Order, type PaymentAttempt } from '../api'
 import { errorCopy, formatDateTime, formatVnd } from '../format'
-import { messageLabel, t } from '../i18n'
+import { commerceCount, messageLabel, t } from '../i18n'
 import CommerceItems from '../components/CommerceItems.vue'
 import { paymentDestination, recoverablePayment } from '../checkout'
 
@@ -19,6 +19,7 @@ const checking = ref(false)
 const pollCount = ref(0)
 let timer: number | undefined
 let disposed = false
+let refreshGeneration = 0
 const attemptId = computed(() => typeof route.query.attemptId === 'string' ? route.query.attemptId : '')
 const statusTime = computed(() => {
   if (!attempt.value) return
@@ -41,28 +42,37 @@ function resolveScreen() {
   else screen.value = 'pending'
 }
 
-async function refresh(continuePolling = true) {
-  if (!attemptId.value) {
+async function refresh(continuePolling = true, force = false) {
+  if (checking.value && !force) return
+  const requestedId = attemptId.value
+  const generation = ++refreshGeneration
+  const current = () => generation === refreshGeneration && requestedId === attemptId.value && !disposed
+  if (!requestedId) {
     screen.value = 'invalid'
     return
   }
-  if (checking.value) return
   checking.value = true
   if (pollCount.value === 0) screen.value = 'loading'
   message.value = ''
   try {
-    attempt.value = await api.paymentAttempt(attemptId.value)
-    order.value = await api.order(attempt.value.orderId)
+    const nextAttempt = await api.paymentAttempt(requestedId)
+    if (!current()) return
+    const nextOrder = await api.order(nextAttempt.orderId)
+    if (!current()) return
+    attempt.value = nextAttempt
+    order.value = nextOrder
     resolveScreen()
     if (screen.value === 'pending' && continuePolling && pollCount.value < 6 && !disposed) {
       pollCount.value += 1
       timer = window.setTimeout(() => refresh(), 2_000)
     }
   } catch (reason) {
-    screen.value = 'error'
-    message.value = errorCopy(reason)
+    if (current()) {
+      screen.value = 'error'
+      message.value = errorCopy(reason)
+    }
   } finally {
-    checking.value = false
+    if (current()) checking.value = false
   }
 }
 
@@ -87,8 +97,17 @@ function checkAgain() {
 }
 
 onMounted(() => refresh())
+watch(attemptId, () => {
+  if (timer) window.clearTimeout(timer)
+  timer = undefined
+  pollCount.value = 0
+  attempt.value = undefined
+  order.value = undefined
+  refresh(true, true)
+})
 onBeforeUnmount(() => {
   disposed = true
+  refreshGeneration += 1
   if (timer) window.clearTimeout(timer)
 })
 </script>
@@ -110,7 +129,7 @@ onBeforeUnmount(() => {
       <div class="payment-result-copy" role="status" aria-live="polite">
         <template v-if="screen === 'loading'">
           <h1 id="payment-result-title">{{ t('Confirming payment…') }}</h1>
-          <p>{{ t('We’re checking the merchant record. Your return from VNPAY is not treated as payment proof.') }}</p>
+          <p>{{ t('We’re checking the payment record. Returning from VNPAY does not confirm payment.') }}</p>
         </template>
         <template v-else-if="screen === 'pending'">
           <h1 id="payment-result-title">{{ t(pollCount >= 6 ? 'Confirmation is still pending.' : 'Confirming payment…') }}</h1>
@@ -118,7 +137,7 @@ onBeforeUnmount(() => {
         </template>
         <template v-else-if="screen === 'paid'">
           <h1 id="payment-result-title">{{ t('Payment confirmed.') }}</h1>
-          <p>{{ t('The provider result was verified by our server and this order is now paid.') }}</p>
+          <p>{{ t('VNPAY confirmed the payment. Your order is now paid.') }}</p>
         </template>
         <template v-else-if="screen === 'failed'">
           <h1 id="payment-result-title">{{ t('Payment wasn’t completed.') }}</h1>
@@ -148,7 +167,7 @@ onBeforeUnmount(() => {
 
       <dl v-if="attempt && order" class="payment-facts">
         <div><dt>{{ t('Order reference') }}</dt><dd>{{ order.orderReference }}</dd></div>
-        <div><dt>{{ t('Total units') }}</dt><dd>{{ order.quantity }} · {{ t('Variants') }} {{ order.itemCount }}</dd></div>
+        <div><dt>{{ t('Total units') }}</dt><dd>{{ commerceCount(order.itemCount, order.quantity) }}</dd></div>
         <div><dt>{{ t('Order amount') }}</dt><dd>{{ formatVnd(attempt.amount) }}</dd></div>
         <div><dt>{{ t('Status') }}</dt><dd>{{ t(screen === 'paid' ? 'Paid' : screen === 'review' ? 'Review required' : screen === 'failed' ? 'Payment failed' : screen === 'expired' ? 'Reservation ended' : 'Pending confirmation') }}</dd></div>
         <div v-if="statusTime"><dt>{{ statusTime.label }}</dt><dd>{{ formatDateTime(statusTime.value) }}</dd></div>

@@ -106,22 +106,36 @@ permissions. Location is the inventory key; Branch is not a stock balance.
 
 ## Product and ProductVariant
 
-- Product owns common name, description, brand/category association, merchandising
-  metadata (`category`, `collection`, `featured`, `newArrival`,
+- Product owns current operational name/category/collection and merchandising
+  metadata (`featured`, `newArrival`,
   `campaignEligible`, `merchandisingRank`) and optional `heroImage`/
   `primaryImage` media references.
-- ProductVariant owns immutable SKU, Product link, sellable size/color/material
-  combination, barcode if confirmed, and lifecycle status.
+- ProductPresentation owns localized customer-facing editorial copy. Brand and
+  description are not added to Product in P2B.
+- ProductVariant owns immutable SKU, optional globally unique barcode, Product
+  link, display size/color, normalized option identity and lifecycle status.
+- Barcode is an opaque identifier: outer whitespace is trimmed, while case,
+  punctuation and leading zeroes are preserved. It is editable only on a
+  never-published `DRAFT`; first publication makes it permanently immutable.
 - A variant with inventory/order history is archived, never repurposed to a new
   option combination.
-- `PROPOSED`: SKU is globally unique and immutable.
-- `PROPOSED`: SizeDefinition stores canonical value plus size system/region;
-  display labels and future conversion are separate.
-- `PROPOSED`: the active sellable option combination is unique within Product
-  and size-system context; archived history cannot be repurposed.
+- `CONFIRMED` P2B: SKU is globally unique, immutable and never reused.
+- `CONFIRMED` P2B: size is implicit EU numeric identity with no `size_system`
+  column. Equivalent numeric display strings normalize to `DECIMAL(5,2)`;
+  multi-system sizing remains deferred.
+- `CONFIRMED` P2B: color identity trims outer whitespace, uses deterministic
+  case folding and remains accent-sensitive; it does not translate colors,
+  collapse internal whitespace or reorder composites.
+- `CONFIRMED` P2B: `(Product, normalizedColor, normalizedEuSize)` is unique for
+  `DRAFT` and `PUBLISHED` variants. `RETIRED` history is excluded.
+- Product has no persisted lifecycle. Its publication state is a projection of
+  its variants.
+- Product identity updates use optimistic concurrency. Historical OrderItem
+  currently snapshots SKU/size/color/price but not Product name; purchase-time
+  Product naming is therefore not immutable in the current model.
 - Price is not owned by ProductVariant. Pricing references Variant plus optional
   channel/branch scope and effective interval.
-- `OPEN DECISION`: required shoe size systems, barcode/scanner scope, and
+- `OPEN DECISION`: required shoe size systems, physical scanner integration,
   branch/channel price variation.
 
 ## Inventory aggregate

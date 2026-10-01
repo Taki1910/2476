@@ -43,6 +43,7 @@ public class CustomerOrder {
     @Column(name = "shipping_origin_branch_public_id") private UUID shippingOriginBranchId;
     @Column(name = "destination_province_code", length = 12) private String destinationProvinceCode;
     @Column(name = "destination_district_code", length = 12) private String destinationDistrictCode;
+    @Column(name = "destination_ward_code", length = 12) private String destinationWardCode;
     @Column(name = "shipping_quoted_at") private Instant shippingQuotedAt;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("id ASC") private List<OrderItem> items = new ArrayList<>();
@@ -87,7 +88,7 @@ public class CustomerOrder {
     }
 
     public static CustomerOrder createPos(UUID branchPublicId, UUID priceVersionId, UUID variantPublicId,
-            UUID locationPublicId, String sku, String size, long unitPriceAmount, Instant now) {
+            UUID locationPublicId, String sku, String size, String color, long unitPriceAmount, Instant now) {
         if (branchPublicId == null || priceVersionId == null || now == null) {
             throw new IllegalArgumentException("POS Order evidence is invalid");
         }
@@ -101,7 +102,7 @@ public class CustomerOrder {
         order.createdAt = now;
         order.paidAt = now;
         order.items.add(OrderItem.createCheckout(order, variantPublicId, locationPublicId,
-                sku, size, 1, unitPriceAmount));
+                sku, size, color, 1, unitPriceAmount));
         order.setMoney(unitPriceAmount, 0);
         return order;
     }
@@ -109,7 +110,8 @@ public class CustomerOrder {
     static CustomerOrder createCart(UUID ownerId, UUID branchId, UUID quoteId, String key, String fingerprint,
             List<ItemFacts> lines, List<UUID> priceVersionIds, long merchandise,long merchandiseDiscount, long shippingFee,long shippingDiscount,
             UUID shippingRuleId, String shippingZone, UUID shippingOriginLocation, UUID shippingOriginBranch,
-            String destinationProvince, String destinationDistrict, Instant shippingQuotedAt, Instant now) {
+            String destinationProvince, String destinationDistrict, String destinationWard,
+            Instant shippingQuotedAt, Instant now) {
         if (ownerId == null || branchId == null || quoteId == null || now == null || lines.isEmpty()
                 || lines.size() != priceVersionIds.size()
                 || lines.stream().map(ItemFacts::variantId).distinct().count() != lines.size()
@@ -128,6 +130,7 @@ public class CustomerOrder {
         order.shippingRulePublicId=shippingRuleId; order.shippingZoneCode=shippingZone;
         order.shippingOriginLocationId=shippingOriginLocation; order.shippingOriginBranchId=shippingOriginBranch;
         order.destinationProvinceCode=destinationProvince; order.destinationDistrictCode=destinationDistrict;
+        order.destinationWardCode=destinationWard;
         order.shippingQuotedAt=shippingRuleId==null?null:shippingQuotedAt;
         order.setMoney(merchandise,merchandiseDiscount,shippingFee,shippingDiscount);
         order.totalAmount();
@@ -178,12 +181,13 @@ public class CustomerOrder {
     UUID priceQuotePublicId() { return priceQuotePublicId; }
     String checkoutIdempotencyKey() { return checkoutIdempotencyKey; }
     UUID priceVersionPublicId() { return priceVersionPublicId; }
+    String destinationWardCode() { return destinationWardCode; }
     public PaymentFacts paymentFacts() { return new PaymentFacts(publicId, ownerAccountPublicId, responsibleBranchPublicId,
             items.stream().map(OrderItem::facts).toList(), status == Status.PENDING_PAYMENT, status == Status.PAID,
             merchandiseAmount(), shippingFeeAmount(), totalAmount(), currency, paidAt); }
     public ReceiptFacts receiptFacts() { OrderItem item = item(); return new ReceiptFacts(publicId, responsibleBranchPublicId,
             priceVersionPublicId, channel.name(), status.name(), createdAt, paidAt, item.variantPublicId(),
-            item.locationPublicId(), item.skuSnapshot(), item.sizeSnapshot(), item.quantity(),
+            item.locationPublicId(), item.skuSnapshot(), item.sizeSnapshot(), item.colorSnapshot(), item.quantity(),
             item.unitPriceAmount(), item.totalAmount(), currency); }
     public record ItemFacts(UUID orderItemId, UUID reservationId, UUID variantId, UUID locationId,
             long quantity, String sku, String size, String color, long unitPriceAmount, long totalAmount) { }
@@ -202,5 +206,5 @@ public class CustomerOrder {
     }
     public record ReceiptFacts(UUID orderId, UUID responsibleBranchId, UUID priceVersionId, String channel,
             String status, Instant createdAt, Instant paidAt, UUID variantId, UUID locationId, String sku,
-            String size, long quantity, long unitPrice, long total, String currency) { }
+            String size, String color, long quantity, long unitPrice, long total, String currency) { }
 }
