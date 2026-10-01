@@ -22,6 +22,7 @@ public class CartQuote {
     @Column(name = "origin_branch_public_id") UUID originBranchId;
     @Column(name = "destination_province_code", length = 12) String destinationProvinceCode;
     @Column(name = "destination_district_code", length = 12) String destinationDistrictCode;
+    @Column(name = "destination_ward_code", length = 12) String destinationWardCode;
     @Column(name = "shipping_rule_public_id") UUID shippingRuleId;
     @Column(name = "shipping_zone_code", length = 32) String shippingZoneCode;
     @Column(name = "merchandise_amount", nullable = false, precision = 19, scale = 0) BigDecimal merchandiseAmount;

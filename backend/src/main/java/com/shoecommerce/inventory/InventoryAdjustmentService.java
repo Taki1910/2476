@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.shoecommerce.audit.AuditWriter;
 import com.shoecommerce.branch.Location;
@@ -43,6 +44,18 @@ public class InventoryAdjustmentService {
     @Transactional
     public AdjustmentResult adjust(SessionPrincipal actor, UUID variantId, UUID locationId, long targetOnHand,
             String reason, String idempotencyKey) {
+        return adjust(actor, variantId, locationId, targetOnHand, reason, idempotencyKey, null, false);
+    }
+
+    @Transactional
+    public AdjustmentResult adjustManaged(SessionPrincipal actor, UUID variantId, UUID locationId,
+            long targetOnHand, String reason, String idempotencyKey, Long expectedBalanceVersion) {
+        return adjust(actor, variantId, locationId, targetOnHand, reason, idempotencyKey,
+                expectedBalanceVersion, true);
+    }
+
+    private AdjustmentResult adjust(SessionPrincipal actor, UUID variantId, UUID locationId, long targetOnHand,
+            String reason, String idempotencyKey, Long expectedBalanceVersion, boolean fenced) {
         authorization.requirePermission(actor, PermissionCode.INVENTORY_ADJUST);
         if (variantId == null || locationId == null || targetOnHand < 0) {
             throw new InvalidRequestException("INVALID_INVENTORY_ADJUSTMENT", "Variant, Location and a non-negative target on-hand quantity are required.");
@@ -50,7 +63,8 @@ public class InventoryAdjustmentService {
         authorization.requireLocationAccess(actor, locationId);
         String key = normalize(idempotencyKey, 128, "Idempotency-Key");
         String normalizedReason = normalize(reason, 256, "Adjustment reason");
-        String fingerprint = variantId + "|" + locationId + "|" + targetOnHand + "|" + normalizedReason;
+        String fingerprint = variantId + "|" + locationId + "|" + targetOnHand + "|" + normalizedReason
+                + (fenced ? "|" + expectedBalanceVersion : "");
         String operationKey = "A:" + UUID.nameUUIDFromBytes((actor.publicId() + ":" + key).getBytes(StandardCharsets.UTF_8));
 
         accounts.findByPublicIdForUpdate(actor.publicId())
@@ -68,11 +82,20 @@ public class InventoryAdjustmentService {
         Location location = locations.findByPublicId(locationId).filter(Location::enabled)
                 .orElseThrow(() -> new IllegalArgumentException("Location not found or disabled"));
         Instant now = clock.instant();
-        InventoryBalance balance = balances.findLockedByVariantAndLocation(variant, location)
-                .orElseGet(() -> InventoryBalance.create(variant, location, 0, now));
+        InventoryBalance existing = balances.findLockedByVariantAndLocation(variant, location).orElse(null);
+        if (fenced && (existing == null ? expectedBalanceVersion != null
+                : expectedBalanceVersion == null || existing.version() != expectedBalanceVersion)) {
+            throw balanceChanged();
+        }
+        InventoryBalance balance = existing == null ? InventoryBalance.create(variant, location, 0, now) : existing;
         long before = balance.onHand();
         balance.setOnHand(targetOnHand, now);
-        balances.save(balance);
+        try {
+            balances.saveAndFlush(balance);
+        } catch (DataIntegrityViolationException race) {
+            if (fenced && existing == null) throw balanceChanged();
+            throw race;
+        }
 
         StockMovement movement = movements.saveAndFlush(StockMovement.createAdjustment(operationKey, fingerprint,
                 normalizedReason, actor.publicId(), variantId, locationId, before, targetOnHand, now));
@@ -81,6 +104,11 @@ public class InventoryAdjustmentService {
                         "afterOnHand", targetOnHand, "onHandDelta", movement.onHandDelta(),
                         "reservedDelta", 0, "reason", normalizedReason));
         return view(movement, true);
+    }
+
+    private static BusinessConflictException balanceChanged() {
+        return new BusinessConflictException("INVENTORY_BALANCE_CHANGED",
+                "The inventory balance changed. Reload the latest balance and retry.");
     }
 
     private static String normalize(String value, int max, String name) {

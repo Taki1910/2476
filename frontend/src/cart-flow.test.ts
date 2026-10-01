@@ -91,7 +91,7 @@ const fitProduct = {
   campaignEligible: false, merchandisingRank: 0, heroImage: null, primaryImage: null, fitSupported: true,
   pricing: { state: 'SINGLE' as const, minimumAmount: 1200000, maximumAmount: 1200000, currency: 'VND' as const },
   media: [{ url: '/products/court-classic.png', position: 0, alt: 'Court Classic' }],
-  presentation: null,
+  presentation: null, evidence: null, fitSummary: { fitTendency: 'TRUE_TO_SIZE' as const, widthProfile: 'REGULAR' as const },
   fitGuidance: {
     sizeSystem: 'EU' as const, fitTendency: 'TRUE_TO_SIZE' as const, widthProfile: 'REGULAR' as const,
     fitAssistantSupported: true,
@@ -104,6 +104,16 @@ const fitProduct = {
     { id: 'ink-40', sku: 'FIT-INK-40', size: '40', color: 'Ink', availability: 'UNAVAILABLE' as const, amount: 1200000 },
     { id: 'chalk-41', sku: 'FIT-CHALK-41', size: '41', color: 'Chalk', availability: 'AVAILABLE' as const, amount: 1200000 },
     { id: 'chalk-40', sku: 'FIT-CHALK-40', size: '40', color: 'Chalk', availability: 'AVAILABLE' as const, amount: 1200000 },
+  ],
+  options: [
+    { color: 'Chalk', sizes: [
+      { size: '40', variantId: 'chalk-40', sku: 'FIT-CHALK-40', availability: 'AVAILABLE' as const, amount: 1200000, availableAlternativeColors: [] },
+      { size: '41', variantId: 'chalk-41', sku: 'FIT-CHALK-41', availability: 'AVAILABLE' as const, amount: 1200000, availableAlternativeColors: [] },
+    ] },
+    { color: 'Ink', sizes: [
+      { size: '40', variantId: 'ink-40', sku: 'FIT-INK-40', availability: 'UNAVAILABLE' as const, amount: 1200000, availableAlternativeColors: ['Chalk'] },
+      { size: '41', variantId: null, sku: null, availability: 'UNAVAILABLE' as const, amount: null, availableAlternativeColors: ['Chalk'] },
+    ] },
   ],
 } satisfies ProductDetail
 const twoMedia = [
@@ -209,6 +219,10 @@ describe('cart view interaction', () => {
 
     expect(rendered).toContain(t('Reference price'))
     expect(rendered).toContain(t('Estimated merchandise subtotal'))
+    expect(rendered).toContain(t('Selections'))
+    expect(rendered).toContain(`${t('Size')} 39 · ${t('White')}`)
+    expect(rendered).not.toContain('COURT-39')
+    expect(rendered).not.toContain('SKU')
     expect(rendered).toContain(t('Your cart will be kept when you sign in.'))
     expect(rendered).toContain(t('After sign-in, choose pickup or delivery and apply eligible offers or a voucher code.'))
     if (language === 'vi-VN') {
@@ -238,6 +252,36 @@ describe('cart view interaction', () => {
     expect(text(root).split(t('How should we fulfill this order?'))).toHaveLength(2)
     expect(find(root, target => target.props.id === 'pickup-location')).toBeDefined()
   })
+  it('quotes and checks out delivery only after ward resolution and maps address errors to the field', async () => {
+    vi.spyOn(api, 'provinces').mockResolvedValue([{ code: '79', label: 'Ho Chi Minh City' }])
+    vi.spyOn(api, 'districts').mockResolvedValue([{ code: '760', label: 'District 1' }])
+    vi.spyOn(api, 'wards').mockResolvedValue([{ code: 'DEMO-760-01', label: 'Ben Nghe Ward' }])
+    vi.mocked(api.cartCheckout).mockRejectedValueOnce(new ApiError(400, 'DELIVERY_ADDRESS_INVALID', 'private detail', undefined, undefined, { addressLine: 'INVALID' }))
+    await mount()
+    ;(find(root, target => target.tag === 'input' && target.props.value === 'DELIVERY')!.props.onChange as () => void)()
+    await settle()
+    ;(find(root, target => target.props.id === 'delivery-province')!.props.onChange as (event: unknown) => void)({ target: { value: '79' } })
+    await settle()
+    ;(find(root, target => target.props.id === 'delivery-district')!.props.onChange as (event: unknown) => void)({ target: { value: '760' } })
+    await settle()
+    ;(find(root, target => target.props.id === 'delivery-ward')!.props.onChange as (event: unknown) => void)({ target: { value: 'DEMO-760-01' } })
+    await settle()
+    await click('Check price & availability')
+    expect(api.cartQuote).not.toHaveBeenCalled()
+    expect(text(root)).toContain(t('Enter a valid street and house address.'))
+    for (const [id, value] of [['receiver-name', 'Nguyen Van A'], ['receiver-phone', '0900000000'], ['delivery-address-line', '12 Nguyen Hue']] as const) {
+      ;(find(root, target => target.props.id === id)!.props.onInput as (event: unknown) => void)({ target: { value } })
+    }
+    await settle()
+    await click('Check price & availability')
+    expect(vi.mocked(api.cartQuote).mock.calls[0][1]).toEqual({
+      type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760', destinationWardCode: 'DEMO-760-01',
+    })
+    await click('Confirm total & create order')
+    expect(find(root, target => target.props.id === 'delivery-address-line')?.props['aria-invalid']).toBe('true')
+    expect(text(root)).toContain(t('Enter a valid street and house address.'))
+    expect(text(root)).not.toContain('private detail')
+  })
   it('renders stacked item, order, and delivery savings with the authoritative total', async () => {
     const promoted={...quote,fulfillmentType:'DELIVERY' as const,merchandiseAmount:550000,merchandiseDiscountAmount:70000,shippingFeeAmount:80000,shippingDiscountAmount:80000,totalAmount:480000,adjustments:[
       {name:'Item offer',layer:'ITEM',amount:50000},{name:'Order offer',layer:'ORDER_AUTOMATIC',amount:20000},{name:'Delivery offer',layer:'SHIPPING',amount:80000},
@@ -259,29 +303,51 @@ describe('cart view interaction', () => {
     expect(api.cartCheckout).toHaveBeenCalledOnce()
   })
   it('clears a submitted search immediately and ignores the old delayed response', async () => {
-    let resolveOld!: (value: []) => void
-    vi.spyOn(api, 'products').mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
-      .mockResolvedValue([{ id: A, name: 'Full catalog shoe', fromAmount: 1, availableVariantCount: 1, presentation: null }] as never)
+    let resolveOld!: (value: Awaited<ReturnType<typeof api.discovery>>) => void
+    vi.spyOn(api, 'discovery').mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+      .mockResolvedValue({ query: 'runner', results: [], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    vi.spyOn(api, 'products').mockResolvedValue([{ id: A, name: 'Full catalog shoe', fromAmount: 1, availableVariantCount: 1, presentation: null }] as never)
     const router = await mount(catalogComponent, '/?q=court')
     const input = find(root, target => target.props.id === 'product-search')!
     await (input.props.onInput as (event: unknown) => Promise<void>)({ target: { value: '   ' } })
     await settle()
     expect(router.currentRoute.value.query.q).toBeUndefined()
-    expect(api.products).toHaveBeenLastCalledWith('')
+    expect(api.products).toHaveBeenLastCalledWith()
     expect(text(root)).toContain('Full catalog shoe')
-    resolveOld([]); await settle()
+    resolveOld({ query: 'court', results: [], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } }); await settle()
     expect(text(root)).toContain('Full catalog shoe')
     ;(input.props.onInput as (event: unknown) => Promise<void>)({ target: { value: 'runner' } })
     await router.replace({ path: '/', query: { q: 'runner' } })
     await settle()
     expect(router.currentRoute.value.query.q).toBe('runner')
-    expect(api.products).toHaveBeenLastCalledWith('runner')
+    expect(api.discovery).toHaveBeenLastCalledWith('runner')
     expect(text(root)).toContain('Search results')
+  })
+  it('keeps exact discovery results separate from available recovery suggestions', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    vi.spyOn(api, 'discovery').mockResolvedValue({
+      query: 'purple trail', results: [],
+      suggestions: [{
+        id: A, name: 'Available trail shoe', category: 'Trail', collection: null, featured: false,
+        newArrival: false, campaignEligible: false, merchandisingRank: 1, heroImage: null, primaryImage: null,
+        variantCount: 2, availableVariantCount: 1, fromAmount: 1500000, presentation: null,
+        evidence: null, fitSummary: null,
+      }],
+      interpreted: { colors: [], categories: ['TRAIL'], maximumPrice: null, skuLookup: false },
+    })
+    await mount(catalogComponent, '/?q=purple%20trail')
+
+    expect(text(root)).toContain('No exact matches for “purple trail”.')
+    expect(text(root)).toContain('You might like')
+    expect(text(root)).toContain('Available trail shoe')
+    expect(api.discovery).toHaveBeenCalledWith('purple trail')
   })
   it('guards rapid add activation and announces the current quantity', async () => {
     cart.items = []
-    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, variants: [{ ...fitProduct.variants[1], id: A }] })
+    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, variants: [{ ...fitProduct.variants[1], id: A }], options: [{ color: 'Chalk', sizes: [{ ...fitProduct.options[0].sizes[1], variantId: A }] }] })
     await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
     const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option'))!
     ;(size.props.onClick as () => void)()
     await settle()
@@ -311,7 +377,7 @@ describe('cart view interaction', () => {
   })
   it('invalidates a reviewed quote when any line quantity changes', async () => {
     await mount(); await click('Check price & availability')
-    const increase = find(root, target => target.tag === 'button' && target.props['aria-label'] === t('Increase quantity') + ' · RUN-42')!
+    const increase = find(root, target => target.tag === 'button' && target.props['aria-label'] === `${t('Increase quantity')} · Metro Runner · ${t('Size')} 42`)!
     ;(increase.props.onClick as () => void)()
     await settle()
     expect(text(root)).not.toContain(t('Confirm total & create order'))
@@ -332,7 +398,7 @@ describe('cart view interaction', () => {
     const first = vi.mocked(api.cartCheckout).mock.calls[0]
     app.unmount(); await mount()
     expect(text(root)).toContain(t('Your last checkout may already have created an order. Retry the same request to recover it before changing your cart.'))
-    expect(find(root, target => target.tag === 'button' && target.props['aria-label'] === t('Increase quantity') + ' · RUN-42')?.props.disabled).toBe(true)
+    expect(find(root, target => target.tag === 'button' && target.props['aria-label'] === `${t('Increase quantity')} · Metro Runner · ${t('Size')} 42`)?.props.disabled).toBe(true)
     await click('Retry saved checkout')
     expect(vi.mocked(api.cartCheckout).mock.calls[1]).toEqual(first)
     expect(api.cartQuote).toHaveBeenCalledOnce()
@@ -364,8 +430,9 @@ describe('cart view interaction', () => {
   it('shows a recovery storage error when adding from a product cannot safely clear a rejected checkout', async () => {
     saved.set('shoe-commerce:checkout:owner', JSON.stringify({ accountId: 'owner', key: 'old-key', quoteId: 'quote', items: [{ variantId: A, quantity: 1 }], rejected: true }))
     vi.spyOn(localStorage, 'removeItem').mockImplementation(() => { throw new Error('denied') })
-    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, id: A, variants: [{ id: A, sku: 'COURT-39', size: '39', color: 'White', amount: 150000, availability: 'AVAILABLE' }] })
+    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, id: A, variants: [{ id: A, sku: 'COURT-39', size: '39', color: 'White', amount: 150000, availability: 'AVAILABLE' }], options: [{ color: 'White', sizes: [{ size: '39', variantId: A, sku: 'COURT-39', availability: 'AVAILABLE', amount: 150000, availableAlternativeColors: [] }] }] })
     await mount(productComponent, '/products/' + A)
+    await click('White')
     const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option'))!
     ;(size.props.onClick as () => void)()
     await settle()
@@ -390,7 +457,7 @@ describe('cart view interaction', () => {
   })
 
   it('submits one owned saved claim without choosing a best offer', async () => {
-    vi.mocked(api.savedVouchers).mockResolvedValue({items:[{claimId:'claim-a',claimStatus:'CLAIMED',claimedAt:'2099-01-01T00:00:00Z',offerAvailability:'AVAILABLE',offer:{familyId:'family-a',acquisitionMode:'CLAIMABLE',name:'Owned offer',customerSummary:'Saved',customerTerms:'Terms',effectType:'ORDER_FIXED',fixedAmount:50000,validFrom:'2099-01-01T00:00:00Z',claimable:true}}],page:0,size:20,hasNext:false})
+    vi.mocked(api.savedVouchers).mockResolvedValue({items:[{claimId:'claim-a',claimStatus:'CLAIMED',claimedAt:'2099-01-01T00:00:00Z',offerAvailability:'AVAILABLE',termsAvailable:true,offer:{familyId:'family-a',acquisitionMode:'CLAIMABLE',name:'Owned offer',customerSummary:'Saved',customerTerms:'Terms',effectType:'ORDER_FIXED',fixedAmount:50000,validFrom:'2099-01-01T00:00:00Z',claimable:true}}],page:0,size:20,hasNext:false})
     await mount()
     const select=find(root,target=>target.props.id==='saved-voucher')!
     ;(select.props.onChange as (event:unknown)=>void)({target:{value:'claim-a'}});await settle()
@@ -466,11 +533,13 @@ describe('product presentation rendering', () => {
         newArrival: false, campaignEligible: false, merchandisingRank: 1, heroImage: null, primaryImage: null,
         variantCount: 4, availableVariantCount: 3, fromAmount: 1490000,
         presentation: { summary: { vi: 'Bản Court', en: 'Court evidence' } },
+        evidence: null, fitSummary: null,
       },
       {
         id: B, name: 'Court High', category: 'Court', collection: 'Court Originals', featured: false,
         newArrival: false, campaignEligible: false, merchandisingRank: 2, heroImage: null, primaryImage: null,
         variantCount: 4, availableVariantCount: 3, fromAmount: 1690000, presentation: null,
+        evidence: null, fitSummary: null,
       },
     ])
     await mount(catalogComponent, '/')
@@ -535,10 +604,10 @@ describe('fitting product-detail interaction', () => {
     expect(text(root)).toContain(`${formatVnd(1111000)} – ${formatVnd(1333000)}`)
     expect(text(root)).toContain(t('Size and fit guide'))
     expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
-    const locked = find(root, target => target.tag === 'button' && text(target) === t('Choose a size to add'))
+    const locked = find(root, target => target.tag === 'button' && text(target) === t('Choose a color first'))
     expect(locked).toBeDefined()
     expect(locked!.props.disabled).toBe(true)
-    expect(text(root)).toContain(t('Select an available size before adding this product to your cart.'))
+    expect(text(root)).toContain(t('Choose a color before selecting a size.'))
   })
 
   it.each(['en', 'vi-VN'] as const)('uses generic localized gallery navigation in %s', async language => {
@@ -563,6 +632,7 @@ describe('fitting product-detail interaction', () => {
   it('enables the purchase action only after an explicit size choice', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
     await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
 
     const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option') && text(target).includes('41'))!
     ;(size.props.onClick as () => void)()
@@ -582,7 +652,7 @@ describe('fitting product-detail interaction', () => {
     const selectedSize = find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)
     expect(selectedSize).toBeDefined()
     expect(text(selectedSize!)).toContain('40')
-    expect(text(selectedSize!)).toContain(t('Chalk'))
+    expect(find(root, target => String(target.props.class).includes('color-option') && target.props['aria-pressed'] === true && text(target) === t('Chalk'))).toBeDefined()
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)
   })
 
@@ -591,7 +661,8 @@ describe('fitting product-detail interaction', () => {
     await mount(productComponent, '/products/fit-product?variant=ink-40')
 
     const selectedSize = find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)!
-    expect(text(selectedSize)).toContain(t('Selected · Unavailable'))
+    expect(text(selectedSize)).toContain(t('Requested · Unavailable'))
+    expect(text(root)).toContain(t('Available in {color}', { color: t('Chalk') }))
     expect(find(root, target => target.tag === 'button' && text(target) === t('Size unavailable'))?.props.disabled).toBe(true)
   })
 
@@ -600,7 +671,20 @@ describe('fitting product-detail interaction', () => {
     await mount(productComponent, '/products/fit-product?variant=not-a-variant')
 
     expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
-    expect(find(root, target => target.tag === 'button' && text(target) === t('Choose a size to add'))?.props.disabled).toBe(true)
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Choose a color first'))?.props.disabled).toBe(true)
+  })
+
+  it('preserves the requested size but clears a stale variant when color changes', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product?variant=chalk-40')
+
+    await click('Ink')
+
+    const requested = find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)!
+    expect(text(requested)).toContain('40')
+    expect(text(requested)).toContain(t('Requested · Unavailable'))
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Size unavailable'))?.props.disabled).toBe(true)
+    expect(text(root)).toContain(t('Available in {color}', { color: t('Chalk') }))
   })
 
   it('ignores a late product response from the previous route', async () => {
@@ -719,10 +803,14 @@ describe('fitting product-detail interaction', () => {
     await click('Use this photo')
 
     expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
-    expect(find(root, target => target.tag === 'button' && text(target) === t('Choose a size to add'))?.props.disabled).toBe(true)
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Choose a color first'))?.props.disabled).toBe(true)
 
     const accept = find(root, target => target.tag === 'button' && text(target).startsWith('Select EU'))!
     ;(accept.props.onClick as () => void)()
+    await settle()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Choose a color first'))?.props.disabled).toBe(true)
+    const chooseChalk = find(root, target => target.tag === 'button' && text(target) === t('Choose {color}', { color: t('Chalk') }))!
+    ;(chooseChalk.props.onClick as () => void)()
     await settle()
     expect(text(root)).toContain('Size 40 · Chalk')
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)

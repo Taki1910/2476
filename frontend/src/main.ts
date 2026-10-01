@@ -17,6 +17,8 @@ import ShippingRulesView from './views/ShippingRulesView.vue'
 import PromotionsView from './views/PromotionsView.vue'
 import StorefrontManagementView from './views/StorefrontManagementView.vue'
 import ProductPresentationsView from './views/ProductPresentationsView.vue'
+import ProductsView from './views/ProductsView.vue'
+import ProductManagementDetailView from './views/ProductManagementDetailView.vue'
 import LoginView from './views/LoginView.vue'
 import RegisterView from './views/RegisterView.vue'
 import AccessDeniedView from './views/AccessDeniedView.vue'
@@ -52,6 +54,8 @@ const router = createRouter({
     { path: '/operations/promotions', name: 'promotions', component: PromotionsView, meta: { requiresAuth: true, permission: 'PROMOTION_MANAGE' } },
     { path: '/operations/storefront', name: 'storefront-management', component: StorefrontManagementView, meta: { requiresAuth: true, permission: 'STOREFRONT_MANAGE' } },
     { path: '/operations/product-presentations', name: 'product-presentations', component: ProductPresentationsView, meta: { requiresAuth: true, permission: 'STOREFRONT_MANAGE' } },
+    { path: '/operations/products', name: 'products', component: ProductsView, meta: { requiresAuth: true, permission: 'CATALOG_MANAGE' } },
+    { path: '/operations/products/:id', name: 'product-management', component: ProductManagementDetailView, meta: { requiresAuth: true, permission: 'CATALOG_MANAGE' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: to => to.hash ? { el: to.hash, top: 16 } : { top: 0 },

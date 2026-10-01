@@ -28,20 +28,25 @@ const fulfillmentType = ref<'PICKUP' | 'DELIVERY'>('PICKUP')
 const pickupLocationId = ref('')
 const receiverName = ref('')
 const receiverPhone = ref('')
-const deliveryAddress = ref('')
+const addressLine = ref('')
 const deliveryNote = ref('')
 const provinceCode = ref('')
 const districtCode = ref('')
+const wardCode = ref('')
 const provinces = ref<GeoReference[]>([])
 const districts = ref<GeoReference[]>([])
+const wards = ref<GeoReference[]>([])
 const districtsLoading = ref(false)
+const wardsLoading = ref(false)
 let timer: number | undefined
 let disposed = false
 let districtLoadVersion = 0
+let wardLoadVersion = 0
 
 const expired = computed(() => quote.value ? isExpired(quote.value.expiresAt, now.value) : false)
 const changes = computed(() => quote.value ? changedQuoteItems(quote.value, cart.items) : [])
-const error = computed(() => failure.value ? cartErrorCopy(failure.value, cart.items) : '')
+const fieldErrors = computed(() => failure.value instanceof ApiError ? failure.value.fieldErrors : {})
+const error = computed(() => failure.value && !Object.keys(fieldErrors.value).length ? cartErrorCopy(failure.value, cart.items) : '')
 const affectedVariant = computed(() => (failure.value as { variantId?: string } | undefined)?.variantId)
 const busy = computed(() => quoteLoading.value || checkoutLoading.value)
 const selectedVoucher=computed(()=>quote.value?.adjustments.find(item=>item.acquisitionMode&&item.acquisitionMode!=='AUTOMATIC'))
@@ -52,9 +57,10 @@ const fulfillment = computed<FulfillmentChoice | undefined>(() => {
   if (fulfillmentType.value === 'PICKUP') {
     return pickupLocationId.value ? { type: 'PICKUP', pickupLocationId: pickupLocationId.value } : undefined
   }
-  if (!receiverName.value.trim() || !receiverPhone.value.trim() || !provinceCode.value || !districtCode.value || !deliveryAddress.value.trim()) return
+  if (!receiverName.value.trim() || !receiverPhone.value.trim() || !provinceCode.value || !districtCode.value || !wardCode.value || !addressLine.value.trim()) return
   return { type: 'DELIVERY', delivery: { receiverName: receiverName.value.trim(), receiverPhone: receiverPhone.value.trim(),
-    provinceCode: provinceCode.value, districtCode: districtCode.value, address: deliveryAddress.value.trim(), ...(deliveryNote.value.trim() ? { note: deliveryNote.value.trim() } : {}) } }
+    provinceCode: provinceCode.value, districtCode: districtCode.value, wardCode: wardCode.value,
+    addressLine: addressLine.value.trim(), ...(deliveryNote.value.trim() ? { note: deliveryNote.value.trim() } : {}) } }
 })
 const estimatedMerchandiseAmount = computed(() => cart.items.reduce((total, item) => total + item.amount * item.quantity, 0))
 
@@ -67,6 +73,7 @@ function remove(variantId: string) {
   catch (reason) { failure.value = reason }
 }
 function fieldValue(event: Event) { return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value }
+function hasFieldError(...fields: string[]) { return fields.some(field => !!fieldErrors.value[field]) }
 
 async function requestQuote(voucherSelection:VoucherSelection={type:'NONE'}) {
   if (busy.value || checkoutLocked.value || !cart.items.length) return
@@ -76,9 +83,18 @@ async function requestQuote(voucherSelection:VoucherSelection={type:'NONE'}) {
   const accountId = session.account.accountId
   try {
     invalidateRejectedCheckout()
-    if (fulfillmentType.value === 'DELIVERY' && (!provinceCode.value || !districtCode.value)) throw new Error('Choose a valid province and district.')
+    if (fulfillmentType.value === 'DELIVERY' && !fulfillment.value) {
+      const fields: Record<string, string> = {}
+      if (!provinceCode.value) fields.provinceCode = 'REQUIRED'
+      if (!districtCode.value) fields.districtCode = 'REQUIRED'
+      if (!wardCode.value) fields.wardCode = 'REQUIRED'
+      if (!receiverName.value.trim()) fields.receiverName = 'REQUIRED'
+      if (!receiverPhone.value.trim()) fields.receiverPhone = 'REQUIRED'
+      if (!addressLine.value.trim()) fields.addressLine = 'REQUIRED'
+      throw new ApiError(400, 'INVALID_FULFILLMENT', 'Complete the delivery address.', undefined, undefined, fields)
+    }
     const result = await api.cartQuote(normalizeCartDemand(cart.items), fulfillmentType.value === 'DELIVERY'
-      ? { type: 'DELIVERY', destinationProvinceCode: provinceCode.value, destinationDistrictCode: districtCode.value }
+      ? { type: 'DELIVERY', destinationProvinceCode: provinceCode.value, destinationDistrictCode: districtCode.value, destinationWardCode: wardCode.value }
       : { type: 'PICKUP' },voucherSelection)
     if (disposed || identity !== demandIdentity.value || accountId !== session.account?.accountId) return
     quote.value = result; now.value = Date.now(); if(voucherSelection.type==='CODE')code.value=''
@@ -129,16 +145,24 @@ watch(demandIdentity, () => {
 })
 watch(provinceCode, async value => {
   const version = ++districtLoadVersion
-  districtCode.value = ''; districts.value = []; districtsLoading.value = !!value; quote.value = undefined; failure.value = undefined
+  districtCode.value = ''; wardCode.value = ''; districts.value = []; wards.value = []; districtsLoading.value = !!value; wardsLoading.value = false; quote.value = undefined; failure.value = undefined
   if (!value) return
   try { const result = await api.districts(value); if (!disposed && version === districtLoadVersion) districts.value = result }
   catch (reason) { if (!disposed && version === districtLoadVersion) failure.value = reason }
   finally { if (!disposed && version === districtLoadVersion) districtsLoading.value = false }
 })
 watch(fulfillmentType,async value=>{quote.value=undefined;if(value==='DELIVERY'&&!provinces.value.length)provinces.value=await api.provinces().catch(()=>[])})
-watch(districtCode,()=>{quote.value=undefined})
+watch(districtCode, async value => {
+  const version = ++wardLoadVersion
+  wardCode.value = ''; wards.value = []; wardsLoading.value = !!value; quote.value = undefined; failure.value = undefined
+  if (!value || !provinceCode.value) return
+  try { const result = await api.wards(provinceCode.value, value); if (!disposed && version === wardLoadVersion) wards.value = result }
+  catch (reason) { if (!disposed && version === wardLoadVersion) failure.value = reason }
+  finally { if (!disposed && version === wardLoadVersion) wardsLoading.value = false }
+})
+watch(wardCode,()=>{quote.value=undefined;failure.value=undefined})
 onMounted(() => { timer = window.setInterval(() => { now.value = Date.now() }, 1000);loadVouchers() })
-onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; code.value='';savedVouchers.value=[]; if (timer) window.clearInterval(timer) })
+onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; ++wardLoadVersion; code.value='';savedVouchers.value=[]; if (timer) window.clearInterval(timer) })
 </script>
 
 <template>
@@ -155,28 +179,28 @@ onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; code.value='';sa
     <section v-if="!order && (cart.items.length || command)" class="cart-layout" aria-labelledby="cart-title">
       <div class="cart-main">
         <h1 id="cart-title">{{ t('Review your cart.') }}</h1>
-        <p class="cart-lede">{{ t('Several shoes. One order and one payment. Review the server-confirmed prices before creating your order.') }}</p>
+        <p class="cart-lede">{{ t('Several shoes. One order and one payment. Review prices and availability before placing your order.') }}</p>
         <p v-if="cart.storageError" class="form-error" role="alert">{{ t('Browser storage is unavailable. Your cart may not survive a refresh.') }}</p>
         <div v-if="command" class="terminal-guidance" role="status">
           <p>{{ t(unresolved ? 'Your last checkout may already have created an order. Retry the same request to recover it before changing your cart.' : 'The server rejected checkout. Retry the same request, or edit the cart and request a new quote.') }}</p>
-          <p>{{ t('The saved request contains {lines} variants and {units} units.', { lines: command.items.length, units: command.items.reduce((sum, item) => sum + item.quantity, 0) }) }}</p>
+          <p>{{ t('The saved request contains {lines} selections and {units} pairs.', { lines: command.items.length, units: command.items.reduce((sum, item) => sum + item.quantity, 0) }) }}</p>
           <RouterLink class="text-button" to="/orders">{{ t('My Orders') }}</RouterLink>
         </div>
         <article v-for="item in cart.items" :key="item.variantId" class="cart-line" :aria-labelledby="'cart-line-' + item.variantId">
           <div class="cart-line-image"><img :src="item.image ?? PRODUCT_IMAGE_PLACEHOLDER" :alt="productAlt(item.productName)" width="480" height="360" loading="lazy" /></div>
           <div class="cart-line-copy">
             <h2 :id="'cart-line-' + item.variantId"><RouterLink :to="{ path: '/products/' + item.productId, query: { variant: item.variantId } }">{{ item.productName }}</RouterLink></h2>
-            <p>{{ t('Size') }} {{ item.size }} · {{ t(item.color) }} · SKU {{ item.sku }}</p>
+            <p>{{ t('Size') }} {{ item.size }} · {{ t(item.color) }}</p>
             <p class="field-help">{{ t('Reference price') }}: {{ formatVnd(item.amount) }}</p>
             <p v-for="changed in changes.filter(line => line.variantId === item.variantId)" :key="changed.variantId" class="cart-change" role="status">{{ t('{name} · Size {size} is now {amount}. Review the updated total before continuing.', { name: item.productName, size: item.size, amount: formatVnd(changed.unitPriceAmount) }) }}</p>
             <p v-if="affectedVariant === item.variantId && error" :id="'cart-error-' + item.variantId" class="cart-change" role="alert">{{ error }}</p>
           </div>
           <div class="cart-line-controls">
-            <label :for="'cart-quantity-' + item.variantId">{{ t('Quantity') }}<span class="sr-only"> · {{ item.productName }} · {{ item.sku }}</span></label>
-            <div class="quantity-stepper" role="group" :aria-label="t('Quantity') + ' · ' + item.sku" :aria-describedby="'cart-limit-' + item.variantId">
-              <button type="button" :disabled="busy || checkoutLocked || item.quantity <= 1" :aria-label="t('Decrease quantity') + ' · ' + item.sku" @click="editQuantity(item.variantId, item.quantity - 1)">−</button>
+            <label :for="'cart-quantity-' + item.variantId">{{ t('Quantity') }}<span class="sr-only"> · {{ item.productName }} · {{ t('Size') }} {{ item.size }}</span></label>
+            <div class="quantity-stepper" role="group" :aria-label="t('Quantity') + ' · ' + item.productName + ' · ' + t('Size') + ' ' + item.size" :aria-describedby="'cart-limit-' + item.variantId">
+              <button type="button" :disabled="busy || checkoutLocked || item.quantity <= 1" :aria-label="t('Decrease quantity') + ' · ' + item.productName + ' · ' + t('Size') + ' ' + item.size" @click="editQuantity(item.variantId, item.quantity - 1)">−</button>
               <output :id="'cart-quantity-' + item.variantId" aria-live="polite">{{ item.quantity }}</output>
-              <button type="button" :disabled="busy || checkoutLocked || item.quantity >= MAX_CART_QUANTITY" :aria-label="t('Increase quantity') + ' · ' + item.sku" @click="editQuantity(item.variantId, item.quantity + 1)">+</button>
+              <button type="button" :disabled="busy || checkoutLocked || item.quantity >= MAX_CART_QUANTITY" :aria-label="t('Increase quantity') + ' · ' + item.productName + ' · ' + t('Size') + ' ' + item.size" @click="editQuantity(item.variantId, item.quantity + 1)">+</button>
             </div>
             <small :id="'cart-limit-' + item.variantId">{{ t('Purchase limit: {max} pairs per size/color. Stock is checked at checkout.', { max: MAX_CART_QUANTITY }) }}</small>
             <button class="text-button" type="button" :disabled="busy || checkoutLocked" :aria-label="t('Remove {name}, size {size}', { name: item.productName, size: item.size })" @click="remove(item.variantId)">{{ t('Remove') }}</button>
@@ -186,7 +210,7 @@ onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; code.value='';sa
 
       <aside class="cart-summary" aria-labelledby="summary-title">
         <h2 id="summary-title">{{ t(session.account ? 'Checkout' : 'Cart summary') }}</h2>
-        <dl><div><dt>{{ t('Variants') }}</dt><dd>{{ cart.items.length }}</dd></div><div><dt>{{ t('Total units') }}</dt><dd>{{ cartCount }}</dd></div><div><dt>{{ t('Estimated merchandise subtotal') }}</dt><dd>{{ formatVnd(estimatedMerchandiseAmount) }}</dd></div></dl>
+        <dl><div><dt>{{ t('Selections') }}</dt><dd>{{ cart.items.length }}</dd></div><div><dt>{{ t('Pairs') }}</dt><dd>{{ cartCount }}</dd></div><div><dt>{{ t('Estimated merchandise subtotal') }}</dt><dd>{{ formatVnd(estimatedMerchandiseAmount) }}</dd></div></dl>
         <p class="field-help">{{ t(session.account ? 'Cart count means total units. Prices shown when added are not a quote. The server confirms every line and the full total.' : 'Reference estimate from prices shown when items were added. Sign in to get current prices, offers, delivery fee, availability, and total.') }}</p>
         <template v-if="!session.account">
           <button class="primary-button cart-primary-action" type="button" :disabled="busy || checkoutLocked || !cart.items.length" @click="requestQuote()">{{ t('Sign in to see your current total') }}</button>
@@ -202,8 +226,13 @@ onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; code.value='';sa
             <label><input type="radio" value="DELIVERY" :checked="fulfillmentType==='DELIVERY'" @change="fulfillmentType='DELIVERY'" /> <span><strong>{{ t('Deliver to an address') }}</strong></span></label>
           </div>
           <div v-if="fulfillmentType==='DELIVERY'" class="delivery-fields">
-            <label class="field-stack" for="delivery-province">{{ t('Province / city') }}<select id="delivery-province" :value="provinceCode" required @change="provinceCode=fieldValue($event)"><option value="" disabled>{{ t('Choose province / city') }}</option><option v-for="item in provinces" :key="item.code" :value="item.code">{{ item.label }}</option></select></label>
-            <label class="field-stack" for="delivery-district">{{ t('District') }}<select id="delivery-district" :value="districtCode" :disabled="!provinceCode || districtsLoading" :aria-busy="districtsLoading" required @change="districtCode=fieldValue($event)"><option value="" disabled>{{ t('Choose district') }}</option><option v-for="item in districts" :key="item.code" :value="item.code">{{ item.label }}</option></select></label>
+            <label class="field-stack" for="delivery-province">{{ t('Province / city') }}<select id="delivery-province" :value="provinceCode" :aria-invalid="hasFieldError('provinceCode','destinationProvinceCode') || undefined" :aria-describedby="hasFieldError('provinceCode','destinationProvinceCode') ? 'delivery-province-error' : undefined" required @change="provinceCode=fieldValue($event)"><option value="" disabled>{{ t('Choose province / city') }}</option><option v-for="item in provinces" :key="item.code" :value="item.code">{{ item.label }}</option></select><small v-if="hasFieldError('provinceCode','destinationProvinceCode')" id="delivery-province-error" class="form-error">{{ t('Choose a valid province / city.') }}</small></label>
+            <label class="field-stack" for="delivery-district">{{ t('District') }}<select id="delivery-district" :value="districtCode" :disabled="!provinceCode || districtsLoading" :aria-busy="districtsLoading" :aria-invalid="hasFieldError('districtCode','destinationDistrictCode') || undefined" :aria-describedby="hasFieldError('districtCode','destinationDistrictCode') ? 'delivery-district-error' : undefined" required @change="districtCode=fieldValue($event)"><option value="" disabled>{{ t('Choose district') }}</option><option v-for="item in districts" :key="item.code" :value="item.code">{{ item.label }}</option></select><small v-if="hasFieldError('districtCode','destinationDistrictCode')" id="delivery-district-error" class="form-error">{{ t('Choose a valid district.') }}</small></label>
+            <label class="field-stack" for="delivery-ward">{{ t('Ward') }}<select id="delivery-ward" :value="wardCode" :disabled="!districtCode || wardsLoading" :aria-busy="wardsLoading" :aria-invalid="hasFieldError('wardCode','destinationWardCode') || undefined" :aria-describedby="hasFieldError('wardCode','destinationWardCode') ? 'delivery-ward-error' : undefined" required @change="wardCode=fieldValue($event)"><option value="" disabled>{{ t('Choose ward') }}</option><option v-for="item in wards" :key="item.code" :value="item.code">{{ item.label }}</option></select><small v-if="hasFieldError('wardCode','destinationWardCode')" id="delivery-ward-error" class="form-error">{{ t('Choose a valid ward.') }}</small></label>
+            <label class="field-stack" for="receiver-name">{{ t('Receiver name') }}<input id="receiver-name" :value="receiverName" :aria-invalid="hasFieldError('receiverName') || undefined" :aria-describedby="hasFieldError('receiverName') ? 'receiver-name-error' : undefined" autocomplete="name" maxlength="120" required @input="receiverName = fieldValue($event)" /><small v-if="hasFieldError('receiverName')" id="receiver-name-error" class="form-error">{{ t('Enter the receiver name.') }}</small></label>
+            <label class="field-stack" for="receiver-phone">{{ t('Receiver phone') }}<input id="receiver-phone" :value="receiverPhone" :aria-invalid="hasFieldError('receiverPhone') || undefined" :aria-describedby="hasFieldError('receiverPhone') ? 'receiver-phone-error' : undefined" type="tel" autocomplete="tel" maxlength="32" required @input="receiverPhone = fieldValue($event)" /><small v-if="hasFieldError('receiverPhone')" id="receiver-phone-error" class="form-error">{{ t('Enter a valid receiver phone.') }}</small></label>
+            <label class="field-stack delivery-address" for="delivery-address-line">{{ t('Street and house address') }}<textarea id="delivery-address-line" :value="addressLine" :aria-invalid="hasFieldError('addressLine') ? 'true' : undefined" :aria-describedby="hasFieldError('addressLine') ? 'delivery-address-error' : undefined" autocomplete="street-address" maxlength="500" required @input="addressLine = fieldValue($event)"></textarea><small v-if="hasFieldError('addressLine')" id="delivery-address-error" class="form-error">{{ t('Enter a valid street and house address.') }}</small></label>
+            <label class="field-stack delivery-address" for="delivery-note">{{ t('Delivery note (optional)') }}<textarea id="delivery-note" :value="deliveryNote" :aria-invalid="hasFieldError('note') || undefined" :aria-describedby="hasFieldError('note') ? 'delivery-note-error' : undefined" maxlength="500" @input="deliveryNote = fieldValue($event)"></textarea><small v-if="hasFieldError('note')" id="delivery-note-error" class="form-error">{{ t('Enter a shorter delivery note.') }}</small></label>
           </div>
         </fieldset>
         <p v-if="error" class="form-error" role="alert">{{ error }}</p>
@@ -233,13 +262,6 @@ onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; code.value='';sa
                 <option v-for="location in quote.pickupLocations" :key="location.id" :value="location.id">{{ t(location.name) }} · {{ location.code }}</option>
               </select>
             </label>
-            <div v-else class="delivery-fields">
-              <p class="delivery-required-note">{{ t('Receiver name, phone, and delivery address are required.') }}</p>
-              <label class="field-stack" for="receiver-name">{{ t('Receiver name') }}<input id="receiver-name" :value="receiverName" autocomplete="name" maxlength="120" required @input="receiverName = fieldValue($event)" /></label>
-              <label class="field-stack" for="receiver-phone">{{ t('Receiver phone') }}<input id="receiver-phone" :value="receiverPhone" type="tel" autocomplete="tel" maxlength="32" required @input="receiverPhone = fieldValue($event)" /></label>
-              <label class="field-stack delivery-address" for="delivery-address">{{ t('Delivery address') }}<textarea id="delivery-address" :value="deliveryAddress" autocomplete="street-address" maxlength="500" required @input="deliveryAddress = fieldValue($event)"></textarea></label>
-              <label class="field-stack delivery-address" for="delivery-note">{{ t('Delivery note (optional)') }}<textarea id="delivery-note" :value="deliveryNote" maxlength="500" @input="deliveryNote = fieldValue($event)"></textarea></label>
-            </div>
           </div>
         </div>
         <button v-if="command" class="checkout-button cart-primary-action" type="button" :disabled="busy || !!checkoutRecovery.storageError" @click="checkout">{{ t(checkoutLoading ? 'Recovering order…' : 'Retry saved checkout') }}</button>

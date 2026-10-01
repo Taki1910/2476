@@ -14,10 +14,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 @Profile("!demo")
 final class VnPayPaymentProvider implements PaymentProvider {
+    private static final Logger log = LoggerFactory.getLogger(VnPayPaymentProvider.class);
     static final ZoneId VNPAY_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final long MAX_PROVIDER_AMOUNT = 999_999_999_999L;
@@ -121,7 +124,8 @@ final class VnPayPaymentProvider implements PaymentProvider {
 
     private void requireConfiguration() {
         if (tmnCode.isEmpty() || payUrl.isEmpty() || returnUrl.isEmpty()) {
-            throw new IllegalStateException("VNPAY is not configured. Set VNPAY_TMN_CODE, VNPAY_HASH_SECRET, VNPAY_PAY_URL and VNPAY_RETURN_URL.");
+            log.error("VNPAY payment initiation unavailable: incomplete configuration");
+            throw new PaymentProviderUnavailableException("VNPAY configuration is incomplete");
         }
     }
     private static void bound(Map<String, String> parameters) {

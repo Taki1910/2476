@@ -39,10 +39,16 @@ public class OrderItem {
 
     static OrderItem createCheckout(CustomerOrder order, UUID variantPublicId, UUID locationPublicId,
             String sku, String size, long quantity, long unitPriceAmount) {
+        return createCheckout(order, variantPublicId, locationPublicId, sku, size, null, quantity, unitPriceAmount);
+    }
+
+    static OrderItem createCheckout(CustomerOrder order, UUID variantPublicId, UUID locationPublicId,
+            String sku, String size, String color, long quantity, long unitPriceAmount) {
         OrderItem item = create(order, variantPublicId, locationPublicId, quantity, unitPriceAmount);
         if (sku == null || sku.isBlank() || size == null || size.isBlank()) throw new IllegalArgumentException("Order catalog snapshot is invalid");
         item.skuSnapshot = sku;
         item.sizeSnapshot = size;
+        item.colorSnapshot = color;
         return item;
     }
 

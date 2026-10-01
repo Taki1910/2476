@@ -16,6 +16,7 @@ const statusRegion = ref<HTMLElement>()
 const cancelDialog = ref<HTMLDialogElement>()
 const orderId = computed(() => String(route.params.id))
 let disposed = false
+let loadGeneration = 0
 
 const fulfillmentLabel = { PENDING: 'Awaiting acceptance', PICKING: 'Picking', PREPARED: 'Prepared', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', HANDED_OVER: 'Picked up', CANCELLED: 'Cancelled' }
 const refundLabel = { PROCESSING: 'Refund processing', SUCCEEDED: 'Payment refunded', FAILED_RETRYABLE: 'Refund retry needed', UNKNOWN: 'Refund confirmation pending', REVIEW_REQUIRED: 'Refund under review' }
@@ -41,9 +42,11 @@ const copy = computed(() => ({
 async function load() {
   loading.value = true; error.value = ''
   const requestedId = orderId.value
-  try { const result = await api.order(requestedId); if (requestedId === orderId.value && !disposed) order.value = result }
-  catch (reason) { error.value = errorCopy(reason) }
-  finally { loading.value = false }
+  const generation = ++loadGeneration
+  const current = () => generation === loadGeneration && requestedId === orderId.value && !disposed
+  try { const result = await api.order(requestedId); if (current()) order.value = result }
+  catch (reason) { if (current()) error.value = errorCopy(reason) }
+  finally { if (current()) loading.value = false }
 }
 async function pay() {
   if (!order.value || order.value.status !== 'PENDING_PAYMENT' || busy.value) return
@@ -75,7 +78,7 @@ async function retryVoid() {
 }
 watch(orderId, () => { order.value = undefined; load() })
 onMounted(load)
-onBeforeUnmount(() => { disposed = true })
+onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
 </script>
 
 <template>

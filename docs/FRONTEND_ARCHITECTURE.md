@@ -69,6 +69,12 @@ App shell and guarded routes
 
 - Show and enforce active branch, sales-floor location, register, and cashier
   shift context before selling.
+- Separate exact barcode scan from bounded product search. A scan confirms one
+  candidate but never auto-sells or increments quantity; search requires an
+  explicit candidate selection before Add to transaction.
+- Keep scan focus ready, support arrow/Enter/Escape search navigation, announce
+  errors, and show exact SKU/color/size/current price plus Register-Location
+  on-hand, reserved, available and sale state before cash confirmation.
 - Optimize keyboard/scanner input, focus, item/tender clarity, accessibility,
   receipt reprint, and recovery after network/print failure.
 - Cash confirmation is complete only after the server commits the Order,
@@ -154,10 +160,10 @@ slice, not during backend Foundation 0 merely for completeness.
 The first Vue surface uses Vue 3, TypeScript, Vite, and Vue Router in `frontend/`.
 It consumes authenticated `/api/v1/storefront/products`, product-detail, and
 price-quote contracts with same-origin session cookies and CSRF on quote
-creation. The storefront also exposes a public `/api/v1/storefront/hero`
-read model with merchandising flags and 7/30-day sales signals so a future
-carousel can choose Top Seller, Trending, New Arrival, and Featured Collection
-from data. It renders server-provided availability text and exact VND quote
+creation. The public `/api/v1/storefront/hero` contract exposes only safe product
+summaries. Sales evidence, promotion evidence, readiness warnings, placement
+evidence, and recommendation reasons are restricted to the manager API. It
+renders server-provided availability text and exact VND quote
 amounts; it does not calculate or cache an authoritative price beyond the
 quote's returned expiry.
 

@@ -52,6 +52,21 @@ describe('API session handling', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/storefront/products?q=Metro%20Runner%20%2F%2042', expect.anything())
   })
 
+  it('encodes deterministic discovery queries without changing the browse endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      query: 'giày trắng / chạy bộ', results: [], suggestions: [],
+      interpreted: { colors: ['WHITE'], categories: ['RUNNING'], maximumPrice: null, skuLookup: false },
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.discovery('giày trắng / chạy bộ')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/storefront/discovery?q=gi%C3%A0y%20tr%E1%BA%AFng%20%2F%20ch%E1%BA%A1y%20b%E1%BB%99',
+      expect.objectContaining({ credentials: 'include' }),
+    )
+  })
+
   it('uploads fitting photos as multipart without inventing a content type', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }), { status: 200 }))
@@ -141,20 +156,35 @@ describe('API session handling', () => {
     expect(fetchMock.mock.calls[1][1].body).toBeUndefined()
   })
 
-  it('submits a POS sale identity without client-authored price or quantity', async () => {
+  it('uses exact barcode and operational search endpoints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.posBarcode('shift/1', ' 000Ab-9 ')
+    await api.searchPosVariants('shift/1', 'Court Black 41')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/operations/pos/variants/barcode?shiftId=shift%2F1&barcode=%20000Ab-9%20')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/operations/pos/variants/search?shiftId=shift%2F1&q=Court%20Black%2041')
+  })
+
+  it('submits reviewed POS price identity without client-authored money or quantity', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ orderId: 'order-1', total: 125000 }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await api.sellPos('shift-1', 'variant-1', 'sale-key')
+    await api.sellPos('shift-1', 'variant-1', 'price-version-1', 'sale-key')
 
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/operations/pos/sales')
     expect(fetchMock.mock.calls[1][1]).toMatchObject({
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'sale-key', 'X-CSRF-TOKEN': 'csrf' },
     })
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ shiftId: 'shift-1', variantId: 'variant-1' })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      shiftId: 'shift-1', variantId: 'variant-1', expectedPriceVersionId: 'price-version-1',
+    })
   })
 
   it('loads read-only reports with encoded scope and exclusive dates', async () => {
@@ -170,8 +200,8 @@ describe('API session handling', () => {
     expect(fetchMock.mock.calls[0][1].method).toBeUndefined()
   })
 
-  it('loads the data-driven hero read model', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [] }), { status: 200 }))
+  it('loads the customer-safe hero product summaries', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ products: [] }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await api.hero()
@@ -207,12 +237,24 @@ describe('API session handling', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({})))
     vi.stubGlobal('fetch', fetchMock)
     await api.cartQuote([{ variantId: 'aaaaaaaa-0000-0000-0000-000000000001', quantity: 1 }],
-      { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760' })
+      { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760', destinationWardCode: 'DEMO-760-01' })
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       items: [{ variantId: 'aaaaaaaa-0000-0000-0000-000000000001', quantity: 1 }],
-      fulfillment: { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760' },
+      fulfillment: { type: 'DELIVERY', destinationProvinceCode: '79', destinationDistrictCode: '760', destinationWardCode: 'DEMO-760-01' },
       voucherSelection: { type: 'NONE' },
     })
+  })
+
+  it('loads wards within the selected province and district', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.wards('79', '760')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/reference/provinces/79/districts/760/wards',
+      expect.objectContaining({ credentials: 'include' }),
+    )
   })
 
   it('submits one whole-cart command with stable ordering and the supplied key', async () => {
@@ -241,5 +283,15 @@ describe('API session handling', () => {
   it('preserves a line-specific ProblemDetail without exposing it as raw UI copy', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'INSUFFICIENT_STOCK', variantId: 'variant-b', detail: 'internal detail' }), { status: 409 })))
     await expect(api.product('p')).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK', variantId: 'variant-b' })
+  })
+
+  it('preserves semantic field identifiers from ProblemDetail', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'DELIVERY_ADDRESS_INVALID', detail: 'private detail', fieldErrors: { addressLine: 'INVALID' },
+    }), { status: 400 })))
+
+    await expect(api.product('p')).rejects.toMatchObject({
+      code: 'DELIVERY_ADDRESS_INVALID', fieldErrors: { addressLine: 'INVALID' },
+    })
   })
 })

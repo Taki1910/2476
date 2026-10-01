@@ -4,12 +4,14 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -75,6 +77,9 @@ public class StorefrontCatalogService {
                            products.new_arrival, products.campaign_eligible,
                            products.merchandising_rank, products.hero_image, products.primary_image,
                            presentation.summary_vi, presentation.summary_en,
+                           products.intended_use, products.primary_surface, products.upper_construction,
+                           products.cut_profile, products.primary_sole_profile,
+                           fit_profiles.fit_tendency, fit_profiles.width_profile,
                            variants.id AS variant_id, prices.amount,
                            CASE WHEN EXISTS (
                                SELECT 1
@@ -90,6 +95,7 @@ public class StorefrontCatalogService {
                     JOIN pricing_variant_price prices ON prices.variant_id = variants.id
                     LEFT JOIN product_presentation_revision presentation
                       ON presentation.product_id = products.id AND presentation.status = 'PUBLISHED'
+                    LEFT JOIN catalog_shoe_fit_profile fit_profiles ON fit_profiles.product_id = products.id
                     WHERE variants.lifecycle_status = 'PUBLISHED'
                 """ + filter + """
                       AND prices.valid_from <= ?
@@ -97,13 +103,15 @@ public class StorefrontCatalogService {
                 )
                 SELECT product_public_id, name, category, collection, featured, new_arrival,
                        campaign_eligible, merchandising_rank, hero_image, primary_image,
-                       summary_vi, summary_en,
+                       summary_vi, summary_en, intended_use, primary_surface, upper_construction,
+                       cut_profile, primary_sole_profile, fit_tendency, width_profile,
                        COUNT_BIG(*) AS variant_count,
                        SUM(available) AS available_variant_count, MIN(amount) AS from_amount
                 FROM visible
                 GROUP BY product_public_id, name, category, collection, featured, new_arrival,
                          campaign_eligible, merchandising_rank, hero_image, primary_image,
-                         summary_vi, summary_en
+                         summary_vi, summary_en, intended_use, primary_surface, upper_construction,
+                         cut_profile, primary_sole_profile, fit_tendency, width_profile
                 ORDER BY merchandising_rank, name, product_public_id
                 """;
         return jdbc.query(sql, (rs, row) -> new ProductSummary(
@@ -120,7 +128,25 @@ public class StorefrontCatalogService {
                         rs.getLong("variant_count"),
                         rs.getLong("available_variant_count"),
                         rs.getLong("from_amount"),
-                        presentation(rs.getString("summary_vi"), rs.getString("summary_en"))), parameters.toArray());
+                        presentation(rs.getString("summary_vi"), rs.getString("summary_en")),
+                        evidence(rs.getString("intended_use"), rs.getString("primary_surface"),
+                                rs.getString("upper_construction"), rs.getString("cut_profile"),
+                                rs.getString("primary_sole_profile")),
+                        fitSummary(rs.getString("fit_tendency"), rs.getString("width_profile"))), parameters.toArray());
+    }
+
+    @Transactional(readOnly = true)
+    public DiscoveryResponse discover(String query) {
+        String search = query == null ? "" : query.trim();
+        if (search.length() > 80) throw new IllegalArgumentException("Search query is too long");
+        List<ProductSummary> products = browse();
+        Map<UUID, ProductSummary> byId = products.stream().collect(Collectors.toMap(ProductSummary::id,
+                product -> product, (first, ignored) -> first, LinkedHashMap::new));
+        CatalogDiscovery.QueryIntent intent = CatalogDiscovery.interpret(search);
+        CatalogDiscovery.Outcome outcome = CatalogDiscovery.rank(intent, discoveryDocuments());
+        return new DiscoveryResponse(search, summaries(outcome.resultIds(), byId),
+                summaries(outcome.suggestionIds(), byId), new InterpretedQuery(intent.colorFamilies(),
+                        intent.categories(), intent.maximumPrice(), intent.sku() != null));
     }
 
     @Transactional(readOnly = true)
@@ -163,6 +189,8 @@ public class StorefrontCatalogService {
                 SELECT name, category, collection, featured, new_arrival, campaign_eligible,
                        merchandising_rank, hero_image, primary_image,
                        presentation.summary_vi, presentation.summary_en,
+                       products.intended_use, products.primary_surface, products.upper_construction,
+                       products.cut_profile, products.primary_sole_profile,
                         CASE WHEN EXISTS (
                             SELECT 1 FROM catalog_shoe_fit_profile fit_profiles
                             WHERE fit_profiles.product_id = products.id
@@ -184,7 +212,10 @@ public class StorefrontCatalogService {
                         rs.getString("collection"), rs.getBoolean("featured"), rs.getBoolean("new_arrival"),
                         rs.getBoolean("campaign_eligible"), rs.getInt("merchandising_rank"),
                         rs.getString("hero_image"), rs.getString("primary_image"), rs.getBoolean("fit_supported"),
-                        presentation(rs.getString("summary_vi"), rs.getString("summary_en"))), productId);
+                        presentation(rs.getString("summary_vi"), rs.getString("summary_en")),
+                        evidence(rs.getString("intended_use"), rs.getString("primary_surface"),
+                                rs.getString("upper_construction"), rs.getString("cut_profile"),
+                                rs.getString("primary_sole_profile"))), productId);
 
         long minimum = variants.stream().mapToLong(VariantView::amount).min().orElseThrow();
         long maximum = variants.stream().mapToLong(VariantView::amount).max().orElseThrow();
@@ -203,104 +234,59 @@ public class StorefrontCatalogService {
         return new ProductDetail(productId, metadata.name(), metadata.category(), metadata.collection(),
                 metadata.featured(), metadata.newArrival(), metadata.campaignEligible(),
                 metadata.merchandisingRank(), metadata.heroImage(), metadata.primaryImage(), metadata.fitSupported(), variants,
-                pricing, List.copyOf(media), fitGuidance, metadata.presentation());
+                ProductOptionProjector.project(variants), pricing, List.copyOf(media), fitGuidance,
+                metadata.presentation(), metadata.evidence(), fitSummary(productId));
+    }
+
+    @Transactional(readOnly = true)
+    public FitSummary fitSummary(UUID productId) {
+        List<FitSummary> fits = jdbc.query("""
+                SELECT fit_profiles.fit_tendency, fit_profiles.width_profile
+                FROM catalog_shoe_fit_profile fit_profiles
+                JOIN catalog_product products ON products.id = fit_profiles.product_id
+                WHERE products.public_id = ?
+                """, (rs, row) -> new FitSummary(rs.getString(1), rs.getString(2)), productId);
+        return fits.isEmpty() ? null : fits.getFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, FitSummary> fitSummaries() {
+        return jdbc.query("""
+                SELECT products.public_id, fit_profiles.fit_tendency, fit_profiles.width_profile
+                FROM catalog_shoe_fit_profile fit_profiles
+                JOIN catalog_product products ON products.id = fit_profiles.product_id
+                ORDER BY products.public_id
+                """, (rs, row) -> new FitSummaryRow(rs.getObject(1, UUID.class),
+                        new FitSummary(rs.getString(2), rs.getString(3))))
+                .stream().collect(Collectors.toMap(FitSummaryRow::productId, FitSummaryRow::fit,
+                        (first, ignored) -> first, LinkedHashMap::new));
     }
 
     @Transactional(readOnly = true)
     public HeroCarousel hero() {
-        normalizeExpiredCheckoutHolds(null);
-        Timestamp at = Timestamp.from(clock.instant());
-        List<HeroProduct> products = jdbc.query("""
-                WITH sales AS (
-                    SELECT items.variant_public_id, items.quantity, attempts.resolved_at AS sold_at,
-                           items.unit_price_amount * items.quantity AS amount
-                    FROM payment_attempt attempts
-                    JOIN payment payments ON payments.id = attempts.payment_id
-                    JOIN commerce_order orders ON orders.id = payments.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
-                    WHERE attempts.status = 'SUCCEEDED'
-                      AND NOT EXISTS (
-                          SELECT 1 FROM payment_void_allocation allocations
-                          WHERE allocations.component_type = 'ORDER_ITEM'
-                            AND allocations.component_public_id = items.public_id
-                            AND allocations.status = 'SUCCEEDED'
-                      )
-                    UNION ALL
-                    SELECT items.variant_public_id, items.quantity, tenders.created_at AS sold_at,
-                           items.unit_price_amount * items.quantity AS amount
-                    FROM cash_tender tenders
-                    JOIN commerce_order orders ON orders.id = tenders.order_id
-                    JOIN commerce_order_item items ON items.order_id = orders.id
-                    WHERE NOT EXISTS (
-                          SELECT 1 FROM payment_void_allocation allocations
-                          WHERE allocations.component_type = 'ORDER_ITEM'
-                            AND allocations.component_public_id = items.public_id
-                            AND allocations.status = 'SUCCEEDED'
-                    )
-                ), metrics AS (
-                    SELECT variants.product_id,
-                           SUM(CASE WHEN sales.sold_at >= DATEADD(DAY, -30, ?) THEN sales.quantity ELSE 0 END) AS recent_30_day_units,
-                           SUM(CASE WHEN sales.sold_at >= DATEADD(DAY, -30, ?) THEN sales.amount ELSE 0 END) AS recent_30_day_revenue,
-                           SUM(CASE WHEN sales.sold_at >= DATEADD(DAY, -7, ?) THEN sales.quantity ELSE 0 END) AS last_7_day_units,
-                           SUM(CASE WHEN sales.sold_at >= DATEADD(DAY, -14, ?) AND sales.sold_at < DATEADD(DAY, -7, ?) THEN sales.quantity ELSE 0 END) AS previous_7_day_units
-                    FROM sales
-                    JOIN catalog_product_variant variants ON variants.public_id = sales.variant_public_id
-                    WHERE sales.sold_at < ?
-                    GROUP BY variants.product_id
-                )
-                SELECT products.public_id AS product_public_id, products.name, products.category, products.collection,
-                       products.featured, products.new_arrival, products.campaign_eligible,
-                       products.merchandising_rank, products.hero_image, products.primary_image,
-                       COALESCE(metrics.recent_30_day_units, 0) AS recent_30_day_units,
-                       COALESCE(metrics.recent_30_day_revenue, 0) AS recent_30_day_revenue,
-                       COALESCE(metrics.last_7_day_units, 0) AS last_7_day_units,
-                       COALESCE(metrics.previous_7_day_units, 0) AS previous_7_day_units,
-                       COALESCE(metrics.last_7_day_units, 0) - COALESCE(metrics.previous_7_day_units, 0) AS growth_units
-                FROM catalog_product products
-                LEFT JOIN metrics ON metrics.product_id = products.id
-                WHERE EXISTS (
-                    SELECT 1
-                    FROM catalog_product_variant variants
-                    JOIN pricing_variant_price prices ON prices.variant_id = variants.id
-                    WHERE variants.product_id = products.id
-                      AND variants.lifecycle_status = 'PUBLISHED'
-                      AND prices.valid_from <= ?
-                      AND (prices.valid_to IS NULL OR prices.valid_to > ?)
-                )
-                ORDER BY products.merchandising_rank, products.name, products.public_id
-                """, (rs, row) -> new HeroProduct(
-                        rs.getObject("product_public_id", UUID.class), rs.getString("name"),
-                        rs.getString("category"), rs.getString("collection"), rs.getBoolean("featured"),
-                        rs.getBoolean("new_arrival"), rs.getBoolean("campaign_eligible"),
-                        rs.getInt("merchandising_rank"), rs.getString("hero_image"),
-                        rs.getString("primary_image"), rs.getLong("recent_30_day_units"),
-                        rs.getLong("recent_30_day_revenue"), rs.getLong("last_7_day_units"),
-                        rs.getLong("previous_7_day_units"), rs.getLong("growth_units")),
-                at, at, at, at, at, at, at, at);
-        Set<UUID> used = new HashSet<>();
-        HeroProduct topSeller = products.stream().filter(product -> product.recent30DayUnits() > 0)
-                .max(Comparator.comparingLong(HeroProduct::recent30DayUnits)
-                        .thenComparingLong(HeroProduct::recent30DayRevenue))
-                .orElse(null);
-        markUsed(used, topSeller);
-        HeroProduct trending = pick(products.stream().filter(product -> product.growthUnits() > 0).toList(), used,
-                Comparator.comparingLong(HeroProduct::growthUnits).reversed()
-                        .thenComparing(Comparator.comparingLong(HeroProduct::last7DayUnits).reversed()));
-        HeroProduct newArrival = pick(products.stream().filter(HeroProduct::newArrival).toList(), used,
-                Comparator.comparingInt(HeroProduct::merchandisingRank));
-        HeroProduct featuredCollection = pick(products.stream().filter(HeroProduct::featured).toList(), used,
-                Comparator.comparingInt(HeroProduct::merchandisingRank));
-        return new HeroCarousel(topSeller, trending, newArrival, featuredCollection, products);
+        return new HeroCarousel(browse().stream()
+                .map(product -> new HeroProduct(product.id(), product.name(), product.category(), product.collection(),
+                        product.heroImage(), product.primaryImage()))
+                .toList());
     }
 
     public record ProductSummary(UUID id, String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
             String primaryImage, long variantCount, long availableVariantCount, long fromAmount,
-            ProductPresentation presentation) { }
+            ProductPresentation presentation, ProductEvidence evidence, FitSummary fitSummary) { }
     public record ProductDetail(UUID id, String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, boolean fitSupported, List<VariantView> variants, PriceSummary pricing,
-            List<MediaView> media, FitGuidance fitGuidance, ProductPresentation presentation) { }
+            String primaryImage, boolean fitSupported, List<VariantView> variants, List<ColorOption> options,
+            PriceSummary pricing, List<MediaView> media, FitGuidance fitGuidance,
+            ProductPresentation presentation, ProductEvidence evidence, FitSummary fitSummary) { }
+    public record DiscoveryResponse(String query, List<ProductSummary> results, List<ProductSummary> suggestions,
+            InterpretedQuery interpreted) { }
+    public record InterpretedQuery(Set<String> colors, Set<String> categories, Long maximumPrice,
+            boolean skuLookup) { }
+    public record ColorOption(String color, List<SizeOption> sizes) { }
+    public record SizeOption(String size, UUID variantId, String sku, String availability, Long amount,
+            List<String> availableAlternativeColors) { }
+    public record FitSummary(String fitTendency, String widthProfile) { }
     public record LocalizedSummary(String vi, String en) { }
     public record ProductPresentation(LocalizedSummary summary) { }
     public record PriceSummary(String state, long minimumAmount, long maximumAmount, String currency) { }
@@ -310,16 +296,73 @@ public class StorefrontCatalogService {
     public record FitGuidance(String sizeSystem, String fitTendency, String widthProfile,
             boolean fitAssistantSupported, List<FitRangeView> ranges) { }
     public record VariantView(UUID id, String sku, String size, String color, String availability, long amount) { }
-    public record HeroProduct(UUID id, String name, String category, String collection, boolean featured,
-            boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, long recent30DayUnits, long recent30DayRevenue, long last7DayUnits,
-            long previous7DayUnits, long growthUnits) { }
-    public record HeroCarousel(HeroProduct topSeller, HeroProduct trending, HeroProduct newArrival,
-            HeroProduct featuredCollection, List<HeroProduct> candidates) { }
+    public record HeroProduct(UUID id, String name, String category, String collection, String heroImage,
+            String primaryImage) { }
+    public record HeroCarousel(List<HeroProduct> products) { }
     private record ProductMetadata(String name, String category, String collection, boolean featured,
             boolean newArrival, boolean campaignEligible, int merchandisingRank, String heroImage,
-            String primaryImage, boolean fitSupported, ProductPresentation presentation) { }
+            String primaryImage, boolean fitSupported, ProductPresentation presentation,
+            ProductEvidence evidence) { }
     private record FitProfileRow(long id, String sizeSystem, String fitTendency, String widthProfile) { }
+    private record FitSummaryRow(UUID productId, FitSummary fit) { }
+    private record DiscoveryRow(UUID productId, String name, String category, String collection, String color,
+            String sku, String intendedUse, String primarySurface, String upperConstruction,
+            String cutProfile, String primarySoleProfile, long amount, boolean available,
+            int merchandisingRank) { }
+
+    private List<CatalogDiscovery.SearchDocument> discoveryDocuments() {
+        Timestamp at = Timestamp.from(clock.instant());
+        List<DiscoveryRow> rows = jdbc.query("""
+                SELECT products.public_id, products.name, products.category, products.collection,
+                       variants.color, variants.sku, products.intended_use, products.primary_surface,
+                       products.upper_construction, products.cut_profile, products.primary_sole_profile,
+                       prices.amount,
+                       CASE WHEN EXISTS (
+                           SELECT 1 FROM inventory_balance balances
+                           JOIN org_location locations ON locations.id = balances.location_id
+                           JOIN org_branch branches ON branches.id = locations.branch_id
+                           WHERE balances.variant_id = variants.id
+                             AND locations.enabled = 1 AND branches.enabled = 1
+                             AND balances.on_hand > balances.reserved
+                       ) THEN 1 ELSE 0 END AS available,
+                       products.merchandising_rank
+                FROM catalog_product products
+                JOIN catalog_product_variant variants ON variants.product_id = products.id
+                JOIN pricing_variant_price prices ON prices.variant_id = variants.id
+                WHERE variants.lifecycle_status = 'PUBLISHED'
+                  AND prices.valid_from <= ?
+                  AND (prices.valid_to IS NULL OR prices.valid_to > ?)
+                ORDER BY products.merchandising_rank, products.name, products.public_id, variants.public_id
+                """, (rs, row) -> new DiscoveryRow(rs.getObject(1, UUID.class), rs.getString(2),
+                        rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
+                        rs.getString(7), rs.getString(8), rs.getString(9), rs.getString(10),
+                        rs.getString(11), rs.getLong(12), rs.getBoolean(13), rs.getInt(14)), at, at);
+        return rows.stream().collect(Collectors.groupingBy(DiscoveryRow::productId, LinkedHashMap::new,
+                Collectors.toList())).values().stream().map(group -> {
+                    DiscoveryRow first = group.getFirst();
+                    Set<String> attributes = new LinkedHashSet<>();
+                    group.forEach(row -> {
+                        add(attributes, row.intendedUse()); add(attributes, row.primarySurface());
+                        add(attributes, row.upperConstruction()); add(attributes, row.cutProfile());
+                        add(attributes, row.primarySoleProfile());
+                    });
+                    return new CatalogDiscovery.SearchDocument(first.productId(), first.name(), first.category(),
+                            first.collection(), group.stream().map(DiscoveryRow::color)
+                                    .collect(Collectors.toCollection(LinkedHashSet::new)),
+                            group.stream().map(DiscoveryRow::sku)
+                                    .collect(Collectors.toCollection(LinkedHashSet::new)),
+                            attributes, group.stream().mapToLong(DiscoveryRow::amount).min().orElseThrow(),
+                            group.stream().filter(DiscoveryRow::available).count(), first.merchandisingRank());
+                }).toList();
+    }
+
+    private static List<ProductSummary> summaries(List<UUID> ids, Map<UUID, ProductSummary> products) {
+        return ids.stream().map(products::get).filter(java.util.Objects::nonNull).toList();
+    }
+
+    private static void add(Set<String> values, String value) {
+        if (value != null) values.add(value);
+    }
 
     private FitGuidance fitGuidance(UUID productId, List<VariantView> variants, boolean fitAssistantSupported) {
         List<FitProfileRow> profiles = jdbc.query("""
@@ -370,13 +413,22 @@ public class StorefrontCatalogService {
         return vi == null || en == null ? null : new ProductPresentation(new LocalizedSummary(vi, en));
     }
 
-    private static HeroProduct pick(List<HeroProduct> candidates, Set<UUID> used,
-            Comparator<HeroProduct> order) {
-        return candidates.stream().sorted(order).filter(product -> used.add(product.id())).findFirst().orElse(null);
+    private static ProductEvidence evidence(String intendedUse, String primarySurface, String upperConstruction,
+            String cutProfile, String primarySoleProfile) {
+        ProductEvidence evidence = new ProductEvidence(enumValue(ProductEvidence.IntendedUse.class, intendedUse),
+                enumValue(ProductEvidence.PrimarySurface.class, primarySurface),
+                enumValue(ProductEvidence.UpperConstruction.class, upperConstruction),
+                enumValue(ProductEvidence.CutProfile.class, cutProfile),
+                enumValue(ProductEvidence.PrimarySoleProfile.class, primarySoleProfile));
+        return evidence.isEmpty() ? null : evidence;
     }
 
-    private static void markUsed(Set<UUID> used, HeroProduct product) {
-        if (product != null) used.add(product.id());
+    private static FitSummary fitSummary(String tendency, String width) {
+        return tendency == null || width == null ? null : new FitSummary(tendency, width);
+    }
+
+    private static <E extends Enum<E>> E enumValue(Class<E> type, String value) {
+        return value == null ? null : Enum.valueOf(type, value);
     }
 
     private void normalizeExpiredCheckoutHolds(UUID productId) {

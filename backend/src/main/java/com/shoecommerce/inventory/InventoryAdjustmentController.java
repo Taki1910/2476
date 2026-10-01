@@ -33,4 +33,16 @@ public class InventoryAdjustmentController {
     }
 
     record AdjustmentRequest(@PositiveOrZero long onHand, @NotBlank @Size(max = 256) String reason) { }
+
+    @PutMapping("/api/v1/operations/inventory/variants/{variantId}/locations/{locationId}")
+    InventoryAdjustmentService.AdjustmentResult adjustManaged(@AuthenticationPrincipal SessionPrincipal actor,
+            @PathVariable UUID variantId, @PathVariable UUID locationId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String key,
+            @Valid @RequestBody ManagedAdjustmentRequest request) {
+        return adjustments.adjustManaged(actor, variantId, locationId, request.onHand(), request.reason(), key,
+                request.expectedBalanceVersion());
+    }
+
+    record ManagedAdjustmentRequest(@PositiveOrZero long onHand, @NotBlank @Size(max = 256) String reason,
+            Long expectedBalanceVersion) { }
 }

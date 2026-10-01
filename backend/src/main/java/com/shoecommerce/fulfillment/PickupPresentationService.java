@@ -50,6 +50,14 @@ public class PickupPresentationService {
                 fulfillment == null ? null : fulfillment.cancelledAt(),
                 fulfillment == null ? null : fulfillment.receiverName(),
                 fulfillment == null ? null : fulfillment.receiverPhone(),
+                fulfillment == null ? null : fulfillment.deliveryProvinceCode(),
+                fulfillment == null ? null : fulfillment.deliveryProvinceLabel(),
+                fulfillment == null ? null : fulfillment.deliveryDistrictCode(),
+                fulfillment == null ? null : fulfillment.deliveryDistrictLabel(),
+                fulfillment == null ? null : fulfillment.deliveryWardCode(),
+                fulfillment == null ? null : fulfillment.deliveryWardLabel(),
+                fulfillment == null ? null : fulfillment.deliveryAddressLine(),
+                fulfillment == null ? null : fulfillment.addressResolutionVersion(),
                 fulfillment == null ? null : fulfillment.deliveryAddress(),
                 fulfillment == null ? null : fulfillment.deliveryNote(),
                 order.shippingFeeAmount());
@@ -59,5 +67,8 @@ public class PickupPresentationService {
             String financialVoidStatus, boolean cancellationEligible, java.time.Instant acceptedAt,
             java.time.Instant readyAt, java.time.Instant handedOverAt, java.time.Instant dispatchedAt,
             java.time.Instant deliveredAt, java.time.Instant fulfillmentCancelledAt, String receiverName,
-            String receiverPhone, String deliveryAddress, String deliveryNote, long deliveryFeeAmount) { }
+            String receiverPhone, String deliveryProvinceCode, String deliveryProvinceLabel,
+            String deliveryDistrictCode, String deliveryDistrictLabel, String deliveryWardCode,
+            String deliveryWardLabel, String deliveryAddressLine, String addressResolutionVersion,
+            String deliveryAddress, String deliveryNote, long deliveryFeeAmount) { }
 }

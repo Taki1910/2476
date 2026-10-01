@@ -10,6 +10,11 @@ describe('locale and return-route rules', () => {
     expect(locale.value).toBe('vi-VN')
     expect(t('Net sales')).toBe('Doanh thu thuần')
     expect(t('Receiver name, phone, and delivery address are required.')).toBe('Bắt buộc nhập tên, số điện thoại người nhận và địa chỉ giao hàng.')
+    expect(t('Choose a valid province, district, and ward.')).toBe('Vui lòng chọn tỉnh/thành phố, quận/huyện và phường/xã hợp lệ.')
+    expect(t('Choose a valid province / city.')).toBe('Vui lòng chọn tỉnh/thành phố hợp lệ.')
+    expect(t('Choose a valid district.')).toBe('Vui lòng chọn quận/huyện hợp lệ.')
+    expect(t('Enter a valid street and house address.')).toBe('Vui lòng nhập số nhà và tên đường hợp lệ.')
+    expect(t('Enter a shorter delivery note.')).toBe('Vui lòng rút gọn ghi chú giao hàng.')
     expect(localStorage.setItem).toHaveBeenCalledWith('shoe-commerce:locale', 'vi-VN')
   })
 
@@ -38,10 +43,10 @@ describe('locale and return-route rules', () => {
 
   it('uses natural singular and plural commerce counts', () => {
     setLocale('en')
-    expect(commerceCount(1, 1)).toBe('1 variant · 1 unit')
-    expect(commerceCount(2, 3)).toBe('2 variants · 3 units')
+    expect(commerceCount(1, 1)).toBe('1 selection · 1 pair')
+    expect(commerceCount(2, 3)).toBe('2 selections · 3 pairs')
     setLocale('vi-VN')
-    expect(commerceCount(2, 3)).toBe('2 phiên bản · 3 sản phẩm')
+    expect(commerceCount(2, 3)).toBe('2 lựa chọn · 3 đôi')
   })
 
   it('accepts only local return destinations', () => {
@@ -55,6 +60,15 @@ describe('locale and return-route rules', () => {
     expect(t('Register')).toBe('Đăng ký')
     expect(t('Register lane')).toBe('Quầy thanh toán')
     expect(t('Take {amount} & complete sale', { amount: '100 ₫' })).toBe('Nhận 100 ₫ và hoàn tất giao dịch')
+  })
+
+  it('writes storefront discovery copy independently in Vietnamese', () => {
+    setLocale('vi-VN')
+    expect(t('Describe the shoe you’re looking for')).toBe('Mô tả đôi giày bạn đang tìm')
+    expect(t('White running shoes under 2 million')).toBe('Giày trắng chạy bộ dưới 2 triệu')
+    expect(t('No exact matches for “{query}”.', { query: 'giày tím' }))
+      .toBe('Chưa thấy mẫu khớp “giày tím”.')
+    expect(t('You might like')).toBe('Có thể bạn sẽ thích')
   })
 
   it('uses the role workspace unless an explicit local destination was supplied', () => {

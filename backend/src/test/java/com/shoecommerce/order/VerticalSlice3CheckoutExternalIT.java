@@ -664,9 +664,9 @@ class VerticalSlice3CheckoutExternalIT {
         UUID rule=UUID.randomUUID();
         jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
                 rule,UUID.randomUUID(),java.sql.Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant()));
-        var quote = cartPricing.quote(f.customerA(), demand, new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
+        var quote = cartPricing.quote(f.customerA(), demand, new CartQuoteService.FulfillmentQuote("DELIVERY","79","760","DEMO-760-01"));
         var delivery = new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY, null,
-                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "12 Nguyen Hue, Quan 1", "Giao gio hanh chinh"));
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A", "+84 912 345 678", "79", "760", "DEMO-760-01", "12 Nguyen Hue", "Giao gio hanh chinh"));
 
         var created = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
         var replay = orders.checkoutCart(f.customerA(), quote.id(), demand, delivery, "delivery-intent");
@@ -676,7 +676,14 @@ class VerticalSlice3CheckoutExternalIT {
         assertThat(created.fulfillmentStatus()).isEqualTo("PENDING");
         assertThat(created.receiverName()).isEqualTo("Nguyen Van A");
         assertThat(created.receiverPhone()).isEqualTo("+84 912 345 678");
-        assertThat(created.deliveryAddress()).isEqualTo("12 Nguyen Hue, Quan 1");
+        assertThat(quote.destinationWardCode()).isEqualTo("DEMO-760-01");
+        assertThat(created.deliveryWardCode()).isEqualTo("DEMO-760-01");
+        assertThat(created.deliveryWardLabel()).isEqualTo("Phường Bến Nghé");
+        assertThat(created.deliveryAddressLine()).isEqualTo("12 Nguyen Hue");
+        assertThat(created.addressResolutionVersion()).isEqualTo("DEMO-2026");
+        assertThat(created.deliveryAddress()).isEqualTo("12 Nguyen Hue, Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh");
+        assertThat(jdbc.queryForObject("SELECT destination_ward_code FROM commerce_order WHERE public_id=?", String.class, created.id()))
+                .isEqualTo("DEMO-760-01");
         assertThat(quote.merchandiseAmount()).isEqualTo(quote.items().getFirst().totalAmount());
         assertThat(quote.shippingFeeAmount()).isEqualTo(80_000);
         assertThat(created.merchandiseAmount()).isEqualTo(quote.merchandiseAmount());
@@ -699,11 +706,11 @@ class VerticalSlice3CheckoutExternalIT {
         adjustments.adjust(operations,f.variant(),second,3,"Second origin fixture",UUID.randomUUID().toString());
         UUID rule=UUID.randomUUID(); jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",
                 rule,UUID.randomUUID(),Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),Timestamp.from(clock.instant()),Timestamp.from(clock.instant()));
-        var demand=List.of(line(f.variant(),1)); var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
+        var demand=List.of(line(f.variant(),1)); var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760","DEMO-760-01"));
         assertThat(quote.originLocationId()).isEqualTo(first);
         adjustments.adjust(operations,f.variant(),first,0,"Quoted origin unavailable",UUID.randomUUID().toString());
         var delivery=new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY,null,
-                new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","12 Nguyen Hue",null));
+                new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","DEMO-760-01","12 Nguyen Hue",null));
         assertThatThrownBy(()->orders.checkoutCart(f.customerA(),quote.id(),demand,delivery,"origin-no-switch"))
                 .isInstanceOf(BusinessConflictException.class).hasMessageContaining("fresh quote");
         assertThat(jdbc.queryForObject("SELECT on_hand-reserved FROM inventory_balance WHERE variant_id=(SELECT id FROM catalog_product_variant WHERE public_id=?) AND location_id=(SELECT id FROM org_location WHERE public_id=?)",Long.class,f.variant(),second)).isEqualTo(3);
@@ -713,8 +720,8 @@ class VerticalSlice3CheckoutExternalIT {
     void promotionFinancialsReconcileFromDeliveryQuoteThroughOrderAndPaymentAttempt() {
         Fixture f=fixture("promo-financial",3);promotion(f,"ITEM","ITEM_FIXED",10_000L,null,300);promotion(f,"ORDER_AUTOMATIC","ORDER_FIXED",20_000L,null,200);promotion(f,"SHIPPING","FREE_SHIPPING",null,null,100);
         UUID rule=UUID.randomUUID();jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES (?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',80000,1,?,?,?,?)",rule,UUID.randomUUID(),Timestamp.from(clock.instant().minusSeconds(1)),f.customerA().publicId(),Timestamp.from(clock.instant()),Timestamp.from(clock.instant()));
-        var demand=List.of(line(f.variant(),1));var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"));
-        var delivery=new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY,null,new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","12 Nguyen Hue",null));
+        var demand=List.of(line(f.variant(),1));var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("DELIVERY","79","760","DEMO-760-01"));
+        var delivery=new CustomerOrderService.FulfillmentRequest(PickupFulfillment.Type.DELIVERY,null,new CustomerOrderService.DeliveryRequest("Nguyen Van A","+84 912 345 678","79","760","DEMO-760-01","12 Nguyen Hue",null));
         var order=orders.checkoutCart(f.customerA(),quote.id(),demand,delivery,"promo-financial");var attempt=payments.initiate(f.customerA(),order.id(),"pay-promo-financial").attempt();
         assertThat(quote.merchandiseAmount()).isEqualTo(149_000);assertThat(quote.merchandiseDiscountAmount()).isEqualTo(30_000);assertThat(quote.shippingFeeAmount()).isEqualTo(80_000);assertThat(quote.shippingDiscountAmount()).isEqualTo(80_000);assertThat(quote.totalAmount()).isEqualTo(119_000);
         assertThat(order.merchandiseAmount()).isEqualTo(quote.merchandiseAmount());assertThat(order.merchandiseDiscountAmount()).isEqualTo(quote.merchandiseDiscountAmount());assertThat(order.deliveryFeeAmount()).isEqualTo(quote.shippingFeeAmount());assertThat(order.shippingDiscountAmount()).isEqualTo(quote.shippingDiscountAmount());assertThat(order.totalAmount()).isEqualTo(quote.totalAmount());assertThat(attempt.amount()).isEqualByComparingTo("119000");
@@ -726,7 +733,7 @@ class VerticalSlice3CheckoutExternalIT {
     void selectedCodeSnapshotsAllocationsOrdersPaymentAndIdempotentReplayWithoutRawCode() {
         Fixture f=fixture("voucher-code",3);UUID second=extraVariant(f,"41",101_000,3);Voucher v=voucher(f,"CODE","SAVE-C3-SECRET",1L,25_000L);
         var demand=List.of(line(f.variant(),1),line(second,1));var selection=PromotionService.VoucherSelection.code("  save-c3-secret  ");
-        var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("PICKUP",null,null),selection);
+        var quote=cartPricing.quote(f.customerA(),demand,new CartQuoteService.FulfillmentQuote("PICKUP",null,null,null),selection);
         assertThat(quote.merchandiseDiscountAmount()).isEqualTo(25_000);
         assertThat(jdbc.queryForObject("SELECT SUM(applied_amount) FROM pricing_cart_quote_item_adjustment WHERE quote_public_id=? AND layer='VOUCHER_ALLOCATION'",Long.class,quote.id())).isEqualTo(25_000);
         assertThat(jdbc.queryForObject("SELECT masked_code_snapshot FROM pricing_cart_quote_adjustment WHERE quote_public_id=? AND acquisition_mode='CODE'",String.class,quote.id())).doesNotContain("SAVE-C3-SECRET");

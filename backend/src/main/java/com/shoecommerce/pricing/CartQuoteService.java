@@ -23,6 +23,7 @@ import com.shoecommerce.platform.api.BusinessConflictException;
 import com.shoecommerce.platform.api.InvalidRequestException;
 import com.shoecommerce.platform.api.ResourceNotFoundException;
 import com.shoecommerce.shipping.ShippingService;
+import com.shoecommerce.shipping.AddressResolver;
 import com.shoecommerce.promotion.PromotionService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
@@ -39,18 +40,21 @@ public class CartQuoteService {
     private final AuthorizationPolicy authorization;
     private final Clock clock;
     private final ShippingService shipping;
+    private final AddressResolver addresses;
     private final PromotionService promotions;
 
     public CartQuoteService(CartQuoteRepository quotes, VariantPriceRepository prices,
             InventoryReservationService reservations, CheckoutHoldExpiryService expiry,
-            AuthorizationPolicy authorization, Clock clock, ShippingService shipping, PromotionService promotions) {
+            AuthorizationPolicy authorization, Clock clock, ShippingService shipping, AddressResolver addresses,
+            PromotionService promotions) {
         this.quotes = quotes; this.prices = prices; this.reservations = reservations;
-        this.expiry = expiry; this.authorization = authorization; this.clock = clock; this.shipping = shipping; this.promotions=promotions;
+        this.expiry = expiry; this.authorization = authorization; this.clock = clock; this.shipping = shipping;
+        this.addresses = addresses; this.promotions=promotions;
     }
 
     @Transactional
     public QuoteView quote(SessionPrincipal actor, List<LineRequest> requested) {
-        return quote(actor, requested, new FulfillmentQuote("PICKUP", null, null));
+        return quote(actor, requested, new FulfillmentQuote("PICKUP", null, null, null));
     }
 
     @Transactional
@@ -83,11 +87,14 @@ public class CartQuoteService {
         quote.fulfillmentType = fulfillment == null || fulfillment.type() == null ? "PICKUP" : fulfillment.type();
         quote.shippingFeeAmount = BigDecimal.ZERO;
         if ("DELIVERY".equals(quote.fulfillmentType)) {
+            var destination = addresses.resolveLocation(fulfillment.destinationProvinceCode(),
+                    fulfillment.destinationDistrictCode(), fulfillment.destinationWardCode());
             var origin = reservations.deliveryOrigin(stock);
-            var shippingQuote = shipping.quote(origin.id(), origin.branchId(), fulfillment.destinationProvinceCode(),
-                    fulfillment.destinationDistrictCode(), quote.quotedAt);
+            var shippingQuote = shipping.quote(origin.id(), origin.branchId(), destination.provinceCode(),
+                    destination.districtCode(), destination.wardCode(), quote.quotedAt);
             quote.originLocationId=origin.id(); quote.originBranchId=origin.branchId();
-            quote.destinationProvinceCode=fulfillment.destinationProvinceCode(); quote.destinationDistrictCode=fulfillment.destinationDistrictCode();
+            quote.destinationProvinceCode=destination.provinceCode(); quote.destinationDistrictCode=destination.districtCode();
+            quote.destinationWardCode=destination.wardCode();
             quote.shippingRuleId=shippingQuote.revisionId(); quote.shippingZoneCode=shippingQuote.zoneCode();
             quote.shippingFeeAmount=BigDecimal.valueOf(shippingQuote.feeAmount());
         } else if (!"PICKUP".equals(quote.fulfillmentType)) {
@@ -188,6 +195,7 @@ public class CartQuoteService {
         }
         return new QuoteView(quote.publicId, quote.quotedAt, quote.expiresAt, "VND", quote.fulfillmentType,
                 quote.originLocationId, quote.originBranchId, quote.destinationProvinceCode, quote.destinationDistrictCode,
+                quote.destinationWardCode,
                 quote.shippingZoneCode, quote.merchandiseAmount.longValueExact(),quote.merchandiseDiscountAmount.longValueExact(), quote.shippingFeeAmount.longValueExact(),quote.shippingDiscountAmount.longValueExact(),
                 total, lines,adjustments.stream().map(a->new AdjustmentView(a.name(),a.layer(),a.amount(),a.acquisitionMode(),a.maskedCode(),a.voucherClaimId())).toList(), pickupLocations);
     }
@@ -195,9 +203,11 @@ public class CartQuoteService {
     public record LineRequest(@NotNull UUID variantId, @Positive @Max(10) long quantity) { }
     public record LineView(UUID variantId, String productName, String sku, String size, String color,
             UUID priceVersionId, long quantity, long unitPriceAmount, long totalAmount) { }
-    public record FulfillmentQuote(String type, String destinationProvinceCode, String destinationDistrictCode) { }
+    public record FulfillmentQuote(String type, String destinationProvinceCode, String destinationDistrictCode,
+            String destinationWardCode) { }
     public record QuoteView(UUID id, Instant quotedAt, Instant expiresAt, String currency, String fulfillmentType,
             UUID originLocationId, UUID originBranchId, String destinationProvinceCode, String destinationDistrictCode,
+            String destinationWardCode,
             String shippingZoneCode, long merchandiseAmount,long merchandiseDiscountAmount, long shippingFeeAmount,long shippingDiscountAmount, long totalAmount,
             List<LineView> items,List<AdjustmentView> adjustments, List<InventoryReservationService.CheckoutLocation> pickupLocations) { }
     public record AdjustmentView(String name,String layer,long amount,String acquisitionMode,String maskedCode,UUID claimId){}

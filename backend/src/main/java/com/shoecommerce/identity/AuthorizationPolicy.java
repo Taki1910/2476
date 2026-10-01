@@ -30,6 +30,11 @@ public class AuthorizationPolicy {
         }
     }
 
+    public boolean hasPermission(SessionPrincipal actor, PermissionCode permission) {
+        requireCurrent(actor);
+        return authorities.hasPermission(actor.accountId(), permission);
+    }
+
     public void requireRole(SessionPrincipal actor, RoleCode role) {
         requireCurrent(actor);
         if (!authorities.roleCodes(actor.accountId()).contains(role.name())) {

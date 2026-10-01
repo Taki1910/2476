@@ -37,6 +37,12 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-CAT-102 | A sellable variant has one Product, canonical size/option combination and lifecycle state. |
 | BR-CAT-103 | Active sellable option combination is unique within Product and size-system context; archive does not free a historical SKU for reuse. |
 | BR-CAT-104 | In Vertical Slice 1, a `DRAFT` ProductVariant may publish only with a positive VND current price and positive on-hand balance at at least one enabled Location. |
+| BR-CAT-105 | P2B uses implicit EU numeric size. `41`, `041`, `41.0` and `41.00` identify the same size; color identity trims outer whitespace and folds case while remaining accent-sensitive. |
+| BR-CAT-106 | At most one non-`RETIRED` variant may occupy `(Product, normalizedColor, normalizedEuSize)`. Retired historical SKUs do not free or reuse SKU identity. |
+| BR-CAT-107 | Variant lifecycle is exactly `DRAFT -> PUBLISHED|RETIRED`, `PUBLISHED -> RETIRED`, and `RETIRED -> DRAFT`; republishing requires readiness revalidation from `DRAFT`. |
+| BR-CAT-108 | Retirement blocks new checkout/POS sales but does not mutate inventory, prices, reservations, existing orders, presentation, merchandising or audit history. Sale establishment and retirement serialize on the Variant lock. |
+| BR-CAT-109 | Product name, category, collection, hero image and primary image are optimistic-concurrency managed. Product public ID and Variant SKU/color/size/ownership remain immutable. Historical orders currently do not snapshot Product name. |
+| BR-CAT-110 | A ProductVariant may have one nullable barcode. A non-null barcode trims only outer whitespace, preserves case, punctuation and leading zeroes, is globally unique, and may change only while the Variant is `DRAFT` and has never been published. First publication locks it permanently, including after retirement or restore. |
 | BR-PRICE-101 | One Order and all related Payment/Refund records use one currency. |
 | BR-PRICE-102 | Client-supplied price/discount/tax totals are never authoritative. |
 | BR-PRICE-103 | PriceQuote expires and is revalidated at Order placement; successful placement snapshots its evidence immutably. |
@@ -108,6 +114,9 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-CASH-102 | A limited POS sale is quantity one, current server-priced VND, exact cash, and immutable under `(Shift, Idempotency-Key)` plus variant fingerprint. |
 | BR-CASH-103 | For the limited slice, `expectedCash = sum(successful CashTender amount)`; there is no opening float, change, counted cash, paid-in/out, refund, or variance. |
 | BR-CASH-104 | Shift close is idempotent and serializes with sale on the same Shift lock: close-first rejects the sale; sale-first contributes to expected cash before close. |
+| BR-CASH-105 | POS identification has two explicit paths: exact barcode scan and bounded operational search by product name, SKU, color or size. Neither path changes quantity or creates a sale without cashier confirmation. |
+| BR-CASH-106 | POS lookup and sale normalize expired checkout holds before deriving local availability. Candidate stock is authoritative only for the active Register's Location; stock at another Location does not make the candidate locally sellable. |
+| BR-CASH-107 | POS exposes distinct candidate outcomes for sellable, locally sold out, retired, unpublished and missing-price Variants. Sale revalidates lifecycle, current price version and local InventoryBalance under the existing lock order before accepting cash. |
 
 ### Payment and refund
 
@@ -238,7 +247,7 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
   advanced caps and any explicit voucher reissue/reversal policy.
 - Role/permission matrix and maker-checker thresholds.
 - Customer verification, consent and data-retention rules.
-- Required shoe size systems and barcode/scanner behavior.
+- Required shoe size systems and physical scanner/printer/cash-drawer integration.
 - Acquisition cost and inventory valuation method; monetary Inventory Value
   reporting remains deferred until this is confirmed.
 # Customer catalog and base-price quote — Vertical Slice 2

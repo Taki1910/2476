@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { SESSION_ENDED_EVENT } from './api'
 import { locale, messageLabel, setLocale, t } from './i18n'
 import { errorCopy } from './format'
 import { clearPrivateSession, homeFor, loadSession, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
-import { cartCount } from './cart'
+import { cartCount, syncCartStorage } from './cart'
 import { canManageStorefront } from './merchandising'
 
 const route = useRoute()
@@ -13,6 +13,14 @@ const router = useRouter()
 let sessionChanges: BroadcastChannel | undefined
 const logoutBusy = ref(false)
 const logoutError = ref('')
+const cartAcknowledged = ref(false)
+let cartAcknowledgementTimer: ReturnType<typeof setTimeout> | undefined
+watch(cartCount, (current, previous) => {
+  if (current === previous) return
+  cartAcknowledged.value = true
+  clearTimeout(cartAcknowledgementTimer)
+  cartAcknowledgementTimer = setTimeout(() => { cartAcknowledged.value = false }, 300)
+})
 async function reloadSession() {
   session.account = undefined
   session.generation++
@@ -32,12 +40,15 @@ function endSession() {
 }
 onMounted(() => {
   window.addEventListener(SESSION_ENDED_EVENT, endSession)
+  window.addEventListener('storage', syncCartStorage)
   sessionChanges = new BroadcastChannel(SESSION_CHANGE_CHANNEL)
   sessionChanges.onmessage = event => { if (event.data?.source !== SESSION_CHANGE_SOURCE) reloadSession() }
 })
 onBeforeUnmount(() => {
   window.removeEventListener(SESSION_ENDED_EVENT, endSession)
+  window.removeEventListener('storage', syncCartStorage)
   sessionChanges?.close()
+  clearTimeout(cartAcknowledgementTimer)
 })
 </script>
 
@@ -52,8 +63,7 @@ onBeforeUnmount(() => {
         <nav :aria-label="t('Store')">
           <RouterLink to="/">{{ t('Store') }}</RouterLink>
           <RouterLink to="/promotions">{{ t('Offers') }}</RouterLink>
-          <RouterLink to="/#product-search">{{ t('Search') }}</RouterLink>
-          <RouterLink to="/cart">{{ t('Cart') }}<span v-if="cartCount" class="cart-count" :aria-label="t('Cart items')">{{ cartCount }}</span></RouterLink>
+          <RouterLink to="/cart">{{ t('Cart') }}<span v-if="cartCount" class="cart-count" :class="{ acknowledged: cartAcknowledged }" :aria-label="t('Cart items')">{{ cartCount }}</span></RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/orders">{{ t('My Orders') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/account/vouchers">{{ t('My Vouchers') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('FULFILL_ORDER')" to="/operations/fulfillments">{{ t('Fulfillment') }}</RouterLink>
@@ -61,6 +71,7 @@ onBeforeUnmount(() => {
           <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">{{ t('Reports') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('SHIPPING_RATE_MANAGE')" to="/operations/shipping">{{ t('Shipping rates') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('PROMOTION_MANAGE')" to="/operations/promotions">{{ t('Promotions') }}</RouterLink>
+          <RouterLink v-if="session.account?.permissions.includes('CATALOG_MANAGE')" to="/operations/products">{{ t('Products') }}</RouterLink>
           <RouterLink v-if="canManageStorefront(session.account)" to="/operations/storefront">{{ t('Storefront') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('STOREFRONT_MANAGE')" to="/operations/product-presentations">{{ t('Product copy') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))" to="/operations/people">{{ t('People & Access') }}</RouterLink>

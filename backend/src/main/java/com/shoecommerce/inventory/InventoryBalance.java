@@ -25,4 +25,6 @@ public class InventoryBalance {
     public long onHand() { return onHand; }
     public long reserved() { return reserved; }
     public long available() { return onHand - reserved; }
+    public long version() { return version; }
+    public Instant updatedAt() { return updatedAt; }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { api, ApiError, type ProductDetail, type Variant } from '../api'
+import { api, ApiError, type ProductDetail, type SizeOption, type Variant } from '../api'
 import { addToCart, cart } from '../cart'
 import { errorCopy, formatVnd } from '../format'
 import { messageLabel, t } from '../i18n'
@@ -12,6 +12,8 @@ import ProductPresentationSummary from '../components/ProductPresentationSummary
 const route = useRoute()
 const product = ref<ProductDetail>()
 const selected = ref<Variant>()
+const selectedColor = ref('')
+const requestedSize = ref('')
 const loading = ref(true)
 const error = ref('')
 const notFound = ref(false)
@@ -21,6 +23,7 @@ const fitNotice = ref('')
 const added = ref(false)
 const selectedMediaIndex = ref(0)
 let addTimer: ReturnType<typeof setTimeout> | undefined
+let toastTimer: ReturnType<typeof setTimeout> | undefined
 let loadVersion = 0
 
 const productPrice = computed(() => {
@@ -31,6 +34,8 @@ const productPrice = computed(() => {
     : { label: t('Price'), value: formatVnd(pricing.minimumAmount) }
 })
 const selectedMedia = computed(() => product.value?.media[selectedMediaIndex.value])
+const selectedColorOption = computed(() => product.value?.options.find(option => option.color === selectedColor.value))
+const requestedOption = computed(() => selectedColorOption.value?.sizes.find(option => option.size === requestedSize.value))
 const productTaxonomy = computed(() => [product.value?.category, product.value?.collection]
   .filter((value): value is string => Boolean(value)).map(value => t(value)).join(' · '))
 
@@ -52,7 +57,9 @@ async function loadProduct() {
     product.value = result
     selectedMediaIndex.value = 0
     const intended = result.variants.find(variant => variant.id === route.query.variant)
-    selected.value = intended
+    selectedColor.value = intended?.color ?? ''
+    requestedSize.value = intended?.size ?? ''
+    selected.value = intended?.availability === 'AVAILABLE' ? intended : undefined
   } catch (reason) {
     if (version !== loadVersion) return
     if (reason instanceof ApiError && reason.status === 404) notFound.value = true
@@ -60,23 +67,40 @@ async function loadProduct() {
   } finally { if (version === loadVersion) loading.value = false }
 }
 
-function choose(variant: Variant) {
-  selected.value = variant; cartMessage.value = ''; cartError.value = ''; fitNotice.value = ''
+function resetSelectionFeedback() {
+  cartMessage.value = ''; cartError.value = ''; fitNotice.value = ''
+}
+
+function resolve(option: SizeOption | undefined) {
+  selected.value = option?.availability === 'AVAILABLE' && option.variantId
+    ? product.value?.variants.find(variant => variant.id === option.variantId)
+    : undefined
+}
+
+function chooseColor(color: string) {
+  selectedColor.value = color
+  selected.value = undefined
+  resetSelectionFeedback()
+  resolve(product.value?.options.find(option => option.color === color)?.sizes
+    .find(option => option.size === requestedSize.value))
+}
+
+function chooseSize(option: SizeOption) {
+  requestedSize.value = option.size
+  resetSelectionFeedback()
+  resolve(option)
 }
 
 function selectFitSize(size: string) {
   if (!product.value) return
-  const matchingColor = product.value.variants.find(variant => variant.size === size && variant.color === selected.value?.color)
-  if (matchingColor) { choose(matchingColor); return }
-  const availableSize = product.value.variants.find(variant => variant.size === size && variant.availability === 'AVAILABLE')
-  if (availableSize && !selected.value) { choose(availableSize); return }
-  fitNotice.value = 'Recommended size is unavailable in the selected color.'
+  requestedSize.value = size
+  resolve(selectedColorOption.value?.sizes.find(option => option.size === size))
+  fitNotice.value = selected.value || !selectedColor.value ? '' : 'Recommended size is unavailable in the selected color.'
 }
 
 function selectFitColor(color: string, size?: string) {
-  const variant = product.value?.variants.find(candidate => candidate.color === color && candidate.size === size
-    && candidate.availability === 'AVAILABLE')
-  if (variant) choose(variant)
+  if (size) requestedSize.value = size
+  chooseColor(color)
 }
 
 function add() {
@@ -93,17 +117,19 @@ function add() {
       cartMessage.value = t('Added {name} · In cart: {quantity}', { name: product.value.name,
         quantity: cart.items.find(item => item.variantId === selected.value!.id.toLowerCase())?.quantity ?? 0 })
       added.value = true
+      clearTimeout(addTimer); clearTimeout(toastTimer)
       addTimer = setTimeout(() => { added.value = false }, 700)
+      toastTimer = setTimeout(() => { cartMessage.value = '' }, 3500)
     }
     cartError.value = result === 'checkout-pending' ? 'Resolve your previous checkout in the cart before making changes.'
-      : result === 'max-lines' ? 'Your cart can contain up to 50 different variants.'
+      : result === 'max-lines' ? 'Your cart can contain up to 50 size/color selections.'
       : result === 'max-quantity' ? 'Your cart already has the maximum quantity.' : ''
   } catch (reason) { cartError.value = errorCopy(reason) }
 }
 
 watch(() => route.params.id, loadProduct)
 onMounted(loadProduct)
-onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer) })
+onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toastTimer) })
 </script>
 
 <template>
@@ -132,18 +158,23 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer) })
           <div class="public-price" aria-live="polite"><span>{{ selected ? t('Selected price') : productPrice.label }}</span><strong>{{ selected ? formatVnd(selected.amount) : productPrice.value }}</strong></div>
 
           <section class="selection-panel" aria-labelledby="variant-heading">
-            <div class="selection-copy"><h2 id="variant-heading">{{ t('Choose your size') }}</h2><p>{{ t('Availability can change until your order is placed.') }}</p></div>
-            <div v-if="!product.variants.length" class="inline-state"><h3>{{ t('No sizes available') }}</h3><p>{{ t('This product cannot be added to a cart right now.') }}</p></div>
-            <fieldset v-else class="variant-list"><legend class="sr-only">{{ t('Available sizes and colors') }}</legend><button v-for="variant in product.variants" :key="variant.id" type="button" class="variant-option" :class="{ selected: selected?.id === variant.id }" :disabled="variant.availability === 'UNAVAILABLE'" :aria-pressed="selected?.id === variant.id" @click="choose(variant)"><span class="variant-size">{{ variant.size }}</span><span class="variant-color">{{ t(variant.color) }}</span><span class="availability" :class="variant.availability.toLowerCase()">{{ t(selected?.id === variant.id ? variant.availability === 'AVAILABLE' ? 'Selected' : 'Selected · Unavailable' : variant.availability === 'AVAILABLE' ? 'Available' : 'Unavailable') }}</span></button></fieldset>
+            <div class="selection-copy"><h2 id="variant-heading">{{ t('Choose a color') }}</h2><p>{{ t('Availability can change until your order is placed.') }}</p></div>
+            <div v-if="!product.options.length" class="inline-state"><h3>{{ t('No sizes available') }}</h3><p>{{ t('This product cannot be added to a cart right now.') }}</p></div>
+            <template v-else>
+              <fieldset class="color-list"><legend>{{ t('Color') }}</legend><button v-for="option in product.options" :key="option.color" type="button" class="color-option" :class="{ selected: selectedColor === option.color }" :aria-pressed="selectedColor === option.color" @click="chooseColor(option.color)"><span>{{ t(option.color) }}</span></button></fieldset>
+              <fieldset v-if="selectedColorOption" class="variant-list"><legend>{{ t('Choose your size') }}</legend><button v-for="option in selectedColorOption.sizes" :key="option.size" type="button" class="variant-option size-option" :class="{ selected: requestedSize === option.size }" :aria-pressed="requestedSize === option.size" :disabled="option.availability === 'UNAVAILABLE'" @click="chooseSize(option)"><span class="variant-size">{{ option.size }}</span><span class="availability" :class="option.availability.toLowerCase()">{{ t(requestedSize === option.size && option.availability === 'UNAVAILABLE' ? 'Requested · Unavailable' : requestedSize === option.size ? 'Selected' : option.availability === 'AVAILABLE' ? 'Available' : 'Unavailable') }}</span></button></fieldset>
+              <div v-else class="selection-required"><strong>{{ t('Choose a color first') }}</strong><span>{{ t('Choose a color before selecting a size.') }}</span></div>
+              <div v-if="requestedOption?.availability === 'UNAVAILABLE' && requestedOption.availableAlternativeColors.length" class="option-recovery"><strong>{{ t('Available in another color:') }}</strong><div><button v-for="color in requestedOption.availableAlternativeColors" :key="color" class="text-button" type="button" @click="chooseColor(color)">{{ t('Available in {color}', { color: t(color) }) }}</button></div></div>
+            </template>
 
             <div class="product-add-panel">
-              <div v-if="selected" class="selected-summary"><span>{{ t('Selected') }}</span><strong>{{ t('Size') }} {{ selected.size }} · {{ t(selected.color) }}</strong><small>SKU {{ selected.sku }}</small></div>
-              <div v-else class="selection-required"><strong>{{ t('Select a size first') }}</strong><span>{{ t('Select an available size before adding this product to your cart.') }}</span></div>
+              <div v-if="selected" class="selected-summary"><span>{{ t('Selected') }}</span><strong>{{ t('Size') }} {{ selected.size }} · {{ t(selected.color) }}</strong></div>
+              <div v-else class="selection-required"><strong>{{ t(!selectedColor ? 'Choose a color first' : requestedSize ? 'Size unavailable' : 'Select a size first') }}</strong><span>{{ t(!selectedColor ? 'Choose a color before selecting a size.' : 'Select an available size before adding this product to your cart.') }}</span></div>
               <div class="purchase-assurance"><p>{{ t('Review final price and availability in your cart, where you can choose pickup or delivery.') }}</p></div>
-              <p v-if="cartMessage" class="success-message" role="status" aria-live="polite">{{ t(cartMessage) }}</p>
+              <div v-if="cartMessage" class="cart-toast" role="status" aria-live="polite"><span>{{ t(cartMessage) }}</span><RouterLink to="/cart">{{ t('View cart') }}</RouterLink></div>
               <p v-if="cartError" class="form-error" role="alert">{{ messageLabel(cartError) }}</p>
               <p v-if="cart.storageError" class="form-error" role="alert">{{ t('Browser storage is unavailable. Your cart may not survive a refresh.') }}</p>
-              <div class="product-actions"><button class="primary-button quote-button" type="button" :disabled="added || !selected || selected.availability !== 'AVAILABLE'" @click="add">{{ t(!selected ? 'Choose a size to add' : selected.availability !== 'AVAILABLE' ? 'Size unavailable' : added ? 'Added to cart.' : 'Add to cart') }}</button><RouterLink class="text-button refresh-button" to="/cart">{{ t('View cart') }}</RouterLink></div>
+              <div class="product-actions"><button class="primary-button quote-button" type="button" :disabled="added || !selected" @click="add">{{ t(!selectedColor ? 'Choose a color first' : !selected ? requestedSize ? 'Size unavailable' : 'Choose a size to add' : added ? 'Added to cart.' : 'Add to cart') }}</button><RouterLink class="text-button refresh-button" to="/cart">{{ t('View cart') }}</RouterLink></div>
             </div>
           </section>
         </div>
@@ -169,7 +200,7 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer) })
         </div>
       </details>
 
-      <FitAssistant :product-id="product.id" :fit-supported="product.fitSupported" :selected-color="selected?.color" :variants="product.variants" @select-size="selectFitSize" @select-color="selectFitColor" />
+      <FitAssistant :product-id="product.id" :fit-supported="product.fitSupported" :selected-color="selectedColor || undefined" :variants="product.variants" @select-size="selectFitSize" @select-color="selectFitColor" />
       <p v-if="fitNotice" class="form-error fit-selection-notice" role="alert">{{ t(fitNotice) }}</p>
     </template>
   </div>

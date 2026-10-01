@@ -49,11 +49,24 @@ public class PosController {
         return pos.lookup(actor, shiftId, sku);
     }
 
+    @GetMapping("/variants/barcode")
+    PosService.VariantView barcode(@AuthenticationPrincipal SessionPrincipal actor,
+            @RequestParam UUID shiftId, @RequestParam String barcode) {
+        return pos.lookupBarcode(actor, shiftId, barcode);
+    }
+
+    @GetMapping("/variants/search")
+    List<PosService.VariantView> search(@AuthenticationPrincipal SessionPrincipal actor,
+            @RequestParam UUID shiftId, @RequestParam(name = "q") String query) {
+        return pos.search(actor, shiftId, query);
+    }
+
     @PostMapping("/sales")
     ResponseEntity<PosService.ReceiptView> sell(@AuthenticationPrincipal SessionPrincipal actor,
             @RequestHeader(name = "Idempotency-Key", required = false) String key,
             @Valid @RequestBody SaleRequest request) {
-        PosService.SaleResult result = pos.sell(actor, request.shiftId(), request.variantId(), key);
+        PosService.SaleResult result = pos.sell(actor, request.shiftId(), request.variantId(),
+                request.expectedPriceVersionId(), key);
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.receipt());
     }
 
@@ -63,5 +76,5 @@ public class PosController {
     }
 
     record OpenShiftRequest(@NotNull UUID registerId) { }
-    record SaleRequest(@NotNull UUID shiftId, @NotNull UUID variantId) { }
+    record SaleRequest(@NotNull UUID shiftId, @NotNull UUID variantId, UUID expectedPriceVersionId) { }
 }

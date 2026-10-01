@@ -57,7 +57,7 @@ export const cartErrorCopy = (error: unknown, items: CartItem[]) => {
   if (error.code === 'NO_COMMON_PICKUP_LOCATION') return t('No single pickup location can supply this whole cart. Adjust the items or quantities and check again.')
   if (error.code === 'CART_AMOUNT_LIMIT') return t('This cart exceeds the payment limit of {amount}. Reduce the items or quantities and check again.', { amount: formatVnd(9999999999) })
   if (error.code === 'ZERO_PAYABLE_NOT_SUPPORTED') return t('Checkout with a zero total is not supported yet. Change the items or selected offer and request a fresh quote.')
-  if (error.code === 'SHIPPING_DESTINATION_INVALID') return t('Choose a valid province and district.')
+  if (['SHIPPING_DESTINATION_INVALID', 'ADDRESS_PROVINCE_UNKNOWN', 'ADDRESS_DISTRICT_UNKNOWN', 'ADDRESS_WARD_UNKNOWN'].includes(error.code)) return t('Choose a valid province, district, and ward.')
   if (error.code === 'SHIPPING_DESTINATION_UNSUPPORTED') return t('Delivery is not currently available for this destination.')
   if (error.code === 'SHIPPING_QUOTE_STALE') return t('Stock or delivery pricing changed. Request a fresh quote.')
   if (error.code === 'PROMOTION_QUOTE_STALE') return t('Automatic offers changed. Request a fresh quote before checkout.')
@@ -78,11 +78,16 @@ export const checkoutErrorCopy = (error: unknown) => {
 
 export const posErrorCopy = (error: unknown) => {
   const apiError = error as ApiError
-  if (apiError.code === 'INSUFFICIENT_INVENTORY') return t('This pair was just sold or reserved. Look up the SKU again before taking cash.')
+  if (['INSUFFICIENT_INVENTORY', 'POS_SOLD_OUT_HERE'].includes(apiError.code)) return t('This pair was just sold or reserved. Look it up again before taking cash.')
   if (apiError.code === 'SHIFT_CLOSED') return t('This shift is closed. Open a new shift before making another sale.')
   if (apiError.code === 'SHIFT_ALREADY_OPEN') return t('This cashier or register already has an open shift. Refresh the current shift before continuing.')
-  if (apiError.code === 'POS_VARIANT_NOT_FOUND') return t('No sellable variant matches that SKU. Check the label and try again.')
+  if (apiError.code === 'POS_BARCODE_NOT_FOUND') return t('No variant has that exact barcode. Check the label and scan again.')
+  if (['POS_SKU_NOT_FOUND', 'POS_VARIANT_NOT_FOUND'].includes(apiError.code)) return t('No variant matches that exact SKU. Check the label and try again.')
+  if (apiError.code === 'POS_VARIANT_RETIRED') return t('This variant was retired after lookup. No sale was created.')
+  if (apiError.code === 'POS_VARIANT_NOT_PUBLISHED') return t('This variant is not published for sale. No sale was created.')
+  if (apiError.code === 'POS_PRICE_UNAVAILABLE') return t('This variant has no current sale price. No sale was created.')
+  if (apiError.code === 'POS_PRICE_CHANGED') return t('The price changed after lookup. Review the current price before taking cash.')
   if (apiError.code === 'REGISTER_UNAVAILABLE') return t('This register is not available for your active location assignment.')
-  if (apiError.code === 'IDEMPOTENCY_KEY_CONFLICT') return t('This sale retry belongs to another SKU. Look up the intended SKU again.')
+  if (apiError.code === 'IDEMPOTENCY_KEY_CONFLICT') return t('This sale retry belongs to another variant. Look up the intended pair again.')
   return errorCopy(error)
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { activateCart, addToCart, cart, cartCount, changedQuoteItems, removeFromCart, removePurchasedItems, restoreCart, setCartQuantity } from './cart'
+import { activateCart, addToCart, cart, cartCount, changedQuoteItems, removeFromCart, removePurchasedItems, restoreCart, setCartQuantity, syncCartStorage } from './cart'
 import { normalizeCartDemand, type CartQuote } from './api'
 import { session } from './session'
 
@@ -48,6 +48,16 @@ describe('multi-item display cart', () => {
     activateCart('B'); addToCart(item)
     removePurchasedItems([{ variantId: A, quantity: 1 }], 'A')
     expect(cartCount.value).toBe(1)
+  })
+  it('synchronizes only the active owner cart from another tab', () => {
+    activateCart('A')
+    const saved = JSON.stringify({ owner: 'A', items: [{ ...item, quantity: 2 }] })
+    syncCartStorage({ key: 'shoe-commerce:cart:v2:B', newValue: saved })
+    expect(cart.items).toEqual([])
+    syncCartStorage({ key: 'shoe-commerce:cart:v2:A', newValue: saved })
+    expect(cart.items).toEqual([{ ...item, quantity: 2 }])
+    syncCartStorage({ key: 'shoe-commerce:cart:v2:A', newValue: null })
+    expect(cart.items).toEqual([])
   })
   it('adds different variants and merges duplicates; badge counts total units', () => {
     expect(addToCart(item)).toBe('added')

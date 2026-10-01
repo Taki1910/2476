@@ -101,9 +101,9 @@ class VerticalSlice7ReportingExternalIT {
             jdbc.update("INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,fixed_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'Report discount','PUBLISHED','ORDER_AUTOMATIC','ORDER_FIXED',50000,1000000,?,?,?,?)",family,revision,Timestamp.from(TEST_NOW),fixture.manager().publicId(),now,now);
             if(delivery) jdbc.update("INSERT INTO shipping_rate_rule(public_id,family_public_id,revision_number,status,origin_scope,destination_province_code,destination_district_code,zone_code,fee_amount,priority,valid_from,created_by_account_public_id,created_at,published_at) VALUES(?,?,1,'PUBLISHED','GLOBAL','79','760','INTER_PROVINCE',30000,1000,?,?,?,?)",UUID.randomUUID(),UUID.randomUUID(),Timestamp.from(TEST_NOW),fixture.manager().publicId(),now,now);
             var lines=List.of(new CartQuoteService.LineRequest(fixture.variantA(),1));
-            var quote=cartPricing.quote(fixture.customer(),lines,delivery?new CartQuoteService.FulfillmentQuote("DELIVERY","79","760"):null);
+            var quote=cartPricing.quote(fixture.customer(),lines,delivery?new CartQuoteService.FulfillmentQuote("DELIVERY","79","760","DEMO-760-01"):null);
             var fulfillment=delivery?new CustomerOrderService.FulfillmentRequest(com.shoecommerce.fulfillment.PickupFulfillment.Type.DELIVERY,null,
-                    new CustomerOrderService.DeliveryRequest("Test Receiver","0912345678","79","760","12 Nguyen Hue",null)):null;
+                    new CustomerOrderService.DeliveryRequest("Test Receiver","0912345678","79","760","DEMO-760-01","12 Nguyen Hue",null)):null;
             var order=delivery?orders.checkoutCart(fixture.customer(),quote.id(),lines,fulfillment,"paid-report")
                     :orders.checkoutCart(fixture.customer(),quote.id(),lines,"paid-report");
             var attempt=attempts.initiate(fixture.customer(),order.id(),"paid-report").attempt();

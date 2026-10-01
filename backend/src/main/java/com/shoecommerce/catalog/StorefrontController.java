@@ -40,6 +40,11 @@ public class StorefrontController {
         return catalog.browse(q);
     }
 
+    @GetMapping("/discovery")
+    StorefrontCatalogService.DiscoveryResponse discovery(@RequestParam(required = false) String q) {
+        return catalog.discover(q);
+    }
+
     @GetMapping("/products/{productId}")
     StorefrontCatalogService.ProductDetail product(@PathVariable UUID productId) {
         return catalog.detail(productId);
