@@ -2,6 +2,8 @@ package com.shoecommerce.order;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,8 +44,11 @@ public class CheckoutHoldExpiryService {
 
     public void expireRelevant(UUID productId) {
         Instant now = clock.instant();
+        LocalDateTime databaseNow = LocalDateTime.ofInstant(now, ZoneOffset.UTC);
         String productFilter = productId == null ? "" : " AND products.public_id = ?";
-        Object[] parameters = productId == null ? new Object[] { now } : new Object[] { now, productId };
+        Object[] parameters = productId == null
+                ? new Object[] { databaseNow }
+                : new Object[] { databaseNow, productId };
         List<UUID> orderIds = jdbc.query("""
                 SELECT DISTINCT orders.public_id
                 FROM commerce_order orders WITH (READPAST)

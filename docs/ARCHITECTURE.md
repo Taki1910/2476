@@ -27,6 +27,7 @@ deferred capability into MVP implementation scope.
 | Identity and scoped authorization | [ADR-0006](ADR/0006-identity-rbac-branch-scope.md) |
 | Pricing/promotion/voucher | [ADR-0007](ADR/0007-central-pricing-promotion.md) |
 | AI proposal boundary | [ADR-0008](ADR/0008-ai-proposal-boundary.md) |
+| Manager merchandising AI provider | [ADR-0042](ADR/0042-openai-manager-merchandising-assistance.md) |
 | SQL Server/versioned migrations | [ADR-0009](ADR/0009-versioned-sql-server-persistence.md) |
 | Checkout consistency/recovery | [ADR-0010](ADR/0010-checkout-consistency-and-recovery.md) |
 | Branch/location ownership | [ADR-0011](ADR/0011-multi-branch-ownership-and-scope.md) |

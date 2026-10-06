@@ -85,6 +85,23 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    void mapsAssistantFailuresToSpecificSafeContracts() {
+        for (var category : com.shoecommerce.merchandising.MerchandisingAssistant.ProviderFailureCategory.values()) {
+            var exception = new com.shoecommerce.merchandising.MerchandisingAssistantUnavailableException(
+                    category, new IllegalStateException("secret provider payload"));
+            var response = new ApiExceptionHandler().handleMerchandisingAssistantUnavailable(
+                    exception, new ServletWebRequest(new MockHttpServletRequest()));
+            ProblemDetail problem = (ProblemDetail) response.getBody();
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(problem.getProperties()).containsEntry("code", exception.code());
+            assertThat(problem.getDetail()).isEqualTo(
+                    "Trợ lý nội dung hiện không khả dụng. Bạn vẫn có thể chỉnh sửa thủ công.");
+            assertThat(problem.toString()).doesNotContain("secret provider payload");
+        }
+    }
+
+    @Test
     void exposesConflictFieldIdentifiersWithoutPersistenceDetails() {
         var mutable = new java.util.HashMap<>(java.util.Map.of("sku", "ALREADY_EXISTS"));
         var exception = new BusinessConflictException("CATALOG_SKU_ALREADY_EXISTS",

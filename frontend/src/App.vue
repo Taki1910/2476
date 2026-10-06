@@ -4,7 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { SESSION_ENDED_EVENT } from './api'
 import { locale, messageLabel, setLocale, t } from './i18n'
 import { errorCopy } from './format'
-import { clearPrivateSession, homeFor, loadSession, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
+import { clearPrivateSession, homeFor, refreshSessionRoute, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
 import { cartCount, syncCartStorage } from './cart'
 import { canManageStorefront } from './merchandising'
 
@@ -22,10 +22,8 @@ watch(cartCount, (current, previous) => {
   cartAcknowledgementTimer = setTimeout(() => { cartAcknowledged.value = false }, 300)
 })
 async function reloadSession() {
-  session.account = undefined
-  session.generation++
-  await loadSession()
-  if (!session.unavailable) await router.replace('/')
+  const destination = await refreshSessionRoute(route)
+  if (destination) await router.replace(destination)
 }
 async function logout() {
   logoutBusy.value = true; logoutError.value = ''

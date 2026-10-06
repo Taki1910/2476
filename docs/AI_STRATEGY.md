@@ -91,12 +91,14 @@ and whether images are stored at all.
 - Observe quality, latency, cost, provider errors, approval/rejection rate, and
   privacy/security incidents without logging sensitive raw inputs.
 
-## Provider decision gate
+## Provider decisions
 
-No provider is selected. A later ADR must cover business value, evaluation
-evidence, data categories and consent, regional/compliance constraints,
-availability/cost, fallback, abuse controls, security, retention, observability,
-and exit strategy.
+[ADR-0042](ADR/0042-openai-manager-merchandising-assistance.md) selects the
+OpenAI Responses API only for optional manager merchandising copy and intent
+assistance. P5A remains deterministic authority; requests are stateless,
+strictly structured, tool-free, data-minimized and non-persistent. Provider
+failure leaves the ordinary editor and discovery workflow fully usable. Other
+external AI capabilities still require their own accepted provider decision.
 
 Vector databases, dedicated inference services, brokers, GPU services, and
 fine-tuning remain `DEFERRED`. Add them only after a confirmed use case and

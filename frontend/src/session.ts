@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
 import { api, ApiError, type Account } from './api'
 import { activateCart } from './cart'
 
@@ -74,4 +75,24 @@ export function homeFor(account: Account) {
 
 export function loginDestination(value: unknown, account: Account) {
   return safeReturnTo(value, homeFor(account))
+}
+
+type SessionRoute = Pick<RouteLocationNormalized, 'name' | 'fullPath' | 'query' | 'meta'>
+
+export function routeAccessDestination(
+  to: SessionRoute,
+  account: Account | undefined = session.account,
+): RouteLocationRaw | undefined {
+  if ((to.name === 'login' || to.name === 'register') && account) return loginDestination(to.query.returnTo, account)
+  if (to.meta.requiresAuth && !account) return { path: '/login', query: { returnTo: to.fullPath } }
+  const anyPermission = to.meta.permissions as string[] | undefined
+  if (account && ((to.meta.permission && !account.permissions.includes(to.meta.permission as string))
+    || anyPermission && !anyPermission.some(permission => account.permissions.includes(permission)))) return '/forbidden'
+}
+
+export async function refreshSessionRoute(to: SessionRoute) {
+  clearPrivateSession()
+  const generation = session.generation
+  await loadSession()
+  return session.unavailable || generation !== session.generation ? undefined : routeAccessDestination(to)
 }

@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { api, ApiError, type PosReceipt, type PosRegister, type PosShift, type PosVariant } from '../api'
 import { formatDateTime, formatVnd, posErrorCopy } from '../format'
 import { messageLabel, t } from '../i18n'
-import { acceptScannedCandidate, candidateStateLabel, moveCandidateSelection, selectedCandidate } from '../pos-workflow'
+import { acceptScannedCandidate, candidateStateLabel, evaluateCashTender, moveCandidateSelection, selectedCandidate } from '../pos-workflow'
 
 const registers = ref<PosRegister[]>([])
 const shift = ref<PosShift>()
@@ -25,12 +25,26 @@ const lookupError = ref('')
 const saleError = ref('')
 const shiftWarning = ref('')
 const saleKey = ref('')
+const cashReceived = ref('')
+const completedTender = ref<{ received: number; change: number }>()
 const lookupInput = ref<HTMLInputElement>()
 const receiptPanel = ref<HTMLElement>()
 const confirmDialog = ref<HTMLDialogElement>()
 
-const canSell = computed(() => variant.value?.saleState === 'SELLABLE'
-  && variant.value.amount !== null && !!variant.value.priceVersionId && !selling.value)
+const tender = computed(() => variant.value?.amount === null || variant.value?.amount === undefined
+  ? { status: 'empty' as const }
+  : evaluateCashTender(cashReceived.value, variant.value.amount))
+const variantCanSell = computed(() => variant.value?.saleState === 'SELLABLE'
+  && variant.value.amount !== null && !!variant.value.priceVersionId)
+const canSell = computed(() => variantCanSell.value && tender.value.status === 'ready' && !selling.value)
+const cashStatus = computed(() => {
+  if (tender.value.status === 'empty') return t('Enter the cash received.')
+  if (tender.value.status === 'invalid') return t('Enter a whole, non-negative VND amount within the supported range.')
+  if (tender.value.status === 'insufficient') return t('Insufficient cash. Receive {amount} more.', { amount: formatVnd(tender.value.remaining) })
+  return tender.value.change === 0
+    ? t('Ready. Exact cash received.')
+    : t('Ready. Return {amount} in change.', { amount: formatVnd(tender.value.change) })
+})
 const stateHelp: Record<PosVariant['saleState'], string> = {
   SELLABLE: 'This pair can be sold from the active register location.',
   SOLD_OUT_HERE: 'This item exists, but it is sold out at this register location.',
@@ -86,6 +100,8 @@ function resetLookupResult() {
   activeCandidate.value = -1
   searched.value = false
   saleKey.value = ''
+  cashReceived.value = ''
+  completedTender.value = undefined
 }
 
 async function setLookupMode(mode: 'scan' | 'search') {
@@ -96,6 +112,8 @@ async function setLookupMode(mode: 'scan' | 'search') {
 }
 
 function chooseCandidate(candidate: PosVariant) {
+  cashReceived.value = ''
+  completedTender.value = undefined
   variant.value = candidate
   saleKey.value = crypto.randomUUID()
 }
@@ -154,12 +172,14 @@ function askSale() {
 }
 function closeDialog() { confirmDialog.value?.close() }
 async function sell() {
-  if (!shift.value || !variant.value?.priceVersionId || !saleKey.value) return
+  const tenderSnapshot = tender.value
+  if (!shift.value || !variant.value?.priceVersionId || !saleKey.value || tenderSnapshot.status !== 'ready' || selling.value) return
   closeDialog()
   selling.value = true
   saleError.value = ''
   try {
     receipt.value = await api.sellPos(shift.value.id, variant.value.id, variant.value.priceVersionId, saleKey.value)
+    completedTender.value = { received: tenderSnapshot.received, change: tenderSnapshot.change }
     await nextTick()
     receiptPanel.value?.focus()
   } catch (reason) {
@@ -172,12 +192,14 @@ async function sell() {
       activeCandidate.value = -1
       searched.value = false
       saleKey.value = ''
+      cashReceived.value = ''
       await focusLookup()
     } else if (['SHIFT_CLOSED', 'REGISTER_UNAVAILABLE'].includes(code)) {
       error.value = saleError.value
       shift.value = undefined
       variant.value = undefined
       saleKey.value = ''
+      cashReceived.value = ''
     }
     selling.value = false
     return
@@ -201,6 +223,8 @@ async function closeShift() {
     receipt.value = undefined
     lookupText.value = ''
     saleKey.value = ''
+    cashReceived.value = ''
+    completedTender.value = undefined
     candidates.value = []
     error.value = t('Shift closed. Expected cash: {amount}.', { amount: formatVnd(closed.expectedCash) })
   } catch (reason) {
@@ -217,6 +241,8 @@ async function nextSale() {
   activeCandidate.value = -1
   receipt.value = undefined
   saleKey.value = ''
+  cashReceived.value = ''
+  completedTender.value = undefined
   lookupError.value = ''
   saleError.value = ''
   shiftWarning.value = ''
@@ -231,7 +257,7 @@ onMounted(load)
     <header class="pos-heading">
       <div>
         <h1>{{ t('Sell one pair.') }}</h1>
-        <p>{{ t('Server price, location stock, exact cash. One transaction at a time.') }}</p>
+        <p>{{ t('Server price, location stock, cash received, and change. One transaction at a time.') }}</p>
       </div>
       <dl v-if="shift" class="shift-strip">
         <div><dt>{{ t('Register lane') }}</dt><dd>{{ shift.register.code }}</dd></div>
@@ -296,13 +322,29 @@ onMounted(load)
             <article v-if="variant" class="sale-line" aria-live="polite">
               <div class="sale-product"><strong>{{ variant.productName }}</strong><small>{{ variant.sku }}</small><small>{{ t('Size') }} {{ variant.size }} · {{ t(variant.color) }}</small></div>
               <div><span>{{ t('Sale status') }}</span><strong>{{ t(candidateStateLabel(variant.saleState)) }}</strong><small>{{ t(stateHelp[variant.saleState]) }}</small></div>
-              <div class="sale-price"><span>{{ t('Exact cash') }}</span><strong>{{ variant.amount === null ? '—' : formatVnd(variant.amount) }}</strong><small>{{ t('Server price · VND') }}</small></div>
+              <div class="sale-price"><span>{{ t('Total') }}</span><strong>{{ variant.amount === null ? '—' : formatVnd(variant.amount) }}</strong><small>{{ t('Server price · VND') }}</small></div>
             </article>
 
+            <section v-if="variant && variantCanSell" class="cash-tender" aria-labelledby="cash-tender-title">
+              <div class="cash-entry">
+                <label id="cash-tender-title" for="cash-received">{{ t('Cash received') }}</label>
+                <input id="cash-received" v-model="cashReceived" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="16"
+                  autocomplete="off" spellcheck="false" :disabled="selling"
+                  :aria-invalid="tender.status === 'invalid' || tender.status === 'insufficient' || undefined"
+                  aria-describedby="cash-help cash-status" />
+                <small id="cash-help">{{ t('Enter whole VND only. No separators or decimals.') }}</small>
+              </div>
+              <div class="cash-change">
+                <span>{{ t('Change due') }}</span>
+                <strong>{{ tender.status === 'ready' ? formatVnd(tender.change) : '—' }}</strong>
+              </div>
+              <p id="cash-status" class="cash-status" :data-status="tender.status" role="status" aria-live="polite">{{ cashStatus }}</p>
+            </section>
+
             <div v-if="variant" class="sale-commit">
-              <p v-if="canSell"><strong>{{ t('Confirm only after receiving exact cash.') }}</strong><span>{{ t('This completes a paid order and hands over one pair immediately.') }}</span></p>
+              <p v-if="variantCanSell"><strong>{{ t(canSell ? 'Cash received. Review the change before completing.' : 'Enter enough cash to complete the sale.') }}</strong><span>{{ t('This completes a paid order and hands over one pair immediately.') }}</span></p>
               <p v-else><strong>{{ t(candidateStateLabel(variant.saleState)) }}</strong><span>{{ t(stateHelp[variant.saleState]) }} {{ t('No cash was taken and no order was created.') }}</span></p>
-              <button type="button" :disabled="!canSell" @click="askSale">{{ selling ? t('Completing sale…') : t('Take {amount} & complete sale', { amount: variant.amount === null ? '—' : formatVnd(variant.amount) }) }}</button>
+              <button type="button" :disabled="!canSell" @click="askSale">{{ t(selling ? 'Completing sale…' : 'Complete cash sale') }}</button>
             </div>
             <p v-if="saleError" class="form-error" role="alert">{{ messageLabel(saleError) }}</p>
           </template>
@@ -322,6 +364,8 @@ onMounted(load)
                 <div><dt>{{ t('Unit price') }}</dt><dd>{{ formatVnd(receipt.unitPrice) }}</dd></div>
                 <div><dt>{{ t('Total') }}</dt><dd>{{ formatVnd(receipt.total) }}</dd></div>
                 <div><dt>{{ t('Tender') }}</dt><dd>{{ t('Cash payment') }}</dd></div>
+                <div v-if="completedTender"><dt>{{ t('Cash received') }}</dt><dd>{{ formatVnd(completedTender.received) }}</dd></div>
+                <div v-if="completedTender"><dt>{{ t('Change due') }}</dt><dd>{{ formatVnd(completedTender.change) }}</dd></div>
                 <div><dt>{{ t('Sold') }}</dt><dd>{{ formatDateTime(receipt.soldAt) }}</dd></div>
                 <div><dt>{{ t('Order') }}</dt><dd>{{ receipt.orderId }}</dd></div>
               </dl>
@@ -354,9 +398,49 @@ onMounted(load)
     <dialog v-if="variant" ref="confirmDialog" class="terminal-dialog" aria-labelledby="pos-dialog-title" aria-describedby="pos-dialog-description" @cancel="closeDialog">
       <form method="dialog" @submit.prevent>
         <h2 id="pos-dialog-title">{{ t('Confirm cash sale') }}</h2>
-        <p id="pos-dialog-description">{{ t('Confirm exact cash of {amount} for {sku}, size {size}? This immediately hands over one pair.', { amount: variant.amount === null ? '—' : formatVnd(variant.amount), sku: variant.sku, size: variant.size }) }}</p>
-        <div><button class="text-button" type="button" @click="closeDialog">{{ t('Cancel') }}</button><button class="primary-button" type="button" @click="sell">{{ t('Complete sale') }}</button></div>
+        <p id="pos-dialog-description">{{ t('Confirm {received} received and {change} change for {sku}, size {size}? This immediately hands over one pair.', { received: tender.status === 'ready' ? formatVnd(tender.received) : '—', change: tender.status === 'ready' ? formatVnd(tender.change) : '—', sku: variant.sku, size: variant.size }) }}</p>
+        <div><button class="text-button" type="button" @click="closeDialog">{{ t('Cancel') }}</button><button class="primary-button" type="button" :disabled="selling || tender.status !== 'ready'" @click="sell">{{ t('Complete sale') }}</button></div>
       </form>
     </dialog>
   </div>
 </template>
+
+<style scoped>
+.cash-tender {
+  padding: 1.25rem 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, .45fr);
+  align-items: end;
+  gap: 1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.cash-entry { min-width: 0; display: grid; gap: .45rem; }
+.cash-entry label { font-weight: 750; }
+.cash-entry input {
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: .8rem .9rem;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--white);
+  font-size: 1.2rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.cash-entry input[aria-invalid='true'] { border-color: var(--danger); }
+.cash-entry small { color: var(--muted-readable); line-height: 1.4; }
+
+.cash-change { min-width: 0; display: grid; gap: .4rem; }
+.cash-change span { color: var(--muted-readable); font-size: .8rem; font-weight: 750; }
+.cash-change strong { font-size: clamp(1.5rem, 2.2vw, 2rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cash-status { grid-column: 1 / -1; margin: 0; font-weight: 750; line-height: 1.45; }
+.cash-status[data-status='invalid'], .cash-status[data-status='insufficient'] { color: var(--danger); }
+.cash-status[data-status='ready'] { color: var(--available); }
+
+@media (max-width: 760px) {
+  .cash-tender { grid-template-columns: 1fr; }
+  .cash-status { grid-column: 1; }
+}
+</style>

@@ -232,29 +232,29 @@ class VerticalSlice2CustomerCatalogExternalIT {
     }
 
     @Test
-    void ordersGenuinelyMixedVisibleSizesNumericFirstWithoutInventingASelection() {
+    void ordersVisibleEuSizesNumericallyWithoutInventingASelection() {
         Fixture fixture = fixture("mixed");
         UUID product = catalog.createProduct(fixture.operations(), "Mixed Size Runner");
-        for (String size : List.of("XS", "10", "M", "9")) {
+        for (String size : List.of("41.5", "10", "42", "9")) {
             UUID variant = catalog.createVariant(fixture.operations(), product,
-                    "VS2-MIX-" + size + "-" + shortId(), size, "Ink");
+                    "VS2-MIX-" + shortId(), size, "Ink");
             catalog.setPrice(fixture.operations(), variant, 125_000);
             adjustments.adjust(fixture.operations(), variant, fixture.location(), 1,
                     "Mixed-size fixture", UUID.randomUUID().toString());
             catalog.publish(fixture.operations(), variant);
         }
         long profileId = insertFitProfile(product, "TRUE_TO_SIZE", "REGULAR");
-        insertFitRange(profileId, "XS", 220, 227, 80, 90);
+        insertFitRange(profileId, "41.5", 250, 257, 88, 99);
         insertFitRange(profileId, "10", 270, 277, 95, 105);
-        insertFitRange(profileId, "M", 240, 247, 85, 95);
+        insertFitRange(profileId, "42", 257, 264, 90, 101);
         insertFitRange(profileId, "9", 260, 267, 92, 102);
 
         var detail = storefront.detail(product);
         assertThat(detail.variants()).extracting(StorefrontCatalogService.VariantView::size)
-                .containsExactly("9", "10", "M", "XS");
+                .containsExactly("9", "10", "41.5", "42");
         assertThat(detail.fitGuidance()).isNotNull();
         assertThat(detail.fitGuidance().ranges()).extracting(StorefrontCatalogService.FitRangeView::size)
-                .containsExactly("9", "10", "M", "XS");
+                .containsExactly("9", "10", "41.5", "42");
     }
 
     @Test
@@ -302,6 +302,17 @@ class VerticalSlice2CustomerCatalogExternalIT {
     }
 
     @Test
+    void exposesDiscoveryToAnonymousShoppers() throws Exception {
+        Browser anonymous = new Browser();
+        HttpResponse<String> discovery = anonymous.client.send(
+                HttpRequest.newBuilder(uri("/api/v1/storefront/discovery?q=trail")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertThat(discovery.statusCode()).isEqualTo(200);
+        assertThat(discovery.body()).contains("\"query\":\"trail\"");
+    }
+
+    @Test
     void exposesOnlyCustomerSafeHeroProducts() throws Exception {
         Fixture fixture = fixture("hero");
         var hero = storefront.hero();
@@ -332,7 +343,8 @@ class VerticalSlice2CustomerCatalogExternalIT {
         scopes.setAssignment(admin, operationsId, branch, location, true);
         SessionPrincipal operations = principal(operationsLogin);
         SessionPrincipal customer = principal(customerLogin);
-        UUID product = catalog.createProduct(operations, "Court Runner " + suffix);
+        UUID product = catalog.createProduct(operations, "Court Runner " + suffix,
+                "Sneaker", "Everyday", null, null).id();
         UUID available = catalog.createVariant(operations, product, "VS2-A-" + shortId(), "41", "Ink");
         catalog.setPrice(operations, available, 125_000);
         adjustments.adjust(operations, available, location, 2, "Test fixture", UUID.randomUUID().toString());

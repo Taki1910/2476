@@ -47,6 +47,13 @@ export type MerchandisingReadinessWarning = { code: string; classification: Merc
 export type MerchandisingCandidate = { productId: string; name: string; category: string | null; collection: string | null; imageUrl: string | null; colors: string[]; newArrival: boolean; sellability: MerchandisingSellability; aggregateAvailable: number; sales: MerchandisingSalesEvidence; promotions: MerchandisingPromotionEvidence[]; publishedPlacements: MerchandisingPlacement[]; draftPlacements: MerchandisingPlacement[]; warnings: MerchandisingReadinessWarning[]; reasonCodes: string[] }
 export type MerchandisingCandidatePage = { candidates: MerchandisingCandidate[]; page: number; size: number; totalItems: number; totalPages: number }
 export type MerchandisingCandidateQuery = { query?: string; type?: MerchandisingCandidateType; page?: number; size?: number }
+export type MerchandisingAssistantAvailability = { enabled: boolean; available: boolean; status: 'AVAILABLE' | 'DISABLED' | 'NOT_CONFIGURED' }
+export type MerchandisingCopyLocale = 'VI' | 'EN'
+export type MerchandisingCopyField = 'TITLE' | 'SUPPORTING_TEXT' | 'CTA_LABEL'
+export type MerchandisingCopyRequest = { locale: MerchandisingCopyLocale; field: MerchandisingCopyField; currentText: string; instruction: string; sectionPurpose: string; productIds: string[]; promotionFamilyId: string | null }
+export type MerchandisingCopySuggestion = { primary: string; alternatives: string[]; notes: string }
+export type MerchandisingIntent = 'BEST_SELLERS' | 'PROMOTED' | 'NEEDS_REVIEW' | 'SEARCH' | 'UNSUPPORTED'
+export type MerchandisingIntentResult = { intent: MerchandisingIntent; query: string; explanation: string }
 export type PriceQuote = { id: string; variantId: string; priceVersionId: string; amount: number; currency: 'VND'; quotedAt: string; expiresAt: string }
 export type CartDemand = { variantId: string; quantity: number }
 export type CartQuoteItem = CartDemand & { productName: string; sku: string; size: string; color: string; priceVersionId: string; unitPriceAmount: number; totalAmount: number }
@@ -222,6 +229,15 @@ export const api = {
     if (query) params.set('query', query)
     params.set('type', type); params.set('page', String(page)); params.set('size', String(size))
     return request<MerchandisingCandidatePage>(`/operations/storefront/candidates?${params}`)
+  },
+  merchandisingAssistantAvailability: () => request<MerchandisingAssistantAvailability>('/operations/storefront/assistant/availability'),
+  async rewriteMerchandisingCopy(command: MerchandisingCopyRequest) {
+    const token = await csrf()
+    return request<MerchandisingCopySuggestion>('/operations/storefront/assistant/copy', { method: 'POST', headers: { 'Content-Type': 'application/json', [token.headerName]: token.token }, body: JSON.stringify(command) })
+  },
+  async interpretMerchandisingIntent(managerRequest: string) {
+    const token = await csrf()
+    return request<MerchandisingIntentResult>('/operations/storefront/assistant/intent', { method: 'POST', headers: { 'Content-Type': 'application/json', [token.headerName]: token.token }, body: JSON.stringify({ request: managerRequest }) })
   },
   async cloneStorefrontPublished(command: CloneStorefrontPublished) {
     const token = await csrf()

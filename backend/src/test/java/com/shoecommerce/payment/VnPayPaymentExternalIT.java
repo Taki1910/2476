@@ -840,7 +840,7 @@ class VnPayPaymentExternalIT {
             UUID automaticFamily = UUID.randomUUID(), claimFamily = UUID.randomUUID(), claim = UUID.randomUUID();
             jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'AUTOMATIC',0,?)", automaticFamily, now);
             voucherRevision(setup.customer(), automaticFamily, 1, 20_000, null, null);
-            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'CLAIMABLE',0,?)", claimFamily, now);
+            jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,is_publicly_discoverable,created_at) VALUES(?,'CLAIMABLE',1,?)", claimFamily, now);
             UUID revision = voucherRevision(setup.customer(), claimFamily, 1, 10_000, null, 1L);
             jdbc.update("INSERT INTO voucher_claim(public_id,promotion_family_public_id,claimed_revision_public_id,customer_account_public_id,status,claimed_at) VALUES(?,?,?,?,'CLAIMED',?)", claim, claimFamily, revision, setup.customer().publicId(), now);
             if (freeShipping) {
@@ -1185,7 +1185,7 @@ class VnPayPaymentExternalIT {
     private VoucherFlow voucherFlow(String suffix,String mode,String code,Long global,long amount) {
         Pending setup=pending(suffix,4);orders.cancelOwn(setup.customer(),setup.order().id());clock.set(clock.instant().plusSeconds(1));
         UUID family=UUID.randomUUID(),claim=null;
-        jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,?,?,?,?)",family,mode,code,false,Timestamp.from(clock.instant()));
+        jdbc.update("INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,?,?,?,?)",family,mode,code,"CLAIMABLE".equals(mode),Timestamp.from(clock.instant()));
         UUID revision=voucherRevision(setup.customer(),family,1,amount,global,"CLAIMABLE".equals(mode)?1L:null);
         if("CLAIMABLE".equals(mode)){claim=UUID.randomUUID();jdbc.update("INSERT INTO voucher_claim(public_id,promotion_family_public_id,claimed_revision_public_id,customer_account_public_id,status,claimed_at) VALUES(?,?,?,?,'CLAIMED',?)",claim,family,revision,setup.customer().publicId(),Timestamp.from(clock.instant()));}
         var lines=List.of(new CartQuoteService.LineRequest(setup.variantId(),1));

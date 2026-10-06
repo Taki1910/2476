@@ -18,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.shoecommerce.fitting.ShoeFitService.FitCapacityException;
 import com.shoecommerce.payment.PaymentProviderUnavailableException;
+import com.shoecommerce.merchandising.MerchandisingAssistantUnavailableException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -98,6 +99,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
                 "Payment is temporarily unavailable. Please retry or choose another method.");
         problem.setProperty("code", "PAYMENT_PROVIDER_UNAVAILABLE");
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
+    }
+
+    @ExceptionHandler(MerchandisingAssistantUnavailableException.class)
+    ResponseEntity<Object> handleMerchandisingAssistantUnavailable(
+            MerchandisingAssistantUnavailableException exception, WebRequest request) {
+        logger.warn("Merchandising assistant unavailable: " + exception.category());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+                "Trợ lý nội dung hiện không khả dụng. Bạn vẫn có thể chỉnh sửa thủ công.");
+        problem.setProperty("code", exception.code());
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
     }
 

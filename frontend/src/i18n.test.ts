@@ -68,6 +68,10 @@ describe('locale and return-route rules', () => {
     expect(t('White running shoes under 2 million')).toBe('Giày trắng chạy bộ dưới 2 triệu')
     expect(t('No exact matches for “{query}”.', { query: 'giày tím' }))
       .toBe('Chưa thấy mẫu khớp “giày tím”.')
+    expect(t('Results for “{query}”', { query: 'giày trắng' })).toBe('Kết quả cho “giày trắng”')
+    expect(t('Matched: {criteria}', { criteria: 'Trắng · Chạy bộ' })).toBe('Đã nhận diện: Trắng · Chạy bộ')
+    expect(t('Try a broader product name, color, use, or price.')).toBe('Hãy thử tên sản phẩm, màu sắc, nhu cầu hoặc mức giá rộng hơn.')
+    expect(t('Not sure about size?')).toBe('Chưa chắc về kích cỡ?')
     expect(t('You might like')).toBe('Có thể bạn sẽ thích')
   })
 

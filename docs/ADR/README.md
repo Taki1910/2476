@@ -72,6 +72,7 @@ changes to an accepted decision follow the supersession rules above.
 - [0034 — Paid components, legacy reversal and reporting](0034-paid-component-reversal-and-reporting.md)
 - [0035 — Voucher family, claim and usage](0035-voucher-family-claim-usage.md)
 - [0036 — Bounded single-instance login throttle](0036-bounded-single-instance-login-throttle.md)
+- [0042 — OpenAI manager merchandising assistance](0042-openai-manager-merchandising-assistance.md)
 
 Accepted through the current remediation plan approval; implementation evidence is recorded separately in CURRENT_BASELINE.
 

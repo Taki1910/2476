@@ -18,7 +18,9 @@ import FitAssistant from './components/FitAssistant.vue'
 import fitAssistantSource from './components/FitAssistant.vue?raw'
 import ProductPresentationSummary from './components/ProductPresentationSummary.vue'
 import productPresentationSummarySource from './components/ProductPresentationSummary.vue?raw'
-import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail } from './api'
+import StorefrontIntentLinks from './components/StorefrontIntentLinks.vue'
+import storefrontIntentLinksSource from './components/StorefrontIntentLinks.vue?raw'
+import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail, type ProductSummary } from './api'
 import { cart } from './cart'
 import { readCheckout } from './checkout'
 import { formatVnd } from './format'
@@ -58,7 +60,7 @@ const productComponent = clientComponent(ProductView, productSource)
 const productPresentationSummaryComponent = clientComponent(ProductPresentationSummary, productPresentationSummarySource)
 productComponent.components = { FitAssistant: clientComponent(FitAssistant, fitAssistantSource), ProductPresentationSummary: productPresentationSummaryComponent }
 const catalogComponent = clientComponent(CatalogView, catalogSource)
-catalogComponent.components = { StorefrontHomepage: { render: () => null }, ProductPresentationSummary: productPresentationSummaryComponent }
+catalogComponent.components = { StorefrontHomepage: { render: () => null }, StorefrontIntentLinks: clientComponent(StorefrontIntentLinks, storefrontIntentLinksSource), ProductPresentationSummary: productPresentationSummaryComponent }
 const shippingRulesComponent = clientComponent(ShippingRulesView, shippingRulesSource)
 // The Node-only template compiler needs runtime syntax; erase TS non-null assertions only.
 const reportsComponent = clientComponent(ReportsView, reportsSource.replace(/(?<=[\w)])!(?=[.)\]])/g, ''))
@@ -66,6 +68,9 @@ function text(target: Node): string { return target.tag === '#comment' ? '' : ta
 function find(target: Node, predicate: (target: Node) => boolean): Node | undefined {
   if (predicate(target)) return target
   for (const child of target.children) { const result = find(child, predicate); if (result) return result }
+}
+function findAll(target: Node, predicate: (target: Node) => boolean): Node[] {
+  return [...(predicate(target) ? [target] : []), ...target.children.flatMap(child => findAll(child, predicate))]
 }
 async function settle() { for (let i = 0; i < 8; i++) { await Promise.resolve(); await nextTick() } }
 function deferred<T>() {
@@ -321,7 +326,7 @@ describe('cart view interaction', () => {
     await settle()
     expect(router.currentRoute.value.query.q).toBe('runner')
     expect(api.discovery).toHaveBeenLastCalledWith('runner')
-    expect(text(root)).toContain('Search results')
+    expect(text(root)).toContain('Results for “runner”')
   })
   it('keeps exact discovery results separate from available recovery suggestions', async () => {
     vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
@@ -338,10 +343,97 @@ describe('cart view interaction', () => {
     })
     await mount(catalogComponent, '/?q=purple%20trail')
 
-    expect(text(root)).toContain('No exact matches for “purple trail”.')
+    expect(text(root)).toContain('Results for “purple trail”')
+    expect(text(root)).toContain('No exact matches')
     expect(text(root)).toContain('You might like')
     expect(text(root)).toContain('Available trail shoe')
     expect(api.discovery).toHaveBeenCalledWith('purple trail')
+  })
+  it('keeps a failed routed search labelled with the current query', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery')
+      .mockResolvedValueOnce({ query: 'first', results: [], suggestions: [], interpreted: { colors: ['WHITE'], categories: [], maximumPrice: null, skuLookup: false } })
+      .mockRejectedValueOnce(new ApiError(503, 'CATALOG_UNAVAILABLE', 'try again'))
+    const router = await mount(catalogComponent, '/?q=first')
+
+    await router.replace('/?q=second')
+    await settle()
+
+    expect(text(root)).toContain('Results for “second”')
+    expect(text(root)).not.toContain('Results for “first”')
+  })
+  it('explains recognized shopper intent and keeps search context on product links', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery').mockResolvedValue({
+      query: 'white running under 2 million',
+      results: [{
+        id: A, name: 'Metro Runner', category: 'Running', collection: null, featured: false,
+        newArrival: false, campaignEligible: false, merchandisingRank: 1, heroImage: null, primaryImage: null,
+        variantCount: 2, availableVariantCount: 2, fromAmount: 1500000, presentation: null,
+        evidence: null, fitSummary: null,
+      }],
+      suggestions: [],
+      interpreted: { colors: ['WHITE'], categories: ['RUNNING'], maximumPrice: 2000000, skuLookup: false },
+    })
+
+    await mount(catalogComponent, '/?q=white%20running%20under%202%20million')
+
+    expect(text(root)).toContain('Results for “white running under 2 million”')
+    expect(text(root)).toContain(`Matched: White · Running · Up to ${formatVnd(2000000)}`)
+    const productLink = find(root, target => String(target.props.class).includes('product-card'))!
+    expect(decodeURIComponent(String(productLink.props.href)).replaceAll('+', ' '))
+      .toBe(`/products/${A}?q=white running under 2 million`)
+  })
+  it('offers all products and supported intent paths when discovery has no recovery suggestions', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery').mockResolvedValue({
+      query: 'purple moon boot', results: [], suggestions: [],
+      interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false },
+    })
+
+    await mount(catalogComponent, '/?q=purple%20moon%20boot')
+
+    const recovery = find(root, target => String(target.props.class).includes('discovery-recovery'))!
+    expect(text(recovery)).toContain('Try a broader product name, color, use, or price.')
+    expect(text(recovery)).toContain(t('View all products'))
+    expect(text(recovery)).toContain(t('Road running'))
+    expect(text(recovery)).toContain(t('Everyday wear'))
+    expect(text(recovery)).toContain(t('Trail'))
+  })
+  it('keeps the default catalog preview to six products and expands only through the view route', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    const catalog = Array.from({ length: 8 }, (_, index): ProductSummary => ({
+      id: `product-${index}`, name: `Product ${index}`, category: 'Running', collection: 'Metro Motion',
+      featured: false, newArrival: false, campaignEligible: true, merchandisingRank: index,
+      heroImage: null, primaryImage: null, variantCount: 4, availableVariantCount: 3, fromAmount: 1000000 + index,
+      presentation: null,
+      evidence: { intendedUse: 'ROAD_RUNNING', primarySurface: 'ROAD_TRACK', upperConstruction: 'MESH_TEXTILE', cutProfile: 'LOW_TOP', primarySoleProfile: 'FLEX_GROOVED' },
+      fitSummary: null,
+    }))
+    vi.spyOn(api, 'products').mockResolvedValue(catalog)
+
+    const router = await mount(catalogComponent, '/')
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(6)
+    expect(text(root)).toContain(t('View all products'))
+    expect(text(root)).toContain(t('Road running'))
+
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as (event: unknown) => void)({ target: { value: 'not submitted' } })
+    await router.push('/?view=all#catalog-heading')
+    await settle()
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(8)
+    expect(text(root)).not.toContain(t('View all products'))
+    expect(find(root, target => target.props.id === 'product-search')!.props.value).toBe('')
+    expect(find(root, target => target.props.id === 'catalog-heading')!.focus).toHaveBeenCalled()
+    expect(api.products).toHaveBeenCalledOnce()
+
+    ;(find(root, target => target.props.id === 'product-search')!.props.onInput as (event: unknown) => void)({ target: { value: 'another draft' } })
+    router.back()
+    await vi.waitFor(() => expect(router.currentRoute.value.query.view).toBeUndefined())
+    await settle()
+    expect(find(root, target => target.props.id === 'product-search')!.props.value).toBe('')
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(6)
+    expect(api.products).toHaveBeenCalledOnce()
   })
   it('guards rapid add activation and announces the current quantity', async () => {
     cart.items = []
@@ -360,6 +452,45 @@ describe('cart view interaction', () => {
     expect(add.props.disabled).toBe(true)
     expect(api.cartCheckout).not.toHaveBeenCalled()
     expect(JSON.parse(saved.get('shoe-commerce:cart:v2:owner')!).items[0].quantity).toBe(1)
+  })
+  it('buys now once and opens the cart only after the add succeeds', async () => {
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
+    const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option'))!
+    ;(size.props.onClick as () => void)()
+    await settle()
+
+    const push = vi.spyOn(router, 'push')
+    const buy = find(root, target => target.tag === 'button' && text(target) === t('Buy now'))!
+    ;(buy.props.onClick as () => void)()
+    ;(buy.props.onClick as () => void)()
+    await settle()
+
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].quantity).toBe(1)
+    expect(push).toHaveBeenCalledWith('/cart')
+  })
+  it('keeps buy now unavailable without an available variant and stays put when adding fails', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product?variant=ink-40')
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Buy now'))?.props.disabled).toBe(true)
+
+    await click('Chalk')
+    const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option') && text(target).includes('40'))!
+    ;(size.props.onClick as () => void)()
+    await settle()
+    const push = vi.spyOn(router, 'push')
+    cart.items = [{
+      productId: fitProduct.id, productName: fitProduct.name, variantId: 'chalk-40', sku: 'FIT-CHALK-40',
+      size: '40', color: 'Chalk', image: null, amount: 1200000, currency: 'VND', quantity: 10,
+    }]
+
+    await click('Buy now')
+
+    expect(push).not.toHaveBeenCalled()
+    expect(cart.items[0].quantity).toBe(10)
   })
   it.each(['en', 'vi-VN'] as const)('requires a distinct review/confirm step and shows the changed second line in %s', async language => {
     setLocale(language)
@@ -579,6 +710,42 @@ describe('product presentation rendering', () => {
 })
 
 describe('fitting product-detail interaction', () => {
+  it('returns to the originating discovery context', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product?q=white%20running')
+
+    const back = find(root, target => String(target.props.class).includes('back-link'))!
+    expect(text(back)).toBe('Back to results')
+    expect(decodeURIComponent(String(back.props.href)).replaceAll('+', ' ')).toBe('/?q=white running#catalog-heading')
+  })
+
+  it('uses the full catalog as the fallback from a directly opened product', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+
+    const back = find(root, target => String(target.props.class).includes('back-link'))!
+    expect(text(back)).toBe('All products')
+    expect(String(back.props.href)).toBe('/?view=all#catalog-heading')
+  })
+
+  it('places concise product and fit evidence in the decision area without repeating selection instructions', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue({
+      ...fitProduct,
+      evidence: { intendedUse: 'ROAD_RUNNING', primarySurface: 'ROAD_TRACK', upperConstruction: 'MESH_TEXTILE', cutProfile: 'LOW_TOP', primarySoleProfile: 'FLEX_GROOVED' },
+    })
+    await mount(productComponent, '/products/fit-product')
+
+    const decision = find(root, target => String(target.props.class).includes('product-decision-panel'))!
+    expect(text(decision)).toContain('Mesh upper for road and track running.')
+    expect(text(decision)).toContain('True to size · Regular')
+    const media = find(root, target => String(target.props.class).includes('product-detail-figure'))!
+    expect(text(media)).toContain('Illustrative product view. Your color and size selection below is what applies to the cart.')
+    await click('Chalk')
+    expect(text(decision)).toContain('Not sure about size?')
+    const addPanel = find(decision, target => String(target.props.class).includes('product-add-panel'))!
+    expect(find(addPanel, target => String(target.props.class).includes('selection-required'))).toBeUndefined()
+  })
+
   it.each([
     ['media only', { media: twoMedia, fitGuidance: null }, true, false],
     ['fit only', { media: [], fitGuidance }, false, true],
@@ -656,6 +823,35 @@ describe('fitting product-detail interaction', () => {
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)
   })
 
+  it('reapplies a changed variant deep link without refetching the same product', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product?variant=chalk-40')
+
+    await router.replace('/products/fit-product?variant=ink-40')
+    await settle()
+
+    const selectedSize = find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)!
+    expect(text(selectedSize)).toContain(t('Requested · Unavailable'))
+    expect(find(root, target => String(target.props.class).includes('color-option') && target.props['aria-pressed'] === true && text(target) === t('Ink'))).toBeDefined()
+    expect(api.product).toHaveBeenCalledOnce()
+  })
+
+  it('opens and focuses the fit guide from the size decision', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
+
+    const control = find(root, target => text(target) === t('View the size and fit guide'))!
+    expect(control.tag).toBe('button')
+    ;(control.props.onClick as () => void)()
+    await settle()
+
+    const guide = find(root, target => target.props.id === 'size-and-fit')! as Node & { open?: boolean }
+    const summary = find(guide, target => target.tag === 'summary')!
+    expect(guide.open).toBe(true)
+    expect(summary.focus).toHaveBeenCalled()
+  })
+
   it('keeps an unavailable deep-linked size explicit without offering purchase', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
     await mount(productComponent, '/products/fit-product?variant=ink-40')
@@ -722,12 +918,31 @@ describe('fitting product-detail interaction', () => {
     expect(mainImage.props.src).toBe('/products/new-primary.png')
   })
 
-  async function openPhotoPicker() {
+  async function openFitChooser() {
     const entry = find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))
     expect(entry).toBeDefined()
     ;(entry!.props.onClick as () => void)()
     await settle()
-    await click('Start with a photo')
+  }
+  async function chooseFitMethod(label: string) {
+    const button = find(root, target => target.tag === 'button' && text(target).startsWith(t(label)))
+    expect(button, label).toBeDefined()
+    ;(button!.props.onClick as () => void)()
+    await settle()
+  }
+  async function openPhotoPicker() {
+    await openFitChooser()
+    await chooseFitMethod('Measure with a photo')
+  }
+  async function openQuickGuidance(size: string, perception: 'TIGHT' | 'ABOUT_RIGHT' | 'LOOSE') {
+    await openFitChooser()
+    await chooseFitMethod('I know my usual size')
+    const sizeSelect = find(root, target => target.props.id === 'fit-usual-size')!
+    ;(sizeSelect.props.onChange as (event: unknown) => void)({ target: { value: size } })
+    const feeling = find(root, target => target.tag === 'input' && target.props.value === perception)!
+    ;(feeling.props.onChange as () => void)()
+    await settle()
+    await click('Show my starting point')
   }
   async function chooseImage(type = 'image/png') {
     const upload = find(root, target => target.tag === 'input' && target.props.id === 'fit-photo-input')
@@ -735,6 +950,61 @@ describe('fitting product-detail interaction', () => {
     ;(upload!.props.onChange as (event: Event) => void)({ target: { files: [new Blob(['image'], { type }) as File] } } as unknown as Event)
     await settle()
   }
+
+  it.each([
+    ['TIGHT', 'tight'],
+    ['ABOUT_RIGHT', 'about right'],
+    ['LOOSE', 'loose'],
+  ] as const)('uses real Product evidence for %s quick guidance without adjusting the size', async (perception, feeling) => {
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    await openQuickGuidance('40', perception)
+
+    expect(text(root)).toContain('Start with EU 40')
+    expect(text(root)).toContain(`Your usual EU 40 feels ${feeling}.`)
+    expect(text(root)).toContain(t('True to size'))
+    expect(text(root)).toContain(t('Regular'))
+    expect(text(root)).toContain(t('This is a starting point, not an automatic size adjustment.'))
+    expect(text(root)).not.toContain('EU 41')
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
+    expect(cart.items).toHaveLength(0)
+
+    await click('Apply EU {size}'.replace('{size}', '40'))
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
+    const chooseChalk = find(root, target => target.tag === 'button' && text(target) === t('Choose {color}', { color: t('Chalk') }))!
+    ;(chooseChalk.props.onClick as () => void)()
+    await settle()
+    expect(text(root)).toContain('Size 40 · Chalk')
+    expect(cart.items).toHaveLength(0)
+  })
+
+  it('keeps an unavailable usual size explicit and offers only real available colors', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product?variant=ink-40')
+    await openQuickGuidance('40', 'ABOUT_RIGHT')
+
+    expect(text(root)).toContain(t('This size is unavailable in the selected color.'))
+    expect(text(root)).toContain(t('Available in another color:'))
+    expect(text(root)).toContain(t('Chalk'))
+    expect(text(root)).not.toContain(t('White'))
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true && text(target).includes('40'))).toBeDefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Size unavailable'))?.props.disabled).toBe(true)
+  })
+
+  it('moves focus into the progressive flow and returns it to the entry control on close', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    const entry = find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))!
+    ;(entry.props.onClick as () => void)()
+    await settle()
+    expect(find(root, target => target.props.id === 'fit-panel-heading')!.focus).toHaveBeenCalled()
+
+    await chooseFitMethod('I know my usual size')
+    expect(find(root, target => target.props.id === 'fit-step-heading')!.focus).toHaveBeenCalled()
+    await click('Close')
+    expect(find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))!.focus).toHaveBeenCalled()
+  })
 
   it('supports drop validation and photo preview without submitting automatically', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
@@ -767,6 +1037,7 @@ describe('fitting product-detail interaction', () => {
 
     expect(vi.mocked(api.fitAnalysis).mock.calls[0].slice(0, 3)).toEqual(['fit-product', expect.anything(), 'Ink'])
     expect(text(root)).toContain('EU 40')
+    expect(text(root)).toContain(t('Strong photo quality'))
     expect(text(root)).toContain(t('Alternative size: EU {size}', { size: '41' }))
     expect(text(root)).toContain(t('Recommended size is unavailable in the selected color.'))
     expect(cart.items).toHaveLength(0)
@@ -794,6 +1065,19 @@ describe('fitting product-detail interaction', () => {
     expect(cart.items).toHaveLength(1)
   })
 
+  it('labels MEDIUM only as a usable image estimate rather than fit probability', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ ...fitSuccess, analysisConfidence: 'MEDIUM' })
+    await mount(productComponent, '/products/fit-product')
+    await openPhotoPicker()
+    await chooseImage()
+    await click('Use this photo')
+
+    expect(text(root)).toContain(t('Usable image estimate'))
+    expect(text(root)).toContain(t('This describes image quality, not the probability that the shoe will fit.'))
+    expect(text(root)).not.toContain('%')
+  })
+
   it('does not select a Fit Assistant result until the customer accepts it', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
     vi.spyOn(api, 'fitAnalysis').mockResolvedValue(fitSuccess)
@@ -816,21 +1100,32 @@ describe('fitting product-detail interaction', () => {
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)
   })
 
-  it('rejects an invalid image locally and keeps a real retake result non-selectable', async () => {
+  it('rejects an invalid image locally', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
-    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ status: 'RETAKE', retakeReason: 'REFERENCE_NOT_FOUND', availableColors: [] })
+    vi.spyOn(api, 'fitAnalysis')
     await mount(productComponent, '/products/fit-product')
     await openPhotoPicker()
     await chooseImage('image/gif')
     expect(text(root)).toContain(t('Only PNG or JPEG images up to 5 MB are accepted.'))
     expect(api.fitAnalysis).not.toHaveBeenCalled()
+  })
 
+  it.each([
+    'REFERENCE_NOT_FOUND', 'REFERENCE_CLIPPED', 'EXCESSIVE_PERSPECTIVE', 'IMAGE_TOO_BLURRY',
+    'FOOT_NOT_FOUND', 'FOOT_PARTIAL', 'IMPLAUSIBLE_MEASUREMENT', 'ANALYSIS_INSUFFICIENT', 'FIT_PROFILE_OUT_OF_RANGE',
+  ])('keeps RETAKE %s non-selectable with retry and quick-guidance recovery', async retakeReason => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ status: 'RETAKE', retakeReason, availableColors: [] })
+    await mount(productComponent, '/products/fit-product')
+    await openPhotoPicker()
     await chooseImage()
     await click('Use this photo')
     expect(text(root)).toContain(t('Try a clearer photo'))
-    expect(text(root)).toContain(t('Reference sheet not found'))
     expect(text(root)).toContain(t('Retake photo'))
+    expect(text(root)).toContain(t('Use my usual size instead'))
     expect(text(root)).not.toContain('Select EU')
+    await click('Use my usual size instead')
+    expect(text(root)).toContain(t('What EU size do you usually wear?'))
   })
 
   it('does not offer a generic fitting flow for a product without a complete profile', async () => {

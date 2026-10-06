@@ -25,7 +25,8 @@ import AccessDeniedView from './views/AccessDeniedView.vue'
 import OffersView from './views/OffersView.vue'
 import OfferDetailView from './views/OfferDetailView.vue'
 import VouchersView from './views/VouchersView.vue'
-import { hasPermission, loadSession, loginDestination, session } from './session'
+import { loadSession, routeAccessDestination, session } from './session'
+import { storefrontScrollBehavior } from './navigation'
 import './styles.css'
 
 const router = createRouter({
@@ -58,16 +59,13 @@ const router = createRouter({
     { path: '/operations/products/:id', name: 'product-management', component: ProductManagementDetailView, meta: { requiresAuth: true, permission: 'CATALOG_MANAGE' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
-  scrollBehavior: to => to.hash ? { el: to.hash, top: 16 } : { top: 0 },
+  scrollBehavior: storefrontScrollBehavior,
 })
 
 router.beforeEach(async to => {
   if (!session.loaded) await loadSession()
   if (session.unavailable) return false
-  if ((to.name === 'login' || to.name === 'register') && session.account) return loginDestination(to.query.returnTo, session.account)
-  if (to.meta.requiresAuth && !session.account) return { path: '/login', query: { returnTo: to.fullPath } }
-  const anyPermission = to.meta.permissions as string[] | undefined
-  if (session.account && (!hasPermission(to.meta.permission as string | undefined) || anyPermission && !anyPermission.some(hasPermission))) return '/forbidden'
+  return routeAccessDestination(to)
 })
 
 createApp(App).use(router).mount('#app')
