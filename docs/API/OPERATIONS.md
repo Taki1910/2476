@@ -1,0 +1,46 @@
+# Existing API inventory
+
+Paths below use `/api/v1`. Source paths are relative to
+`backend/src/main/java/com/shoecommerce`; exact nested DTOs and service validation
+are linked authorities, not a second schema. All mutations require CSRF except
+the signature-validated provider callback. All staff operations also authorize at
+the application boundary and enforce assigned location scope where applicable.
+Common failures use ProblemDetail: unauthenticated401, unauthorized403, missing404,
+invalid request400 and business conflict409; provider callback uses its provider
+acknowledgement contract. No GET here authorizes a later mutation.
+
+| Methods / paths | Request → response authority | Validation, replay, authorization | Consumer / SQL verification |
+|---|---|---|---|
+| GET `/storefront/products`, `/{productId}`, `/hero` | catalog/StorefrontController; StorefrontCatalogService DTOs; optional search `q` | Public published catalog; no exact stock exposure | Storefront/Product views; VerticalSlice2CustomerCatalogExternalIT |
+| POST `/storefront/price-quotes` | `{variantId}` → PriceQuoteService.QuoteView | Customer, server price/version/expiry; quote is not reservation | Legacy single-variant checkout; VerticalSlice3CheckoutExternalIT |
+| POST `/storefront/cart-quotes` | StorefrontController.CartQuoteRequest → CartQuoteService.QuoteView | 1–50 lines, per-line bounds, fulfillment and NONE/CODE/CLAIM validation; no client money; zero payable rejected | CartView; ShippingC1ExternalIT, PromotionC2/C3 suites |
+| POST `/orders/checkout`, `/orders/cart-checkout` | CustomerOrderController.CheckoutRequest / CartCheckoutRequest → OrderView | Owned quote; quantity1–10 on single variant; Idempotency-Key plus command fingerprint; atomic stock/voucher/order commit; stale409 | Cart/Checkout views; VerticalSlice3CheckoutExternalIT |
+| GET `/orders`, `/{orderId}`; POST `/{orderId}/cancel` | OrderPage (page/size), OrderView; cancellation result | Customer ownership; paginated list. Cancel without key is unpaid-owned cancellation; keyed paid cancellation uses eligibility/financial workflow, not an arbitrary status update | Orders/OrderDetail views; VerticalSlice3ExternalIT, VnPayPaymentExternalIT |
+| POST `/orders/{orderId}/payments`; GET `/payment-attempts/{attemptId}` | payment/PaymentAttemptController → InitiationResult / PaymentAttemptView | Owned order; Idempotency-Key; server total; created201/replay200; explicit state guards | OrderDetail/PaymentResult; VnPayPaymentExternalIT |
+| GET `/payments/vnpay/ipn`, `/payments/vnpay/return` | payment/VnPayPaymentController; signed query → acknowledgement / redirect | Signature and stored attempt evidence; event deduplication. Browser return cannot independently mark paid | VNPAY integration; VnPayPaymentExternalIT |
+| POST `/payment/provider-events` | PaymentProviderEventController.ApplyProviderEventRequest → ProviderEventView | **Test profile only**; event ID<=128, attempt ID/outcome; authorized application operation;201/200 replay | SQL test harness; VerticalSlice4/5ExternalIT |
+| GET `/payments/demo/complete` | DemoPaymentController query → local payment result | **Demo profile only** deterministic adapter; not provider certification | Demo checkout; DEMO.md |
+| GET `/operations/pickups`, `/{orderId}`; aliases `/operations/fulfillments`, `/{orderId}` | PickupWorkQueueController → PickupTask list/detail | FULFILL_ORDER and location scope; no pagination parameter | Fulfillment views; VerticalSlice6/7 and payment suites |
+| POST `/orders/{orderId}/pickup-fulfillment` | PickupFulfillmentController → PickupFulfillmentView | Eligible paid order, scoped FULFILL_ORDER; creates missing fulfillment | Fulfillment detail; payment/fulfillment suites |
+| POST `/pickup-fulfillments/{id}/start-picking`, `/prepare`; aliases `/fulfillments/{id}/accept`, `/ready` | PickupFulfillmentService → PickupFulfillmentView | Explicit lifecycle, scope, replay guards; no inventory mutation merely for preparation | Fulfillment detail; VnPayPaymentExternalIT |
+| POST `/pickup-fulfillments/{id}/handover`; `/fulfillments/{id}/dispatch`, `/delivered` | PickupFulfillmentService → PickupFulfillmentView | Idempotency-Key; type/state guards; physical issue and inventory transaction | Fulfillment detail; VnPayPaymentExternalIT |
+| POST `/orders/{orderId}/void/retry` | PickupCancellationController → VoidView | Keyed retry only eligible failure; current authorization; prior calculation version retained; provider outside database transaction | Fulfillment/OrderDetail; VnPayPaymentExternalIT |
+| POST/PUT `/catalog/products`; POST `/catalog/products/{productId}/variants`; POST `/catalog/variants/{variantId}/publish`, `/retire`, `/restore`; GET `/catalog/sellable/variants/{variantId}` | CatalogController identity/variant/lifecycle requests → ProductState/IdResponse/204/PublishedVariant | CATALOG_MANAGE; Product and lifecycle expected versions; unique SKU and active normalized option; publish requires current price and positive on-hand stock | P2B manager workspace; catalog and SQL-gated integration suites |
+| PUT `/pricing/variants/{variantId}` | CatalogController.PriceRequest `{amount}` →204 | PRICE_MANAGE; positive capped VND; close previous price version, append new | Administration harness; VerticalSlice2ExternalIT |
+| PUT `/inventory/variants/{variantId}/locations/{locationId}` | InventoryAdjustmentController.AdjustmentRequest `{onHand,reason}` → AdjustmentResult | Nonnegative onHand, reason1–256, scope and inventory permission, Idempotency-Key; must preserve reserved invariant | Inventory application API; VerticalSlice2ExternalIT |
+| GET `/operations/pos/registers`, `/shifts/current`, `/variants?shiftId&sku`, `/sales/{orderId}` | PosController → RegisterView[], ShiftView (204 if none), VariantView, ReceiptView | POS_SELL, scoped owned shift; exact SKU; immutable receipt | PosView; VerticalSlice6PosExternalIT |
+| POST `/operations/pos/shifts`, `/shifts/{shiftId}/close`, `/sales` | OpenShiftRequest `{registerId}`, empty close, SaleRequest `{shiftId,variantId}` → ShiftView/ReceiptView | Cash quantity1, no client price; sale Idempotency-Key scoped to shift,201new/200replay; locking protects sale/close | PosView; VerticalSlice6PosExternalIT |
+| GET `/reference/provinces`, `/reference/provinces/{code}/districts` | ShippingController → Reference[] | Authenticated reference reads, valid enabled codes | CartView; ShippingC1ExternalIT |
+| GET/POST `/operations/shipping-rules`; GET `/locations`; PUT `/{id}`; POST `/{id}/publish`, `/retire`, `/invalidate` | ShippingController; ShippingService.Draft → RuleView / LocationReference[] | SHIPPING_MANAGE, scoped origin; revision/lifecycle validation, immutable published rules; ADR-0031 | ShippingView; ShippingC1ExternalIT |
+| GET `/admin/identity/staff`; POST `/accounts`; PUT `/accounts/{id}/enabled`, `/permissions/{permission}`, `/assignments` | IdentityAdministrationController.CreateAccount; StaffAccessController.Toggle/Assignment → UUID / boolean / StaffAccessRecord[] | IDENTITY_MANAGE; role enum, login/password validation, current authority/session revocation; assignments require valid branch/location | People administration; Foundation1SecurityExternalIT, staff-access suites |
+| GET `/operations/staff-access`, `/{accountId}`, `/locations`, `/capabilities`; PUT `/{accountId}/capabilities/{permission}`, `/{accountId}/assignments` | StaffAccessController DTOs → StaffAccessRecord / LocationView / CapabilityView / boolean | Delegated STAFF_MANAGE_SCOPED authority, assignable capability allowlist and location boundaries; ADR-0030; repeat set is state assignment | PeopleView; staff-access SQL suites |
+| GET `/storefront/homepage`; GET `/operations/storefront/homepage`; PUT `/operations/storefront/homepage/draft`; POST `/operations/storefront/homepage/publish` | StorefrontHomepageController / StorefrontManagementController; SaveDraft/PublishDraft → Homepage / ManagementState / RevisionState | Public published-only read; management permission, revision fence, deterministic reference validation; ADR-0033 | Storefront/StorefrontManagement views; StorefrontMerchandisingExternalIT |
+| GET `/operations/storefront/assistant/availability`; POST `/operations/storefront/assistant/copy`, `/intent` | MerchandisingAssistantController; bounded request → availability / copy proposal / enum intent | `STOREFRONT_MANAGE`; backend-resolved safe evidence; stateless strict provider output; no mutation or persistence; ADR-0042 | StorefrontManagement view; assistant unit/provider-contract tests |
+| POST `/storefront/products/{productId}/fit-analysis` | ShoeFitController; multipart image, optional selectedColor → analysis DTO | Public with CSRF; image type/size/dimension/reference validation; advisory result, no cart/stock mutation | FitAssistant; FitAnalysisExternalIT |
+
+Promotion/voucher endpoints are in [COMMERCE](COMMERCE.md), reporting in
+[REPORTING](REPORTING.md), and login/session in [IDENTITY](IDENTITY.md).
+Frontend consumers share `frontend/src/api.ts`; controller-only administration
+APIs are not a promise of an existing SPA editor. Exact error codes and DTO field
+constraints remain in each named service/controller and the linked tests; adding
+or changing one requires updating this index and the relevant accepted contract.

@@ -1,0 +1,199 @@
+tasks:
+  FREEZE-V29:
+    parent_task: null
+    role: release
+    owner: unknown
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on: []
+    blockers: []
+    next_action: null
+    verification:
+      source: docs/FINAL_FREEZE.md
+      backend_unit: "30/30 PASS"
+      sql_integration: "212/212 PASS"
+      frontend: "204/204 PASS"
+      build: PASS
+      migration: "V1-V29 PASS"
+
+  P0-DELIVERY:
+    parent_task: POST-FREEZE
+    role: integration
+    owner: null
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on:
+      - FREEZE-V29
+    blockers: []
+    next_action: null
+    verification:
+      backend_unit: "current suite PASS; task attribution partial"
+      sql_integration: "included in current FINAL_FREEZE 232/232 SQL regression"
+      browser: "included in current real-stack FINAL_FREEZE smoke"
+
+  P1-DISCOVERY:
+    parent_task: POST-FREEZE
+    role: full_stack
+    owner: unknown
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on:
+      - P0-DELIVERY
+    blockers: []
+    next_action: null
+    verification:
+      source: .superpowers/sdd/2026-09-27-p1-search-discovery-product-experience/progress.md
+      backend_unit: "49 PASS"
+      frontend: "218/218 PASS"
+      build: PASS
+      browser: PASS
+      sql_integration: "environment-gated; not run per accepted plan"
+
+  P2B-CATALOG:
+    parent_task: POST-FREEZE
+    role: catalog_database_frontend
+    owner: null
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on:
+      - P1-DISCOVERY
+    blockers: []
+    next_action: null
+    verification:
+      backend_unit: "current suite PASS; focused task evidence not fully attributed"
+      sql_integration: "included in current FINAL_FREEZE 232/232 SQL regression"
+      frontend: "included in current FINAL_FREEZE 286/286 frontend regression"
+      browser: "current real-stack smoke plus historical focused evidence"
+      review: "accepted capability in docs/FINAL_FREEZE.md"
+
+  P0-P4-RECOVERY:
+    parent_task: POST-FREEZE
+    role: recovery_gate
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - P0-DELIVERY
+      - P1-DISCOVERY
+      - P2B-CATALOG
+      - P2B-BARCODE-POS
+      - P3-PROMOTION
+    blockers: []
+    next_action: null
+    verification:
+      backend_unit: "79/79 PASS"
+      frontend: "227/227 PASS"
+      typecheck: PASS
+      build: PASS
+      sql_integration: "historical 224 skipped; superseded by FINAL_FREEZE 232/232 PASS"
+
+  P5A-MERCHANDISING:
+    parent_task: POST-FREEZE
+    role: full_stack
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - P0-P4-RECOVERY
+    blockers: []
+    next_action: null
+    verification:
+      backend_unit: "82/82 PASS"
+      sql_integration: "historical 231 skipped; superseded by FINAL_FREEZE 232/232 PASS"
+      frontend: "235/235 PASS"
+      typecheck: PASS
+      build: PASS
+      browser: "current FINAL_FREEZE real-stack smoke; historical focused P5A browser gate unavailable"
+
+  FINAL-HUMAN-UX-VISUAL:
+    parent_task: POST-FREEZE
+    role: frontend_ux
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - P5A-MERCHANDISING
+    blockers: []
+    next_action: null
+    verification:
+      focused_frontend: "116/116 PASS"
+      frontend: "236/236 PASS"
+      typecheck: PASS
+      build: PASS
+      backend_unit: "82/82 PASS"
+      migrations: "V1-V33 continuous; V34 absent"
+      browser: "historical presentation checks plus current FINAL_FREEZE real-stack 1440/390 PASS"
+      diff_check: "PASS; pre-existing LF-to-CRLF warning only"
+      staged_files: 0
+
+  P2B-BARCODE-POS:
+    parent_task: P2B-CATALOG
+    role: catalog_pos_database
+    owner: null
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on:
+      - P2B-CATALOG
+    blockers:
+      - original user-approval artifact remains unavailable; requirement is backfilled from confirmed rules and current acceptance evidence
+    next_action: null
+    verification:
+      backend_unit: "focused tests included in current passing suite"
+      migration_v33: "FINAL_FREEZE fresh V1-V33 PASS"
+      pos_sql_integration: "included in FINAL_FREEZE 232/232 PASS"
+      frontend: "included in FINAL_FREEZE 286/286 PASS"
+      browser: "current real-stack smoke plus historical POS acceptance"
+
+  P3-PROMOTION:
+    parent_task: POST-FREEZE
+    role: promotion_full_stack
+    owner: null
+    agent_lifecycle: UNKNOWN
+    status: DONE
+    depends_on:
+      - FREEZE-V29
+    blockers: []
+    next_action: null
+    verification:
+      backend_policy_unit: "3 PASS"
+      p3_sql_external: "historical 7 skipped; superseded by C3 certification and FINAL_FREEZE"
+      frontend: "C3 certification and current FINAL_FREEZE 286/286 PASS"
+      build: PASS
+      browser: "C3 real-browser mandatory flows PASS"
+      review: "C3 FINAL CERTIFICATION PASSED / FROZEN"
+
+  P5B-MANAGER-AI:
+    parent_task: POST-FREEZE
+    role: backend_frontend_ai_boundary
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - P5A-MERCHANDISING
+    blockers: []
+    next_action: null
+    verification:
+      source: docs/FINAL_FREEZE.md
+      focused_backend: "25/25 PASS; provider HTTP contract 10/10 PASS"
+      backend_unit: "99/99 PASS"
+      sql_integration: "232/232 PASS"
+      frontend: "286/286 PASS"
+      build: PASS
+      browser: "real-stack 1440x900 and 390x844 PASS with AI disabled"
+      live_provider: "NOT_RUN; tracked separately as REQ-AI-003"
+
+  PROJECT-MEMORY-LEDGER:
+    parent_task: GOVERNANCE
+    role: continuity_governance
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on: []
+    blockers: []
+    next_action: null
+    verification:
+      registry: ".agent/REQUIREMENTS.yaml"
+      acceptance_view: ".agent/ACCEPTANCE_MATRIX.md"
+      anti_drift: ".agent/ORCHESTRATOR.md"
+      behavioral_scenarios: "PM-A through PM-J added to session-continuity skill"
+      reconciliation: "INCONSISTENCIES FOUND; structural ledger checks PASS, current-HEAD certification and two provenance gaps recorded"

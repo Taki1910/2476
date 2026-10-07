@@ -1,0 +1,1 @@
+INSERT INTO iam_permission(code) VALUES ('STAFF_MANAGE_SCOPED');

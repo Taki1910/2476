@@ -1,0 +1,451 @@
+version: 1
+updated: 2026-10-07
+allowed_statuses:
+  - planned
+  - in_progress
+  - completed
+  - superseded
+  - cancelled
+
+requirements:
+  - id: REQ-GOV-001
+    area: Governance
+    requirement: Use a modular monolith with REST-first backend, separate Vue SPA, SQL Server, and versioned migrations.
+    source: AGENTS.md; docs/PROJECT_OVERVIEW.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ARCHITECTURE.md, docs/ADR/0001-modular-monolith.md, docs/ADR/0002-rest-first-vue-spa.md, docs/ADR/0009-versioned-sql-server-persistence.md]
+    notes: Architecture invariant; not a claim that every optional feature is complete.
+
+  - id: REQ-GOV-002
+    area: Governance
+    requirement: Preserve source-of-truth priority and never silently port legacy-only behavior.
+    source: AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [AGENTS.md, docs/LEGACY_REUSE.md]
+    notes: Ongoing governance requirement.
+
+  - id: REQ-GOV-003
+    area: Governance
+    requirement: Preserve durable project scope, requirement history, supersession, evidence, and report completeness in project files.
+    source: user request 2026-10-07
+    status: completed
+    introduced: 2026-10-07
+    superseded_by: null
+    evidence: [.agent/MASTER_PLAN.md, .agent/REQUIREMENTS.yaml, .agent/ACCEPTANCE_MATRIX.md, .agent/DECISIONS.md, .agent/ORCHESTRATOR.md]
+    notes: Model memory and chat summaries are caches, never the requirement source of truth.
+
+  - id: REQ-SEC-001
+    area: Identity and Access
+    requirement: Keep UserAccount, CustomerProfile, and EmployeeProfile distinct.
+    source: AGENTS.md; BR-SEC-002
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/DOMAIN_MODEL.md, docs/SECURITY_MODEL.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-SEC-002
+    area: Identity and Access
+    requirement: Enforce permission and branch/location scope server-side at the application boundary.
+    source: AGENTS.md; BR-SEC-001
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/SECURITY_MODEL.md, docs/ADR/0030-scoped-staff-access.md, docs/FINAL_FREEZE.md]
+    notes: Frontend visibility is not authorization.
+
+  - id: REQ-SEC-003
+    area: Identity and Access
+    requirement: Use hashed password-reset tokens and revoke sensitive sessions according to the account lifecycle; never restore plaintext compatibility.
+    source: AGENTS.md; BR-SEC-003; BR-SEC-101
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/SECURITY_MODEL.md, docs/FINAL_FREEZE.md]
+    notes: Exact optional recovery-channel policies remain governed by SECURITY_MODEL open decisions.
+
+  - id: REQ-CAT-001
+    area: Catalog
+    requirement: Product owns catalog identity and ProductVariant owns immutable sellable SKU attributes; neither owns stock.
+    source: BR-CAT-001; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/DOMAIN_MODEL.md, docs/BUSINESS_RULES.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-CAT-002
+    area: Catalog
+    requirement: Enforce stable unique SKU and normalized active variant option identity with explicit variant lifecycle.
+    source: BR-CAT-101 through BR-CAT-108
+    status: completed
+    introduced: 2026-09-28
+    superseded_by: null
+    evidence: [docs/ADR/0041-p2b-variant-option-lifecycle.md, docs/FINAL_FREEZE.md, backend/src/test/java/com/shoecommerce/catalog/ProductVariantTest.java]
+    notes: null
+
+  - id: REQ-CAT-003
+    area: Catalog
+    requirement: Support one optional globally unique barcode whose identity locks after first publication.
+    source: BR-CAT-110
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/BUSINESS_RULES.md, docs/FINAL_FREEZE.md, backend/src/test/java/com/shoecommerce/pos/VerticalSlice6PosExternalIT.java]
+    notes: Provenance of the original user approval is not preserved in .agent and remains a backfill-review item.
+
+  - id: REQ-CAT-004
+    area: Catalog
+    requirement: Expose controlled Product Evidence and Product presentation without inventing product facts or external media.
+    source: ADR-0037 through ADR-0039; PRODUCT.md
+    status: completed
+    introduced: 2026-09-24
+    superseded_by: null
+    evidence: [docs/PRODUCT_EVIDENCE_EXECUTION_LEDGER.md, docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-INV-001
+    area: Inventory
+    requirement: Keep location-aware on-hand and reserved quantities with available = onHand - reserved.
+    source: BR-INV-001; BR-INV-002
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0004-location-aware-inventory.md, docs/BUSINESS_RULES.md, docs/FINAL_FREEZE.md]
+    notes: Reservation may not be inferred from unpaid orders.
+
+  - id: REQ-INV-002
+    area: Inventory
+    requirement: Make reserve, release, commit, receive, adjust, transfer, and return explicit transactional operations with immutable movements.
+    source: AGENTS.md; BR-INV-101 through BR-INV-107
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/DOMAIN_MODEL.md, docs/LIFECYCLES.md, docs/FINAL_FREEZE.md]
+    notes: Return product workflow itself remains deferred under REQ-FUL-003.
+
+  - id: REQ-CHECKOUT-001
+    area: Checkout and Order
+    requirement: Limit online checkout to one item, quantity one, and one reservation.
+    source: historical Vertical Slice 3; docs/BUSINESS_RULES.md
+    status: superseded
+    introduced: unknown (backfill)
+    superseded_by: REQ-CHECKOUT-002
+    evidence: [docs/BUSINESS_RULES.md, docs/ADR/0026-multi-item-online-commerce.md]
+    notes: Preserved for historical provenance only.
+
+  - id: REQ-CHECKOUT-002
+    area: Checkout and Order
+    requirement: Support one atomic multi-item order, quote, payment and common-location reservation set with no partial checkout.
+    source: ADR-0026; Phase 15B
+    status: completed
+    introduced: 2026-08-31
+    superseded_by: null
+    evidence: [docs/ADR/0026-multi-item-online-commerce.md, docs/PRODUCT_ROADMAP.md, docs/PHASE_18_FINAL_ACCEPTANCE.md]
+    notes: Split-location fulfillment remains deferred.
+
+  - id: REQ-CHECKOUT-003
+    area: Checkout and Order
+    requirement: Treat quotes as expiring immutable evidence; checkout revalidates price, publication, eligibility and stock before atomic reservation/order creation.
+    source: BR-PRICE-103; BR-CHK-103 through BR-CHK-105
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/BUSINESS_RULES.md, docs/DOMAIN_MODEL.md, docs/FINAL_FREEZE.md]
+    notes: Quote creation never reserves stock.
+
+  - id: REQ-CHECKOUT-004
+    area: Checkout and Order
+    requirement: Make checkout commands idempotent by actor scope, key and normalized request fingerprint.
+    source: BR-CHK-101; BR-CHK-102
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0010-checkout-consistency-and-recovery.md, docs/ADR/0026-multi-item-online-commerce.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-ORD-001
+    area: Checkout and Order
+    requirement: Use Order as the central commerce aggregate shared by online and POS workflows.
+    source: BR-ORD-001; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0003-order-centered-commerce.md, docs/DOMAIN_MODEL.md, docs/FINAL_FREEZE.md]
+    notes: Never recreate DonHang to HoaDon duplication.
+
+  - id: REQ-ORD-002
+    area: Checkout and Order
+    requirement: Preserve immutable confirmed pricing, promotion, item and fulfillment snapshots.
+    source: BR-ORD-002; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/DOMAIN_MODEL.md, docs/PROMOTION_ENGINE.md, docs/FINAL_FREEZE.md]
+    notes: Current definitions must not rewrite historical orders.
+
+  - id: REQ-PAY-001
+    area: Payment and Refund
+    requirement: Represent payment attempts/provider events and apply financial operations idempotently without assuming one synchronous payment.
+    source: BR-PAY-001; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0005-idempotent-payment-refund.md, docs/ADR/0022-vnpay-verified-payment-and-inventory-commitment.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-PAY-002
+    area: Payment and Refund
+    requirement: Bound void/refund to eligible captured component capacity and preserve unknown outcomes for reconciliation.
+    source: BR-PAY-105 through BR-PAY-108; BR-REF-101 through BR-REF-111
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0034-paid-component-reversal-and-reporting.md, docs/FINAL_FREEZE.md]
+    notes: Full customer return/refund product workflow remains deferred.
+
+  - id: REQ-PAY-003
+    area: Payment and Refund
+    requirement: Complete real VNPAY sandbox or production-provider certification before claiming production payment readiness.
+    source: docs/FINAL_FREEZE.md
+    status: planned
+    scope_disposition: future_scope
+    graduation_blocker: false
+    activation: explicit_new_admission_required
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: []
+    notes: DEFERRED deployment gate; deterministic local/provider contract evidence is not live certification.
+
+  - id: REQ-FUL-001
+    area: Fulfillment
+    requirement: Support location-scoped Pickup preparation and exactly-once handover inventory consumption.
+    source: BR-FUL-103 through BR-FUL-105
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0027-pickup-and-delivery-fulfillment.md, docs/PHASE_18_FINAL_ACCEPTANCE.md]
+    notes: null
+
+  - id: REQ-FUL-002
+    area: Fulfillment
+    requirement: Support Delivery snapshot, preparation, dispatch and delivered lifecycle with exactly-once inventory issue.
+    source: ADR-0027; BR-FUL-103; BR-FUL-106; BR-FUL-107
+    status: completed
+    introduced: 2026-09-01
+    superseded_by: null
+    evidence: [docs/ADR/0027-pickup-and-delivery-fulfillment.md, docs/PRODUCT_ROADMAP.md, docs/PHASE_18_FINAL_ACCEPTANCE.md]
+    notes: Carrier integration and live tracking are deferred.
+
+  - id: REQ-FUL-003
+    area: Fulfillment
+    requirement: Add production return/exchange workflow with eligible inspection, restock and refund coordination.
+    source: docs/PROJECT_OVERVIEW.md; docs/FINAL_FREEZE.md
+    status: planned
+    scope_disposition: future_scope
+    graduation_blocker: false
+    activation: explicit_new_admission_required
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: []
+    notes: DEFERRED; not active backlog without a new admission decision.
+
+  - id: REQ-POS-001
+    area: POS
+    requirement: Provide limited location-scoped exact-cash POS for one line and quantity one using server price and active CashierShift.
+    source: BR-CASH-101 through BR-CASH-104; BR-CHK-107
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/PROJECT_OVERVIEW.md, docs/FINAL_FREEZE.md, backend/src/test/java/com/shoecommerce/pos/VerticalSlice6PosExternalIT.java]
+    notes: Expanded/electronic/offline/hardware POS remains deferred.
+
+  - id: REQ-POS-002
+    area: POS
+    requirement: Identify POS candidates by exact barcode or bounded product name, SKU, color or size search, then require cashier confirmation.
+    source: BR-CASH-105 through BR-CASH-107
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/BUSINESS_RULES.md, docs/FINAL_FREEZE.md, frontend/src/pos-workflow.test.ts]
+    notes: Original approval artifact is not preserved in .agent; retained from confirmed business rules and implementation evidence.
+
+  - id: REQ-PROMO-001
+    area: Promotion and Voucher
+    requirement: Centralize deterministic promotion/voucher evaluation and snapshot accepted results on quotes/orders.
+    source: BR-PROMO-001; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0007-central-pricing-promotion.md, docs/PROMOTION_ENGINE.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-PROMO-002
+    area: Promotion and Voucher
+    requirement: Support automatic item, order and shipping promotion layers with deterministic winners and usage lifecycle.
+    source: ADR-0032; BR-PROMO-101; BR-PROMO-102
+    status: completed
+    introduced: 2026-09-09
+    superseded_by: null
+    evidence: [docs/ADR/0032-automatic-promotion-engine.md, docs/PHASE_C2_CERTIFICATION.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-PROMO-003
+    area: Promotion and Voucher
+    requirement: Break equal-priority promotion ties by historical definition ID.
+    source: historical BR-PROMO-103
+    status: superseded
+    introduced: unknown (backfill)
+    superseded_by: REQ-PROMO-004
+    evidence: [docs/BUSINESS_RULES.md]
+    notes: Superseded for implemented C2/C3 scope.
+
+  - id: REQ-PROMO-004
+    area: Promotion and Voucher
+    requirement: For implemented C2/C3, order automatic winners by priority descending then revision public ID ascending.
+    source: BR-PROMO-110; ADR-0032; ADR-0035
+    status: completed
+    introduced: 2026-09-09
+    superseded_by: null
+    evidence: [docs/BUSINESS_RULES.md, docs/ADR/0032-automatic-promotion-engine.md, docs/PHASE_C3_CERTIFICATION.md]
+    notes: Replaces REQ-PROMO-003 in current scope.
+
+  - id: REQ-PROMO-005
+    area: Promotion and Voucher
+    requirement: Separate Voucher Definition, Issuance/Claim and Redemption with customer ownership, atomic usage and safe discovery.
+    source: BR-VCH-101 through BR-VCH-106; ADR-0035
+    status: completed
+    introduced: 2026-09-10
+    superseded_by: null
+    evidence: [docs/ADR/0035-voucher-family-claim-usage.md, docs/PHASE_C3_CERTIFICATION.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-RPT-001
+    area: Reporting
+    requirement: Provide read-only location-scoped reporting from immutable order/payment/refund/inventory facts using defined equations and time basis.
+    source: BR-RPT-101 through BR-RPT-105
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/REPORTING_GLOSSARY.md, docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
+    notes: Inventory monetary value remains excluded until a cost model is approved.
+
+  - id: REQ-AUD-001
+    area: Audit
+    requirement: Persist immutable structured attributable audit events in the protected command transaction with redacted payloads.
+    source: BR-AUD-001; BR-AUD-101 through BR-AUD-103
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0012-transactional-audit-and-sql-delivery.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-NOT-001
+    area: Notification
+    requirement: Add recipient/channel/preference/template/delivery/deduplication notification delivery without suppressing mandatory security or transaction notices.
+    source: AGENTS.md; BR-NOT-101 through BR-NOT-103
+    status: planned
+    scope_disposition: future_scope
+    graduation_blocker: false
+    activation: explicit_new_admission_required
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: []
+    notes: DEFERRED capability; not active backlog without admission.
+
+  - id: REQ-MERCH-001
+    area: Storefront Merchandising
+    requirement: Store versioned typed HOME drafts and publish atomically under STOREFRONT_MANAGE while the public renderer uses current authoritative catalog/promotion facts.
+    source: ADR-0033; Phase S1
+    status: completed
+    introduced: 2026-09-11
+    superseded_by: null
+    evidence: [docs/ADR/0033-storefront-merchandising-publication.md, docs/PHASE_S1_CERTIFICATION.md, docs/FINAL_FREEZE.md]
+    notes: null
+
+  - id: REQ-MERCH-002
+    area: Storefront Merchandising
+    requirement: Provide deterministic P5A candidates using protected eligibility, sales, promotion, readiness and placement evidence without saving or publishing automatically.
+    source: approved P5A plan; .agent/ORIGINAL_REQUEST.md
+    status: completed
+    introduced: 2026-09-30
+    superseded_by: null
+    evidence: [docs/superpowers/plans/2026-09-30-p5a-merchandising-recommendations.md, .agent/HISTORY.md, docs/FINAL_FREEZE.md]
+    notes: SQL certification was later recorded as passed by FINAL_FREEZE; earlier .agent counts are historical.
+
+  - id: REQ-AI-001
+    area: AI
+    requirement: Treat AI output as advisory structured proposals that cannot directly mutate inventory, finance, authorization, discounts or publication state.
+    source: BR-AI-001; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [docs/ADR/0008-ai-proposal-boundary.md, docs/AI_STRATEGY.md, docs/FINAL_FREEZE.md]
+    notes: Ongoing trust-boundary requirement.
+
+  - id: REQ-FIT-001
+    area: Fit Assistant
+    requirement: Offer advisory A4-calibrated photo analysis with validation, retake outcomes, confidence explanation and explicit shopper size acceptance.
+    source: ADR-0028; Phase 17
+    status: completed
+    introduced: 2026-09-03
+    superseded_by: null
+    evidence: [docs/ADR/0028-ai-assisted-shoe-fitting.md, docs/AI_FITTING_EVALUATION.md, docs/PRODUCT_ROADMAP.md]
+    notes: A4 is mandatory for real-world photo measurement, not for every size-selection path.
+
+  - id: REQ-FIT-002
+    area: Fit Assistant
+    requirement: The primary size-guidance entry offers an A4-free usual-size starting point and an optional A4 photo path; neither path silently changes cart or size.
+    source: user-confirmed Progressive Fit Assistant design 2026-10-04
+    status: completed
+    introduced: 2026-10-04
+    superseded_by: null
+    evidence: [docs/superpowers/specs/2026-10-04-progressive-fit-assistant-design.md, frontend/src/cart-flow.test.ts, frontend/src/components/FitAssistant.vue]
+    notes: Clarifies REQ-FIT-001 rather than replacing its photo-measurement calibration rule.
+
+  - id: REQ-AI-002
+    area: AI
+    requirement: Provide optional manager VI/EN copy and intent assistance behind STOREFRONT_MANAGE while deterministic P5A remains authoritative and provider failure leaves manual workflows usable.
+    source: ADR-0042; P5B design
+    status: completed
+    introduced: 2026-10-04
+    superseded_by: null
+    evidence: [docs/ADR/0042-openai-manager-merchandising-assistance.md, docs/superpowers/specs/2026-10-04-p5b-manager-ai-assistance-design.md, docs/FINAL_FREEZE.md]
+    notes: No generic chat, tools, persistence, autonomous ranking, save or publish.
+
+  - id: REQ-AI-003
+    area: AI
+    requirement: Run one safe live-provider smoke with deployment credentials before declaring optional P5B provider readiness.
+    source: docs/FINAL_FREEZE.md
+    status: planned
+    scope_disposition: optional_release_gate
+    graduation_blocker: false
+    activation: deployment_credential_and_explicit_external_call_authorization
+    introduced: 2026-10-04
+    superseded_by: null
+    evidence: []
+    notes: OPEN GATE; OPENAI_API_KEY was not configured. Must not block deterministic P5A or ordinary Storefront management.
+
+  - id: REQ-UX-001
+    area: Frontend UX
+    requirement: Keep customer, POS and Admin experiences responsive and accessible with semantic controls, keyboard operation, visible focus, announced errors and non-color cues.
+    source: PRODUCT.md; AGENTS.md
+    status: completed
+    introduced: unknown (backfill)
+    superseded_by: null
+    evidence: [PRODUCT.md, docs/FRONTEND_ARCHITECTURE.md, docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
+    notes: Current certified browser evidence includes desktop and 390px; historical matrices cover additional widths.
+
+  - id: REQ-UX-002
+    area: Frontend UX
+    requirement: Add a dark theme to the current product.
+    source: final product readiness decision
+    status: cancelled
+    introduced: 2026-09-25
+    superseded_by: null
+    evidence: [docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
+    notes: Intentionally light-only; add only after a separately approved palette and requirement.
