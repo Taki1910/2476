@@ -99,8 +99,8 @@ describe('local draft transformations', () => {
     expect(viewSource).toContain('<textarea v-model="activeSection.supportingTextVi" :disabled="!!operation"')
     expect(viewSource).toContain(':disabled="!!operation || !canAdd"')
     expect(viewSource).toContain('if (operation.value || !canAdd.value) return')
-    expect(viewSource).toContain('if (operation.value) return\n  sections.value = removeSection')
-    expect(viewSource).toContain('if (operation.value) return\n  const validation = validateDraft')
+    expect(viewSource).toMatch(/if \(operation\.value\) return\r?\n  sections\.value = removeSection/)
+    expect(viewSource).toMatch(/if \(operation\.value\) return\r?\n  const validation = validateDraft/)
   })
 })
 
