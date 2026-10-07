@@ -132,4 +132,3 @@
 - [ ] Run `git diff --check` with the repository passed as a per-command safe directory.
 - [ ] Stop only task-created processes, drop only exact task-created disposable databases and confirm ports/database cleanup.
 - [ ] Review final diff across correctness, simplicity, architecture, security and performance before issuing the A–K report.
-

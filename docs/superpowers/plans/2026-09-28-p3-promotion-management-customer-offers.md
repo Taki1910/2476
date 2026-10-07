@@ -67,4 +67,3 @@
 - [ ] Run browser QA for manager and customer paths against the available environment.
 - [ ] Run `git diff --check` and final changed-file/migration inventory.
 - [ ] If SQL Server is unavailable, report exactly: **P3 IMPLEMENTED — PENDING INTEGRATION CERTIFICATION** and enumerate the unrun SQL-backed gate.
-

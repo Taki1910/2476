@@ -102,4 +102,3 @@ class FlywayV23UpgradeExternalIT {
         }
     }
 }
-

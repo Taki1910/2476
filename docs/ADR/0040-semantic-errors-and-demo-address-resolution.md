@@ -86,4 +86,3 @@ fabricated.
   pickup contracts are unchanged.
 - Only the bundled demo hierarchy is selectable until an approved provider and
   production dataset are introduced.
-

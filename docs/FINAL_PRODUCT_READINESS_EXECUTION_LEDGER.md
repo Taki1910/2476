@@ -63,4 +63,3 @@
 - The first final `clean verify` attempt could not delete the JAR because the task's live demo backend still held it for human review. No tests ran. Stopping the review server resolved the lock.
 - A later full run used a database already populated by focused tests. Maven `clean` does not clear an external database; the test provider's process-local transaction counter collided with persisted test rows, and the fail-closed void path produced `UNKNOWN`. An untouched database reproduced no failures: 212/212 integration tests passed. No product code was changed for this environment-only event.
 - Disposable databases `shoe_final_readiness_20260925_1026`, `shoe_final_readiness_browser_20260925_1027`, and `shoe_final_readiness_clean_20260925_1530` were dropped and verified absent. The task-created JDBC helper directory was removed.
-

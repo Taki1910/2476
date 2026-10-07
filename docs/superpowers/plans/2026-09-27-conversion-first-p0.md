@@ -73,4 +73,3 @@ Docker. The same limitation prevented a meaningful browser checkout pass.
   distinct.
 - Provider failure creates no PaymentAttempt and does not weaken retry identity.
 - Pickup fallback never clears the cart or entered delivery fields.
-

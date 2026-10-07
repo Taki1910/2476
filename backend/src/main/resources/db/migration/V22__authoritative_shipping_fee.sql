@@ -158,4 +158,3 @@ ALTER TABLE pickup_fulfillment ADD CONSTRAINT CK_pickup_fulfillment_type_snapsho
         AND handed_over_at IS NULL AND handed_over_by_account_public_id IS NULL AND handover_idempotency_key IS NULL));
 
 INSERT INTO iam_permission(code) VALUES ('SHIPPING_RATE_MANAGE');
-

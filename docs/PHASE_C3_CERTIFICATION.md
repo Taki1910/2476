@@ -110,4 +110,3 @@ Only this certification artifact was added by the final-certification run: `docs
 ## S. Final verdict
 
 `C3 FINAL CERTIFICATION: PASSED / FROZEN`
-

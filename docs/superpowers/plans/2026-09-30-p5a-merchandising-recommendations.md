@@ -133,4 +133,3 @@
 - [ ] Run browser QA against the actual backend/database when available; never substitute mock evidence.
 - [ ] Run `git diff --check`, changed-file inventory, and verify migration count remains zero.
 - [ ] Perform a fixed-baseline self-review because this task may not create or use subagents without explicit user authorization.
-

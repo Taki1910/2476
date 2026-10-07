@@ -36,4 +36,3 @@ Product fit-guidance response, variants, emit contract, and photo API.
 - Regression: Color → Size, same-product `?variant=` resynchronization, direct
   PDP, disabled sizes, cart and duplicate protection, VI/EN, keyboard/focus,
   desktop and ~390px.
-

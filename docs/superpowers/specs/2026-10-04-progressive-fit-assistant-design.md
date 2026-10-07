@@ -50,4 +50,3 @@ quick-guidance recovery.
 PDP Color → Size order, deep-linked variant synchronization, unavailable-state
 rules, manual size selection, selected-color resolution, add-to-cart behavior,
 duplicate protection, and the existing size/fit guide remain unchanged.
-
