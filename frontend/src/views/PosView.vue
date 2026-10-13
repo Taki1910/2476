@@ -166,6 +166,28 @@ function handleSearchKeydown(event: KeyboardEvent) {
   }
 }
 
+function setExactCash() {
+  if (variant.value?.amount !== null && variant.value?.amount !== undefined) {
+    cashReceived.value = String(variant.value.amount)
+  }
+}
+function setCashPreset(amount: number) {
+  cashReceived.value = String(amount)
+}
+function addCash(amount: number) {
+  const current = /^\d+$/.test(cashReceived.value) ? Number(cashReceived.value) : 0
+  cashReceived.value = String(current + amount)
+}
+function handleCashKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    if (canSell.value) askSale()
+  }
+}
+function printReceipt() {
+  window.print()
+}
+
 function askSale() {
   if (!canSell.value) return
   confirmDialog.value?.showModal()
@@ -328,10 +350,22 @@ onMounted(load)
             <section v-if="variant && variantCanSell" class="cash-tender" aria-labelledby="cash-tender-title">
               <div class="cash-entry">
                 <label id="cash-tender-title" for="cash-received">{{ t('Cash received') }}</label>
-                <input id="cash-received" v-model="cashReceived" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="16"
-                  autocomplete="off" spellcheck="false" :disabled="selling"
-                  :aria-invalid="tender.status === 'invalid' || tender.status === 'insufficient' || undefined"
-                  aria-describedby="cash-help cash-status" />
+                <div class="cash-input-row">
+                  <input id="cash-received" v-model="cashReceived" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="16"
+                    autocomplete="off" spellcheck="false" :disabled="selling"
+                    :aria-invalid="tender.status === 'invalid' || tender.status === 'insufficient' || undefined"
+                    aria-describedby="cash-help cash-status" @keydown="handleCashKeydown" />
+                </div>
+                <div class="quick-cash-row" role="group" :aria-label="t('Quick tender')">
+                  <button type="button" class="quick-cash-btn exact" :disabled="selling" @click="setExactCash">{{ t('Exact amount') }}</button>
+                  <button type="button" class="quick-cash-btn" :disabled="selling" @click="addCash(50000)">+50k</button>
+                  <button type="button" class="quick-cash-btn" :disabled="selling" @click="addCash(100000)">+100k</button>
+                  <button type="button" class="quick-cash-btn" :disabled="selling" @click="addCash(200000)">+200k</button>
+                  <button type="button" class="quick-cash-btn" :disabled="selling" @click="addCash(500000)">+500k</button>
+                  <button type="button" class="quick-cash-btn preset" :disabled="selling" @click="setCashPreset(500000)">500k</button>
+                  <button type="button" class="quick-cash-btn preset" :disabled="selling" @click="setCashPreset(1000000)">1M</button>
+                  <button type="button" class="quick-cash-btn preset" :disabled="selling" @click="setCashPreset(2000000)">2M</button>
+                </div>
                 <small id="cash-help">{{ t('Enter whole VND only. No separators or decimals.') }}</small>
               </div>
               <div class="cash-change">
@@ -370,7 +404,13 @@ onMounted(load)
                 <div><dt>{{ t('Order') }}</dt><dd>{{ receipt.orderId }}</dd></div>
               </dl>
               <p v-if="shiftWarning" class="receipt-warning" role="status">{{ messageLabel(shiftWarning) }}</p>
-              <button class="primary-button" type="button" @click="nextSale">{{ t('Start next sale') }}</button>
+              <div class="receipt-actions">
+                <button class="primary-button" type="button" @click="nextSale">{{ t('Start next sale') }}</button>
+                <button class="secondary-button print-receipt-btn" type="button" @click="printReceipt">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                  {{ t('Print receipt') }}
+                </button>
+              </div>
             </div>
           </article>
         </section>
@@ -439,8 +479,78 @@ onMounted(load)
 .cash-status[data-status='invalid'], .cash-status[data-status='insufficient'] { color: var(--danger); }
 .cash-status[data-status='ready'] { color: var(--available); }
 
+.quick-cash-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-top: .4rem;
+}
+.quick-cash-btn {
+  min-height: 2.2rem;
+  padding: .25rem .65rem;
+  font-size: .82rem;
+  font-weight: 750;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 120ms ease-out;
+}
+.quick-cash-btn:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--white);
+  border-color: var(--ink);
+}
+.quick-cash-btn.exact {
+  background: var(--ink);
+  color: var(--white);
+  border-color: var(--ink);
+}
+.quick-cash-btn.exact:hover:not(:disabled) {
+  background: var(--accent-surface);
+  border-color: var(--accent-surface);
+}
+.quick-cash-btn.preset {
+  font-variant-numeric: tabular-nums;
+  background: var(--white);
+}
+
+.receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  margin-top: 1.5rem;
+}
+.print-receipt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 3.25rem;
+  padding: .8rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, .7);
+  background: transparent;
+  color: var(--white);
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.print-receipt-btn:hover {
+  background: var(--white);
+  color: var(--available);
+  border-color: var(--white);
+}
+
 @media (max-width: 760px) {
   .cash-tender { grid-template-columns: 1fr; }
   .cash-status { grid-column: 1; }
+}
+
+@media print {
+  .site-header, .pos-heading, .shift-rail, .receipt-actions, .shift-strip { display: none !important; }
+  .pos-page { padding: 0 !important; }
+  .pos-receipt { color: #000 !important; background: #fff !important; box-shadow: none !important; border: 1px dashed #000 !important; }
+  .pos-receipt dt { color: #555 !important; }
+  .pos-receipt dd { color: #000 !important; }
 }
 </style>

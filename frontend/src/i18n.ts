@@ -471,6 +471,8 @@ const vietnamese: Record<string, string> = {
   'Ready. Exact cash received.': 'Sẵn sàng. Khách đã đưa đủ tiền.',
   'Ready. Return {amount} in change.': 'Sẵn sàng. Thối lại {amount}.',
   'Cash received': 'Tiền khách đưa', 'Change due': 'Tiền thối lại',
+  'Exact amount': 'Đúng số tiền', 'Print receipt': 'In hóa đơn', 'Quick tender': 'Chọn nhanh tiền',
+  'In stock': 'Còn hàng', 'Out of stock': 'Hết hàng',
   'Enter whole VND only. No separators or decimals.': 'Chỉ nhập số VND nguyên, không dùng dấu phân cách hoặc phần thập phân.',
   'Cash received. Review the change before completing.': 'Đã nhận tiền. Kiểm tra tiền thối lại trước khi hoàn tất.',
   'Enter enough cash to complete the sale.': 'Nhập đủ số tiền khách đưa để hoàn tất giao dịch.',
