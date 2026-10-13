@@ -19,7 +19,7 @@ const requestedSize = ref('')
 const loading = ref(true)
 const error = ref('')
 const notFound = ref(false)
-const cartMessage = ref('')
+const cartMessage = ref<{ name: string; quantity: number } | null>(null)
 const cartError = ref('')
 const fitNotice = ref('')
 const added = ref(false)
@@ -68,7 +68,7 @@ function widthProfileLabel(value: NonNullable<ProductDetail['fitGuidance']>['wid
 async function loadProduct() {
   const version = ++loadVersion
   const productId = String(route.params.id)
-  loading.value = true; error.value = ''; notFound.value = false; cartMessage.value = ''; cartError.value = ''; fitNotice.value = ''
+  loading.value = true; error.value = ''; notFound.value = false; cartMessage.value = null; cartError.value = ''; fitNotice.value = ''
   try {
     const result = await api.product(productId)
     if (version !== loadVersion) return
@@ -98,7 +98,7 @@ async function openFitGuide() {
 }
 
 function resetSelectionFeedback() {
-  cartMessage.value = ''; cartError.value = ''; fitNotice.value = ''
+  cartMessage.value = null; cartError.value = ''; fitNotice.value = ''
 }
 
 function resolve(option: SizeOption | undefined) {
@@ -135,7 +135,7 @@ function selectFitColor(color: string, size?: string) {
 
 function add() {
   if (added.value || !selected.value || !product.value || selected.value.availability !== 'AVAILABLE') return false
-  cartMessage.value = ''; cartError.value = ''
+  cartMessage.value = null; cartError.value = ''
   try {
     const result = addToCart({
       productId: product.value.id, productName: product.value.name, variantId: selected.value.id,
@@ -144,12 +144,12 @@ function add() {
       amount: selected.value.amount, currency: 'VND',
     })
     if (result === 'added') {
-      cartMessage.value = t('Added {name} · In cart: {quantity}', { name: product.value.name,
-        quantity: cart.items.find(item => item.variantId === selected.value!.id.toLowerCase())?.quantity ?? 0 })
+      cartMessage.value = { name: product.value.name,
+        quantity: cart.items.find(item => item.variantId === selected.value!.id.toLowerCase())?.quantity ?? 0 }
       added.value = true
       clearTimeout(addTimer); clearTimeout(toastTimer)
       addTimer = setTimeout(() => { added.value = false }, 700)
-      toastTimer = setTimeout(() => { cartMessage.value = '' }, 3500)
+      toastTimer = setTimeout(() => { cartMessage.value = null }, 3500)
     }
     cartError.value = result === 'checkout-pending' ? 'Resolve your previous checkout in the cart before making changes.'
       : result === 'max-lines' ? 'Your cart can contain up to 50 size/color selections.'
@@ -213,7 +213,7 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
             <div class="product-add-panel">
               <div v-if="selected" class="selected-summary"><span>{{ t('Selected') }}</span><strong>{{ t('Size') }} {{ selected.size }} · {{ t(selected.color) }}</strong></div>
               <div class="purchase-assurance"><p>{{ t('Review final price and availability in your cart, where you can choose pickup or delivery.') }}</p></div>
-              <div v-if="cartMessage" class="cart-toast" role="status" aria-live="polite"><span>{{ t(cartMessage) }}</span><RouterLink to="/cart">{{ t('View cart') }}</RouterLink></div>
+              <div v-if="cartMessage" class="cart-toast" role="status" aria-live="polite"><span>{{ t('Added {name} · In cart: {quantity}', cartMessage) }}</span><RouterLink to="/cart">{{ t('View cart') }}</RouterLink></div>
               <p v-if="cartError" class="form-error" role="alert">{{ messageLabel(cartError) }}</p>
               <p v-if="cart.storageError" class="form-error" role="alert">{{ t('Browser storage is unavailable. Your cart may not survive a refresh.') }}</p>
               <div class="product-actions"><button class="primary-button quote-button" type="button" :disabled="added || !selected" @click="add">{{ t(!selectedColor ? 'Choose a color first' : !selected ? requestedSize ? 'Size unavailable' : 'Choose a size to add' : added ? 'Added to cart.' : 'Add to cart') }}</button><button class="text-button" type="button" :disabled="added || !selected" @click="buyNow">{{ t('Buy now') }}</button><RouterLink class="text-button refresh-button" to="/cart">{{ t('View cart') }}</RouterLink></div>

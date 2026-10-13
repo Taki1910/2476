@@ -25,6 +25,14 @@ const stateLabels: Record<PosSaleState, string> = {
 
 export const candidateStateLabel = (state: PosSaleState) => stateLabels[state]
 
+const commandInvalidatingFailures = new Set([
+  'POS_VARIANT_NOT_FOUND', 'POS_SOLD_OUT_HERE', 'POS_PRICE_CHANGED', 'POS_VARIANT_RETIRED',
+  'POS_VARIANT_NOT_PUBLISHED', 'POS_PRICE_UNAVAILABLE', 'IDEMPOTENCY_KEY_CONFLICT',
+])
+
+export const posSaleKeyAfterFailure = (key: string, code: string) =>
+  commandInvalidatingFailures.has(code) ? '' : key
+
 export type CashTender =
   | { status: 'empty' }
   | { status: 'invalid' }

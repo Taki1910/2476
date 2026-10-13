@@ -22,6 +22,11 @@ public class InventoryBalance {
     public void release(long quantity, Instant now) { if (quantity <= 0 || quantity > reserved) throw new IllegalStateException("Reserved quantity cannot be released"); reserved -= quantity; updatedAt = now; }
     public void consume(long quantity, Instant now) { if (quantity <= 0 || quantity > reserved || quantity > onHand) throw new IllegalStateException("Reserved inventory cannot be consumed"); onHand -= quantity; reserved -= quantity; updatedAt = now; }
     public void issueAvailable(long quantity, Instant now) { if (quantity <= 0 || quantity > available()) throw new IllegalStateException("Insufficient available stock"); onHand -= quantity; updatedAt = now; }
+    public void receive(long quantity, Instant now) {
+        if (quantity <= 0) throw new IllegalArgumentException("Receipt quantity must be positive");
+        onHand = Math.addExact(onHand, quantity);
+        updatedAt = now;
+    }
     public long onHand() { return onHand; }
     public long reserved() { return reserved; }
     public long available() { return onHand - reserved; }

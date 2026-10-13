@@ -196,22 +196,38 @@ ACTIVE -> EXPIRED
   rank.
 - Terminal: `CONSUMED`, `CANCELLED_RESTORED`, `RELEASED`, `EXPIRED`.
 
+### Direct Inventory Receive (implemented REC-001)
+
+- Actor requires `INVENTORY_ADJUST` and active access to the enabled Location.
+- A strictly positive receipt locks the Variant and destination balance,
+  increases `onHand`, leaves `reserved` unchanged and appends one immutable
+  `RECEIVE` movement plus audit evidence in the same transaction.
+- Actor-scoped idempotency identity and normalized payload return the recorded
+  result on replay; reusing the identity for another payload is a conflict.
+- Direct receive is distinct from Inventory Adjustment and from the Transfer
+  lifecycle below.
+
 ## 5. Inventory Transfer
 
 ```text
-DRAFT -> REQUESTED -> APPROVED -> IN_TRANSIT -> RECEIVED
-                    -> REJECTED
-REQUESTED/APPROVED -> CANCELLED
-IN_TRANSIT -> RECONCILIATION_REQUIRED (loss/damage/quantity discrepancy)
+DRAFT -> DISPATCHED -> RECEIVED
 ```
 
-- Request/approval actors require source/destination scope and approval policy.
-- Dispatch locks source balance and removes on-hand once; source movement is
-  idempotent. In-transit stock is unavailable.
-- Receipt locks destination and adds accepted quantity once.
-- Sale versus dispatch is serialized by the source balance lock.
-- Terminal: `RECEIVED`, `REJECTED`, `CANCELLED`; reconciliation resolves through
-  adjustments with audit rather than editing movements.
+- ADR-0046 supersedes the former proposed approval/cancellation/discrepancy
+  states for the implemented AUD-03 scope; those workflows remain unimplemented.
+- Actor requires `INVENTORY_TRANSFER` plus active access to both distinct,
+  enabled source and destination Locations.
+- Draft creation accepts 1–100 unique positive lines and changes no stock.
+- Dispatch validates every line, subtracts full requested quantity from source
+  on-hand, leaves reserved unchanged and appends one `TRANSFER_OUT` per line.
+  In-transit stock is durable and unavailable at both Locations.
+- Receipt is all-or-nothing: it adds full dispatched quantity to destination
+  on-hand, leaves reserved unchanged and appends one `TRANSFER_IN` per line.
+- Each command is actor/key/payload idempotent. A same-key exact replay returns
+  the recorded result; changed action/payload conflicts. Sale, reservation and
+  transfer races share deterministic balance locks and ADR-0044 retry behavior.
+- Terminal: `RECEIVED`. Partial receipt, post-dispatch reversal and physical
+  Return are not implemented; physical Return remains blocked by REQ-FUL-003.
 
 ## 6. PaymentAttempt and financial transactions
 
@@ -280,6 +296,31 @@ CREATED -> PENDING -> SUCCEEDED
   cannot mutate newer attempts, and reports use only `SUCCEEDED` allocations.
 - Terminal attempts: `SUCCEEDED`, `FAILED`, `CANCELLED`, `EXPIRED`; UNKNOWN needs
   reconciliation and cannot authorize duplicate blind charge.
+
+Manual VNPAY QueryDr reconciliation (ADR-0045) is an operations command over an
+existing attempt, not a new PaymentAttempt lifecycle:
+
+```text
+QUERYING -> EVIDENCE_RECORDED -> COMPLETED
+        \-> PROVIDER_UNAVAILABLE
+        \-> MISMATCH
+```
+
+- Eligible attempt state is `PENDING` (the current unknown/ambiguous state) or
+  `REVIEW_REQUIRED`; terminal confirmed states are available only through safe
+  completed-command replay.
+- A verified QueryDr paid result follows the existing success transition only
+  while Order/Reservation invariants allow it. A verified failed result follows
+  the existing failure transition. Processing/unknown results complete as still
+  unresolved without business-state mutation.
+- A signed but unrecognized/reversal-risk status records review evidence. An
+  existing `REVIEW_REQUIRED` attempt remains `REVIEW_REQUIRED`; the command
+  cannot reopen a cancelled/expired Order or rebuild an inventory hold.
+- Provider outage and mismatch close the command safely without local payment
+  mutation. Another deliberate provider query uses a new command key.
+- If verified evidence was saved but the local apply transaction loses SQL
+  contention, an explicit same-key retry resumes at apply and does not query
+  VNPAY again.
 
 The broader target financial lifecycle below remains a blueprint for future
 providers and reversal work; it does not replace the implemented VNPAY states

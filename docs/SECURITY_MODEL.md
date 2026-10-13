@@ -66,6 +66,7 @@ CATALOG_MANAGE
 PRICE_MANAGE
 INVENTORY_VIEW
 INVENTORY_ADJUST
+INVENTORY_TRANSFER
 CHECKOUT_RESERVE
 ORDER_PLACE
 POS_SELL
@@ -101,6 +102,12 @@ by the server from the Order/fulfillment.
 A Branch-only assignment, another Location in the same Branch, or an assignment
 in another Branch is insufficient. Disabled Branch/Location scope is denied;
 relocation is a separate business decision.
+
+Inventory Transfer commands require persisted `INVENTORY_TRANSFER` and active
+assignments to both exact enabled source and destination Locations. Holding
+inventory view/adjust authority or a Branch-only relationship does not grant
+transfer authority. List/options reads are filtered to the same active scopes;
+the frontend permission gate is not authorization.
 
 Scoped staff administration is defined by ADR-0030. `STAFF_MANAGE_SCOPED`
 allows only exact-Location management of Cashier and Operations accounts. The
@@ -188,6 +195,19 @@ verified channel.
 - VNPAY IPN is the only public mutation endpoint. It has an exact CSRF exemption
   and validates HMAC-SHA512, merchant, reference, exact amount/currency,
   transaction status and bounded provider fields before application logic.
+- Manual QueryDr reconciliation is not public. It requires an authenticated
+  current account, persisted `PAYMENT_RECONCILE`, CSRF protection and access to
+  the attempt's exact fulfillment Location before any provider call.
+- QueryDr request identity, amount, currency and original timestamp come from
+  stored attempt/order evidence, never the client. The response signature is
+  verified before reading status, then merchant, command, reference, amount and
+  transaction type are matched exactly; an already-known provider transaction
+  number must also match. Response code, transaction status and provider
+  transaction number are mandatory numeric fields with bounded lengths. A
+  mismatch or malformed response makes no financial mutation.
+- QueryDr provider I/O runs outside database transactions and is never retried
+  automatically. Durable verified evidence, not a second provider call, is used
+  for an explicit same-key retry after local SQL contention.
 - Browser Return only maps verified context to a fixed SPA route. It never trusts
   success-looking query parameters and never changes financial state.
 - Provider secrets come only from runtime configuration; URLs, responses, logs

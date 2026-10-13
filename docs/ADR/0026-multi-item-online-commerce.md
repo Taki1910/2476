@@ -169,3 +169,10 @@ expiry; exact snapshots/totals; replay/conflict; opposite-order concurrent carts
 payment/late success; paid cancellation/restore/void; pickup; reporting; backend
 ownership; unchanged single checkout/POS/security; real Vue + Spring + SQL browser
 purchase/negative flows and VI/EN at 1440/1024/768/390. No fixture substitutes.
+
+## Current contention clarification
+
+ADR-0044 is the successor clarification for the client retry sentence above.
+SQL Server `1205`/`1222` rolls back the local transaction; the server returns a
+retryable 503 and does not replay it. An explicit caller retry uses the exact
+same payload and idempotency key.

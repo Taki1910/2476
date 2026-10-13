@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { api, type InventoryReport, type NetSalesReport, type ProductSalesReport, type ReconciliationReport, type ReportScope } from '../api'
+import { ApiError, api, type InventoryReport, type NetSalesReport, type ProductSalesReport, type ReconciliationEntry, type ReconciliationReport, type ReportScope } from '../api'
 import { errorCopy, formatDateTime, formatVnd } from '../format'
 import { messageLabel, statusLabel, t } from '../i18n'
+import { session } from '../session'
+import { submitManualReconciliation, type ManualReconciliationState } from '../payment-reconciliation'
 
 const scope = ref<ReportScope>()
 const net = ref<NetSalesReport>()
@@ -12,6 +14,10 @@ const reconciliation = ref<ReconciliationReport>()
 const filters = reactive({ locationId: '', fromDate: '', toDate: '', sku: '' })
 const state = reactive({ loadingScope: true, refreshing: false, error: '' })
 const refreshAnnouncement = ref('')
+const reconciliationNotice = ref('')
+const reconciliationNoticeError = ref(false)
+const reconcilingAttempt = ref('')
+const reconciliationCommands = new Map<string, ManualReconciliationState>()
 let generation = 0
 let active = true
 function clearReports() {
@@ -90,6 +96,37 @@ async function loadScope() {
 }
 
 onMounted(loadScope)
+
+const canReconcile = (entry: ReconciliationEntry) => entry.category === 'PAYMENT_REVIEW'
+  && entry.status === 'REVIEW_REQUIRED'
+  && !!session.account?.permissions.includes('PAYMENT_RECONCILE')
+
+async function reconcileEntry(entry: ReconciliationEntry) {
+  if (!canReconcile(entry) || reconcilingAttempt.value) return
+  const command = reconciliationCommands.get(entry.referenceId) ?? {}
+  reconciliationCommands.set(entry.referenceId, command)
+  reconcilingAttempt.value = entry.referenceId
+  reconciliationNotice.value = ''
+  reconciliationNoticeError.value = false
+  try {
+    const result = await submitManualReconciliation(command, entry.referenceId,
+      key => api.reconcilePaymentAttempt(entry.referenceId, key))
+    reconciliationCommands.delete(entry.referenceId)
+    await refresh()
+    reconciliationNotice.value = t(result.outcome === 'RESOLVED_PAID' || result.outcome === 'RESOLVED_FAILED'
+      ? 'Resolved' : result.outcome === 'STILL_REVIEW_REQUIRED' ? 'Still requires review' : 'Still unresolved')
+  } catch (error) {
+    reconciliationNoticeError.value = true
+    reconciliationNotice.value = t(error instanceof ApiError && error.code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+      ? 'Provider unavailable'
+      : error instanceof ApiError && error.code === 'PAYMENT_RECONCILIATION_RESULT_MISMATCH'
+        ? 'Result mismatch'
+        : error instanceof ApiError && error.code === 'CONCURRENCY_RETRY_REQUIRED'
+          ? 'Concurrent update. Retry the same action.' : 'Reconciliation failed safely.')
+  } finally {
+    reconcilingAttempt.value = ''
+  }
+}
 </script>
 
 <template>
@@ -272,6 +309,8 @@ onMounted(loadScope)
           </header>
           <section id="exceptions" class="exception-ledger" :data-empty="exceptions.length === 0">
             <h3>{{ t('Transactions requiring review') }} <span>{{ exceptions.length }}</span></h3>
+            <p v-if="reconciliationNotice" :class="reconciliationNoticeError ? 'report-error' : 'report-note'"
+              :role="reconciliationNoticeError ? 'alert' : 'status'">{{ reconciliationNotice }}</p>
             <p v-if="!exceptions.length">{{ t('No payment reconciliation issue requires review in this interval.') }}</p>
             <p v-else>{{ t('Exception evidence stays visible and does not count as a successful sale or void.') }}</p>
             <ol v-if="exceptions.length" class="reconciliation-list">
@@ -288,7 +327,11 @@ onMounted(loadScope)
                     <div><dt>{{ t('Revenue impact') }}</dt><dd class="money">{{ formatVnd(entry.netEffect) }}</dd></div>
                   </dl>
                   <p><strong>{{ t('Reason for review') }}:</strong> {{ t(entry.category === 'PAYMENT_REVIEW' ? 'The provider reported payment, but the order was not confirmed. This amount is not recognized as a completed sale.' : 'The reversal outcome is unresolved or its allocation was released. It is not a successful void.') }}</p>
-                  <p>{{ t('This report is read-only. A specific provider reason and a resolution action are not exposed. Keep both references for the authorized financial review.') }}</p>
+                  <p>{{ t(canReconcile(entry) ? 'Use the stored transaction reference to query VNPAY. The server verifies the signed result before any legal state change.' : 'Keep both references for the authorized financial review.') }}</p>
+                  <button v-if="canReconcile(entry)" type="button" class="text-button"
+                    :disabled="Boolean(reconcilingAttempt)" @click="reconcileEntry(entry)">
+                    {{ t(reconcilingAttempt === entry.referenceId ? 'Reconciling…' : 'Reconcile with VNPAY') }}
+                  </button>
                 </details>
               </li>
             </ol>

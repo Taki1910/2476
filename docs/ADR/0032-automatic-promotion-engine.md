@@ -29,3 +29,10 @@ deadlocks are failures, not silently retried.
 `PROMOTION_MANAGE` protects administration. It is absent from the
 `OPERATIONS` bundle and is granted directly only to `manager.demo` in demo
 data. Voucher definition, claim and redemption remain outside C2.
+
+## Current contention clarification
+
+The historical statement that deadlocks are failures remains true. ADR-0044
+defines the safe response and retry owner: SQL Server `1205`/`1222` returns a
+retryable 503 after rollback; the server does not replay the transaction, and
+an explicit caller retry reuses the exact payload and idempotency key.

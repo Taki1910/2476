@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { api, ApiError, type PosReceipt, type PosRegister, type PosShift, type PosVariant } from '../api'
 import { formatDateTime, formatVnd, posErrorCopy } from '../format'
 import { messageLabel, t } from '../i18n'
-import { acceptScannedCandidate, candidateStateLabel, evaluateCashTender, moveCandidateSelection, selectedCandidate } from '../pos-workflow'
+import { acceptScannedCandidate, candidateStateLabel, evaluateCashTender, moveCandidateSelection, posSaleKeyAfterFailure, selectedCandidate } from '../pos-workflow'
 
 const registers = ref<PosRegister[]>([])
 const shift = ref<PosShift>()
@@ -185,8 +185,8 @@ async function sell() {
   } catch (reason) {
     saleError.value = posErrorCopy(reason)
     const code = reason instanceof ApiError ? reason.code : ''
-    if (['POS_VARIANT_NOT_FOUND', 'POS_SOLD_OUT_HERE', 'POS_PRICE_CHANGED', 'POS_VARIANT_RETIRED', 'POS_VARIANT_NOT_PUBLISHED',
-      'POS_PRICE_UNAVAILABLE', 'IDEMPOTENCY_KEY_CONFLICT'].includes(code)) {
+    const nextSaleKey = posSaleKeyAfterFailure(saleKey.value, code)
+    if (!nextSaleKey) {
       variant.value = undefined
       candidates.value = []
       activeCandidate.value = -1
@@ -200,7 +200,7 @@ async function sell() {
       variant.value = undefined
       saleKey.value = ''
       cashReceived.value = ''
-    }
+    } else saleKey.value = nextSaleKey
     selling.value = false
     return
   }

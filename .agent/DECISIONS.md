@@ -181,3 +181,62 @@ Future work must not be marked completed or silently reopened to close core scop
 Affected requirements: REQ-PAY-003, REQ-FUL-003, REQ-NOT-001, REQ-AI-003.
 
 Supersedes / superseded by: none.
+
+## DEC-0011 — VNPAY ambiguity is resolved by operator-owned manual QueryDr first
+
+Date: 2026-10-09
+Status: ACTIVE
+
+Context: the current payment model preserves ambiguous VNPAY outcomes for review
+but has no admitted workflow that resolves an existing payment attempt from the
+provider's authoritative query response.
+
+Decision: an authorized operator may manually query VNPAY QueryDr for an existing
+eligible ambiguous attempt, verify the signed response against canonical persisted
+payment evidence, and apply one legal idempotent local transition. The provider call
+stays outside the local apply transaction. No new payment attempt is created, no
+automatic polling/retry loop is added, and webhook/IPN is not treated as the only
+recovery path.
+
+Reason: financial ambiguity must be resolvable without guessing provider state or
+duplicating a payment operation, while preserving AUD-01 caller-owned retry policy.
+
+Affected requirements: REQ-PAY-001, REQ-PAY-004, REQ-CONC-001.
+
+Supersedes / superseded by: none. Scheduled reconciliation and live-provider
+certification remain separate future work.
+
+Implementation record (2026-10-11): ADR-0045 and V35 implement this decision
+with `PAYMENT_RECONCILE` plus exact Location scope, durable actor/key/attempt
+identity and verified evidence reuse after local contention. Scheduled
+reconciliation and live-provider certification remain unimplemented.
+
+## DEC-0012 — Inventory Transfer is admitted; physical Return remains blocked
+
+Date: 2026-10-12
+Status: ACTIVE
+
+Context: REQ-INV-002 still lacks explicit stock Transfer and physical-return
+movements. Return inventory admission has no accepted receipt/inspection evidence
+because REQ-FUL-003 remains future scope.
+
+Decision: implement Inventory Transfer with lifecycle `DRAFT -> DISPATCHED ->
+RECEIVED`. Draft changes no stock; dispatch removes only source available stock
+and creates durable in-transit provenance; all-or-nothing receipt adds the full
+dispatched quantity at destination. Do not implement generic Return/restock,
+partial receipt, post-dispatch reversal or adjustment-based compensation.
+
+Reason: Transfer has complete operational semantics and can be made auditable and
+concurrency-safe now. Physical Return cannot safely admit stock before approved
+Return/inspection evidence exists.
+
+Affected requirements: REQ-INV-002, REQ-FUL-003, REQ-CONC-001.
+
+Supersedes / superseded by: clarifies the admitted REC-002 slice; none.
+
+Implementation record (2026-10-12): ADR-0046 and V36 implement multi-line
+Transfer with `INVENTORY_TRANSFER`, both exact Location scopes, deterministic
+Location-then-Variant locking, durable in-transit line evidence and immutable
+`TRANSFER_OUT`/`TRANSFER_IN` movements. Create, dispatch and receive use
+actor/key/action/payload idempotency and ADR-0044 explicit same-key retry.
+Physical Return remains unimplemented and blocked by REQ-FUL-003.

@@ -6,6 +6,7 @@ import { errorCopy, formatDateTime, formatVnd } from '../format'
 import { statusLabel, t } from '../i18n'
 import { evidenceOptions, evidenceValueLabel, type ProductEvidence } from '../product-evidence'
 import { hasPermission } from '../session'
+import { submitRetryableCommand, type RetryableCommand } from '../retryable-command'
 
 const route = useRoute()
 const productId = computed(() => String(route.params.id))
@@ -21,6 +22,11 @@ const evidence = ref<ProductEvidence>(emptyEvidence())
 const editingBalance = ref('')
 const targetOnHand = ref('')
 const adjustmentReason = ref('')
+const receivingBalance = ref('')
+const receiptQuantity = ref('')
+const receiptNote = ref('')
+const receiptCommand = ref<RetryableCommand>()
+const adjustmentCommand = ref<RetryableCommand>()
 const editingIdentity = ref(false)
 const addingVariant = ref(false)
 const identity = reactive({ name: '', category: '', collection: '', heroImage: '', primaryImage: '' })
@@ -35,6 +41,7 @@ const colorGroups = computed(() => {
   return [...grouped.entries()].map(([color, variants]) => ({ color, variants }))
 })
 const adjustmentRow = computed(() => balances.value.find(row => balanceKey(row) === editingBalance.value))
+const receiptRow = computed(() => balances.value.find(row => balanceKey(row) === receivingBalance.value))
 const adjustmentDifference = computed(() => {
   const target = Number(targetOnHand.value)
   return adjustmentRow.value && Number.isInteger(target) ? target - adjustmentRow.value.onHand : null
@@ -180,10 +187,38 @@ async function restore(variant: ManagerVariantDetail) {
 }
 
 function startAdjustment(row: ManagerInventoryBalance) {
+  receivingBalance.value = ''
   editingBalance.value = balanceKey(row)
   targetOnHand.value = String(row.onHand)
   adjustmentReason.value = ''
+  adjustmentCommand.value = undefined
   error.value = ''; success.value = ''
+}
+
+function startReceipt(row: ManagerInventoryBalance) {
+  editingBalance.value = ''
+  receivingBalance.value = balanceKey(row)
+  receiptQuantity.value = ''
+  receiptNote.value = ''
+  receiptCommand.value = undefined
+  error.value = ''; success.value = ''
+}
+
+async function receive() {
+  const row = receiptRow.value
+  const quantity = Number(receiptQuantity.value)
+  if (!row || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    error.value = t('Enter a positive whole receipt quantity.'); return
+  }
+  const note = receiptNote.value.trim()
+  const fingerprint = JSON.stringify([row.variantId, row.locationId, quantity, note])
+  busy.value = `receipt:${receivingBalance.value}`; error.value = ''; success.value = ''
+  try {
+    const result = await submitRetryableCommand(receiptCommand, fingerprint,
+      key => api.receiveManagerInventory(row.variantId, row.locationId, quantity, note, key))
+    receivingBalance.value = ''; await load(); success.value = t('Stock received. On hand is now {count}.').replace('{count}', String(result.afterOnHand))
+  } catch (reason) { error.value = errorCopy(reason) }
+  finally { busy.value = '' }
 }
 
 async function adjust() {
@@ -192,13 +227,16 @@ async function adjust() {
   if (!row || !Number.isSafeInteger(target) || target < row.reserved || !adjustmentReason.value.trim()) {
     error.value = t('Enter a whole on-hand target that is not below reserved stock, and give a reason.'); return
   }
+  const reason = adjustmentReason.value.trim()
+  const fingerprint = JSON.stringify([row.variantId, row.locationId, target, reason, row.balanceVersion])
   busy.value = `inventory:${editingBalance.value}`; error.value = ''; success.value = ''
   try {
-    await api.adjustManagerInventory(row.variantId, row.locationId, target, adjustmentReason.value.trim(), row.balanceVersion, crypto.randomUUID())
+    await submitRetryableCommand(adjustmentCommand, fingerprint,
+      key => api.adjustManagerInventory(row.variantId, row.locationId, target, reason, row.balanceVersion, key))
     editingBalance.value = ''; await load(); success.value = t('On-hand inventory adjusted.')
   } catch (reason) {
     if (reason instanceof ApiError && reason.code === 'INVENTORY_BALANCE_CHANGED') {
-      editingBalance.value = ''; await load(); error.value = t('Inventory changed before this adjustment. The latest balance is shown; review and try again.')
+      editingBalance.value = ''; adjustmentCommand.value = undefined; await load(); error.value = t('Inventory changed before this adjustment. The latest balance is shown; review and try again.')
     } else error.value = errorCopy(reason)
   } finally { busy.value = '' }
 }
@@ -276,7 +314,8 @@ onMounted(load)
         <div class="catalog-section-heading"><div><h2 id="catalog-inventory-title">{{ t('Inventory by assigned location') }}</h2><p>{{ t('On hand and reserved are separate. Available equals on hand minus reserved.') }}</p></div></div>
         <p v-if="!balances.length" class="inline-state">{{ t('No enabled location assignment or inventory rows are available.') }}</p>
         <div v-else class="catalog-table-wrap" role="region" tabindex="0" :aria-label="t('Inventory by assigned location')"><table class="catalog-inventory-table"><thead><tr><th>{{ t('Variant') }}</th><th>{{ t('Location') }}</th><th>{{ t('On hand') }}</th><th>{{ t('Reserved') }}</th><th>{{ t('Available') }}</th><th>{{ t('Updated') }}</th><th v-if="hasPermission('INVENTORY_ADJUST')">{{ t('Action') }}</th></tr></thead>
-          <tbody><template v-for="row in balances" :key="balanceKey(row)"><tr><th scope="row">{{ row.sku }}<small>{{ row.color }} · {{ row.size }}</small></th><td>{{ row.branchCode }} / {{ row.locationCode }}<small>{{ row.locationName }}</small></td><td class="number">{{ row.onHand }}</td><td class="number">{{ row.reserved }}</td><td class="number"><strong>{{ row.available }}</strong></td><td>{{ row.updatedAt ? formatDateTime(row.updatedAt) : t('No balance yet') }}</td><td v-if="hasPermission('INVENTORY_ADJUST')"><button class="text-button" type="button" :disabled="!!busy" @click="startAdjustment(row)">{{ t('Adjust on hand') }}</button></td></tr>
+          <tbody><template v-for="row in balances" :key="balanceKey(row)"><tr><th scope="row">{{ row.sku }}<small>{{ row.color }} · {{ row.size }}</small></th><td>{{ row.branchCode }} / {{ row.locationCode }}<small>{{ row.locationName }}</small></td><td class="number">{{ row.onHand }}</td><td class="number">{{ row.reserved }}</td><td class="number"><strong>{{ row.available }}</strong></td><td>{{ row.updatedAt ? formatDateTime(row.updatedAt) : t('No balance yet') }}</td><td v-if="hasPermission('INVENTORY_ADJUST')"><div class="catalog-variant-actions"><button class="text-button" type="button" :disabled="!!busy" @click="startReceipt(row)">{{ t('Receive stock') }}</button><button class="text-button" type="button" :disabled="!!busy" @click="startAdjustment(row)">{{ t('Adjust on hand') }}</button></div></td></tr>
+            <tr v-if="receivingBalance === balanceKey(row)" class="inventory-adjustment-row"><td :colspan="hasPermission('INVENTORY_ADJUST') ? 7 : 6"><form @submit.prevent="receive"><dl><div><dt>{{ t('Current on hand') }}</dt><dd>{{ row.onHand }}</dd></div><div><dt>{{ t('Reserved read-only') }}</dt><dd>{{ row.reserved }}</dd></div><div><dt>{{ t('Available after receipt') }}</dt><dd>{{ Number.isSafeInteger(Number(receiptQuantity)) && Number(receiptQuantity) > 0 ? row.available + Number(receiptQuantity) : '—' }}</dd></div></dl><label>{{ t('Receipt quantity') }}<input v-model="receiptQuantity" type="number" inputmode="numeric" min="1" step="1" required :disabled="!!busy"></label><label>{{ t('Receipt note / reference') }}<input v-model="receiptNote" maxlength="256" :disabled="!!busy"></label><div><button class="primary-button" type="submit" :disabled="!!busy">{{ t('Receive stock') }}</button><button class="text-button" type="button" :disabled="!!busy" @click="receivingBalance = ''">{{ t('Cancel') }}</button></div></form></td></tr>
             <tr v-if="editingBalance === balanceKey(row)" class="inventory-adjustment-row"><td :colspan="hasPermission('INVENTORY_ADJUST') ? 7 : 6"><form @submit.prevent="adjust"><dl><div><dt>{{ t('Current on hand') }}</dt><dd>{{ row.onHand }}</dd></div><div><dt>{{ t('Reserved read-only') }}</dt><dd>{{ row.reserved }}</dd></div><div><dt>{{ t('Difference') }}</dt><dd>{{ adjustmentDifference == null ? '—' : adjustmentDifference > 0 ? `+${adjustmentDifference}` : adjustmentDifference }}</dd></div></dl><label>{{ t('New on-hand target') }}<input v-model="targetOnHand" type="number" inputmode="numeric" min="0" step="1" :disabled="!!busy"></label><label>{{ t('Adjustment reason') }}<input v-model.trim="adjustmentReason" maxlength="256" :disabled="!!busy"></label><div><button class="primary-button" type="submit" :disabled="!!busy">{{ t('Apply on-hand target') }}</button><button class="text-button" type="button" :disabled="!!busy" @click="editingBalance = ''">{{ t('Cancel') }}</button></div></form></td></tr></template></tbody>
         </table></div>
       </section>

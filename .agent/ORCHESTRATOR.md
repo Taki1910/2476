@@ -111,5 +111,6 @@ mismatch; do not change business semantics just to make files agree.
 - Working tree is intentionally dirty and user-owned.
 - Do not stage, commit, switch, restore, stash, reset, clean, merge, rebase or push.
 - `docs/FINAL_FREEZE.md` is the latest verified product baseline.
-- HEAD `6962e65` is newer observable source, not automatically a certified baseline.
+- HEAD `3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f` plus the intentional dirty
+  working tree is the current observable source, not automatically a certified baseline.
 - Live OpenAI provider smoke remains pending and must not block deterministic P5A.

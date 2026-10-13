@@ -33,7 +33,8 @@ describe('durable checkout identity', () => {
     expect(send).toHaveBeenCalledOnce()
   })
   it('replays the identical key and payload after timeout and simulated reload', async () => {
-    const send = vi.spyOn(api, 'cartCheckout').mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValue({ id: 'same-order' } as Order)
+    const contention = new ApiError(503, 'CONCURRENCY_RETRY_REQUIRED', 'safe', undefined, undefined, {}, true, true)
+    const send = vi.spyOn(api, 'cartCheckout').mockRejectedValueOnce(contention).mockResolvedValue({ id: 'same-order' } as Order)
     const first = beginCheckout('owner', 'quote', items)
     await expect(submitCheckout(first)).rejects.toThrow()
     const restored = readCheckout('owner')!
@@ -100,7 +101,8 @@ describe('durable checkout identity', () => {
     expect(checkoutLocked.value).toBe(false)
   })
   it('retains payment initiation identity after an uncertain response', async () => {
-    const pay = vi.spyOn(api, 'pay').mockRejectedValue(new TypeError('network'))
+    const contention = new ApiError(503, 'CONCURRENCY_RETRY_REQUIRED', 'safe', undefined, undefined, {}, true, true)
+    const pay = vi.spyOn(api, 'pay').mockRejectedValue(contention)
     await expect(recoverablePayment('order')).rejects.toThrow()
     await expect(recoverablePayment('order')).rejects.toThrow()
     expect(pay.mock.calls[0]).toEqual(pay.mock.calls[1])

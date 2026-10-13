@@ -68,6 +68,7 @@ export function homeFor(account: Account) {
   if (account.permissions.includes('CATALOG_BROWSE')) return '/'
   if (account.permissions.includes('FULFILL_ORDER')) return '/operations/fulfillments'
   if (account.permissions.includes('POS_SELL')) return '/operations/pos'
+  if (account.permissions.includes('INVENTORY_TRANSFER')) return '/operations/inventory/transfers'
   if (account.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))) return '/operations/people'
   if (account.permissions.includes('STOREFRONT_MANAGE')) return '/operations/storefront'
   return '/operations/reports'

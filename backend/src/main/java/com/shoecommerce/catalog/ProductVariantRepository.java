@@ -20,4 +20,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select variant from ProductVariant variant where variant.publicId in :publicIds order by variant.id")
     List<ProductVariant> findAllLockedByPublicId(@Param("publicIds") List<UUID> publicIds);
+    @Query("select variant from ProductVariant variant where variant.publicId in :publicIds order by variant.id")
+    List<ProductVariant> findAllByPublicId(@Param("publicIds") List<UUID> publicIds);
 }

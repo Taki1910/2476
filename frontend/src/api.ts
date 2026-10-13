@@ -109,7 +109,8 @@ export type InventoryReservation = { id: string; variantId: string; sku: string;
 export type InventoryReport = { context: ReportContext; sku?: string; rows: InventoryRow[]; movements: InventoryMovement[]; reservations: InventoryReservation[] }
 export type ReconciliationEntry = { category: string; referenceId: string; orderId: string; status: string; amount: string; netEffect: string; occurredAt: string; exception: boolean }
 export type ReconciliationReport = { context: ReportContext; entries: ReconciliationEntry[]; exceptionAmount: string; exceptionCount: number; currency: 'VND' }
-export type Problem = { status?: number; code?: string; detail?: string; variantId?: string; fieldErrors?: Record<string, string> }
+export type PaymentReconciliationResult = { attemptId: string; orderId: string; providerReference: string; previousState: string; currentState: string; outcome: 'RESOLVED_PAID'|'RESOLVED_FAILED'|'STILL_UNRESOLVED'|'STILL_REVIEW_REQUIRED'; resolved: boolean; replayed: boolean }
+export type Problem = { status?: number; code?: string; detail?: string; variantId?: string; fieldErrors?: Record<string, string>; retryable?: boolean; reuseSameIdempotencyKey?: boolean }
 export type StaffLocation = { branchId: string; branchCode: string; branchName: string; locationId: string; locationCode: string; locationName: string }
 export type StaffAccessRecord = { accountId: string; login: string; status: string; baseRole: string; inheritedPermissions: string[]; directCapabilities: string[]; assignments: StaffLocation[] }
 export type ManagerInventorySummary = { onHand: number; reserved: number; available: number; state: 'AVAILABLE' | 'SOLD_OUT' | 'NO_INVENTORY_EVIDENCE'; updatedAt: string | null }
@@ -118,6 +119,13 @@ export type ManagerVariantDetail = { id: string; sku: string; barcode: string | 
 export type ManagerProductDetail = { id: string; name: string; category: string | null; collection: string | null; heroImage: string | null; primaryImage: string | null; evidence: ProductEvidence | null; entityVersion: number; variantCount: number; publishedVariantCount: number; hasDuplicateOptions: boolean; variants: ManagerVariantDetail[] }
 export type ManagerInventoryBalance = { variantId: string; sku: string; size: string; color: string; status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'; locationId: string; locationCode: string; locationName: string; branchId: string; branchCode: string; branchName: string; hasBalance: boolean; onHand: number; reserved: number; available: number; balanceVersion: number | null; updatedAt: string | null }
 export type ManagerProductInventory = { productId: string; balances: ManagerInventoryBalance[] }
+export type ManagerInventoryReceipt = { movementId: string; variantId: string; locationId: string; quantity: number; beforeOnHand: number; afterOnHand: number; reserved: number; available: number; onHandDelta: number; reservedDelta: number; note: string | null; created: boolean }
+export type InventoryTransferLine = { variantId: string; sku: string; requestedQuantity: number; dispatchedQuantity: number; receivedQuantity: number }
+export type InventoryTransfer = { transferId: string; sourceLocationId: string; sourceLocationCode: string; sourceLocationName: string; destinationLocationId: string; destinationLocationCode: string; destinationLocationName: string; status: 'DRAFT' | 'DISPATCHED' | 'RECEIVED'; createdAt: string; dispatchedAt: string | null; receivedAt: string | null; items: InventoryTransferLine[]; replayed: boolean }
+export type InventoryTransferLocation = { branchId: string; branchCode: string; locationId: string; locationCode: string; locationName: string }
+export type InventoryTransferStock = { locationId: string; variantId: string; sku: string; productName: string; onHand: number; reserved: number; available: number }
+export type InventoryTransferOptions = { locations: InventoryTransferLocation[]; stock: InventoryTransferStock[] }
+export type CreateInventoryTransfer = { sourceLocationId: string; destinationLocationId: string; items: { variantId: string; quantity: number }[] }
 export type ManagerProductState = { id: string; name: string; category: string | null; collection: string | null; heroImage: string | null; primaryImage: string | null; entityVersion: number }
 export type ManagerProductCommand = { name: string; category: string | null; collection: string | null; heroImage: string | null; primaryImage: string | null }
 export type ManagerVariantCommand = { sku: string; size: string; color: string; barcode?: string | null }
@@ -126,7 +134,8 @@ export type ProductPresentationReference = { id: string; name: string; category:
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public variantId?: string,
-    public retryAfterSeconds?: number, public fieldErrors: Record<string, string> = {}) {
+    public retryAfterSeconds?: number, public fieldErrors: Record<string, string> = {},
+    public retryable = false, public reuseSameIdempotencyKey = false) {
     super(message)
   }
 }
@@ -138,7 +147,7 @@ async function parse<T>(response: Response): Promise<T> {
   const problem = await response.json().catch(() => ({} as Problem)) as Problem
   const retry = response.headers.get('Retry-After') ?? ''
   const retryAfterSeconds = response.status === 429 && /^\d+$/.test(retry) && Number.isSafeInteger(Number(retry)) && Number(retry) > 0 ? Number(retry) : undefined
-  throw new ApiError(response.status, problem.code ?? `HTTP_${response.status}`, problem.detail ?? 'The request could not be completed.', problem.variantId, retryAfterSeconds, problem.fieldErrors)
+  throw new ApiError(response.status, problem.code ?? `HTTP_${response.status}`, problem.detail ?? 'The request could not be completed.', problem.variantId, retryAfterSeconds, problem.fieldErrors, problem.retryable === true, problem.reuseSameIdempotencyKey === true)
 }
 
 // Demand identity only; amounts and availability are exclusively server-owned.
@@ -304,6 +313,24 @@ export const api = {
     const token = await csrf()
     return request(`/operations/inventory/variants/${encodeURIComponent(variantId)}/locations/${encodeURIComponent(locationId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token }, body: JSON.stringify({ onHand, reason, expectedBalanceVersion }) })
   },
+  async receiveManagerInventory(variantId: string, locationId: string, quantity: number, note: string, idempotencyKey: string) {
+    const token = await csrf()
+    return request<ManagerInventoryReceipt>(`/operations/inventory/variants/${encodeURIComponent(variantId)}/locations/${encodeURIComponent(locationId)}/receipts`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token }, body: JSON.stringify({ quantity, note }) })
+  },
+  inventoryTransfers: () => request<InventoryTransfer[]>('/operations/inventory/transfers'),
+  inventoryTransferOptions: () => request<InventoryTransferOptions>('/operations/inventory/transfers/options'),
+  async createInventoryTransfer(command: CreateInventoryTransfer, idempotencyKey: string) {
+    const token = await csrf()
+    return request<InventoryTransfer>('/operations/inventory/transfers', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token }, body: JSON.stringify(command) })
+  },
+  async dispatchInventoryTransfer(transferId: string, idempotencyKey: string) {
+    const token = await csrf()
+    return request<InventoryTransfer>(`/operations/inventory/transfers/${encodeURIComponent(transferId)}/dispatch`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token } })
+  },
+  async receiveInventoryTransfer(transferId: string, idempotencyKey: string) {
+    const token = await csrf()
+    return request<InventoryTransfer>(`/operations/inventory/transfers/${encodeURIComponent(transferId)}/receive`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token } })
+  },
   savedVouchers: (page=0,size=20)=>request<Page<SavedVoucher>>(`/me/voucher-claims?page=${page}&size=${size}`),
   voucherClaimState: (familyId:string)=>request<VoucherClaimState>(`/me/voucher-claims/${encodeURIComponent(familyId)}`),
   async claimVoucher(familyId:string){const token=await csrf();return request<VoucherClaim>(`/me/voucher-claims/${encodeURIComponent(familyId)}`,{method:'PUT',headers:{[token.headerName]:token.token}})},
@@ -352,6 +379,12 @@ export const api = {
   productSales: (fromDate: string, toDate: string, locationId: string) => request<ProductSalesReport>(`/operations/reports/product-sales?${new URLSearchParams({ fromDate, toDate, locationId })}`),
   inventoryReport: (locationId: string, sku = '') => request<InventoryReport>(`/operations/reports/inventory?${new URLSearchParams({ locationId, ...(sku ? { sku } : {}) })}`),
   reconciliation: (fromDate: string, toDate: string, locationId: string) => request<ReconciliationReport>(`/operations/reports/reconciliation?${new URLSearchParams({ fromDate, toDate, locationId })}`),
+  async reconcilePaymentAttempt(attemptId: string, idempotencyKey: string) {
+    const token = await csrf()
+    return request<PaymentReconciliationResult>(`/operations/payment-attempts/${encodeURIComponent(attemptId)}/reconcile`, {
+      method: 'POST', headers: { 'Idempotency-Key': idempotencyKey, [token.headerName]: token.token },
+    })
+  },
   staffAccess: () => request<StaffAccessRecord[]>('/operations/staff-access'),
   globalStaffAccess: () => request<StaffAccessRecord[]>('/admin/identity/staff'),
   staffLocations: () => request<StaffLocation[]>('/operations/staff-access/locations'),

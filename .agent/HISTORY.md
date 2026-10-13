@@ -1,5 +1,43 @@
 # Progress History
 
+## Checkpoint — 2026-10-13 autonomous frontend UX polish
+
+Agent: `/root`
+
+- Kept the intentionally dirty user-owned checkout and made exact pre-slice
+  frontend copies under `artifacts/autonomous-ux-20261013-before/`.
+- Replaced hard-to-discover scrolling staff links with a permission-gated,
+  semantic Operations disclosure; the cart success toast now retranslates
+  while visible when VI/EN changes.
+- New and extended behavior tests were red before the implementation. Final
+  frontend regression passed 330/330 across 29 files; typecheck and production
+  build passed. Desktop and 390x844 browser checks passed after correcting
+  a 1 px menu overflow; diff check passed.
+- The synthetic loopback preview did not use a database or provider. No
+  business-rule, API, migration, protected datasource or certified-baseline
+  promotion was performed.
+
+## Checkpoint — 2026-10-12 DB-RECOVERY-01 controlled rebuild
+
+Agent: `/root`
+
+- Preserved original `shoe_commerce` at V20 and created only the authorized
+  `shoe_commerce_rebuild_20261012` target after an explicit absence check.
+- Applied and validated Flyway V1-V35, then ran `DemoDataBootstrap` under the
+  `demo` profile with the datasource explicitly bound to the rebuild database,
+  demo providers active and merchandising AI disabled.
+- Classified all seeded rows as SYNTHETIC DEMO DATA; no historical production
+  transaction, payment confirmation or audit history was invented.
+- Created a verified COPY_ONLY backup of the original V20 database and restored
+  it to `shoe_commerce_upgrade_v20_20261012`; V21-V35 and Hibernate validation
+  passed without repair, baseline or migration edits.
+- Fresh and upgraded V35 schemas are semantically equivalent. `DBCC CHECKDB`,
+  constraint, catalog, inventory, commerce, payment, fulfillment, IAM and
+  idempotency checks found no data violations.
+- Final rebuild verdict: `DB REBUILD PASSED — READY FOR PRE-AUD03`.
+- Independent recertification verdict: `DB PREFLIGHT PASSED`. AUD-03 was not
+  started; Inventory Transfer awaits a later explicit user instruction.
+
 ## Checkpoint — 2026-09-29 recovery bootstrap
 
 Agent: Progress Keeper `/root`
@@ -104,3 +142,156 @@ Agent: `/root`
 - Extended the global `session-continuity` skill and its behavioral contract with
   Project Memory scenarios PM-A through PM-J.
 - No Git state-changing operation or business-code change was performed.
+
+## Checkpoint — 2026-10-08 REC-001 Inventory Receive recovery
+
+Agent: `/root`
+
+- Rehydrated the inventory model, permissions, Location scope, idempotency,
+  audit and SQL constraint patterns before implementation.
+- Added a distinct location-scoped direct Receive use case: positive quantity
+  increases `onHand`, leaves `reserved` unchanged, preserves derived available,
+  writes one immutable `RECEIVE` movement and transactional audit event.
+- Added actor-scoped idempotency replay/conflict behavior, pessimistic balance
+  protection, V34 movement constraints and exact replay snapshots.
+- Added the minimal existing-manager-table workflow with stable retry identity;
+  no redesign, new dependency, Transfer or Return implementation was added.
+- Verified backend focused 4/4, SQL migration plus inventory integration 9/9
+  with no skips, full frontend 313/313, TypeScript/build, UI detector and diff check.
+- Corrected REQ-INV-002 from false completion to `in_progress`; registered the
+  completed REC-001 as REQ-INV-003. REC-002 remains transfer plus
+  physical-return movements and was not started.
+
+## Checkpoint — 2026-10-09 AUD-01 Transaction Contention Contract
+
+Agent: `/root`
+
+- Added exact SQL Server error-number classification for 1205/1222 across
+  throwable and `SQLException#getNextException()` chains; broad SQLState and
+  Spring lock exceptions remain non-retryable.
+- Added a safe HTTP 503 ProblemDetail contract and caller-owned explicit retry
+  using the exact payload and same idempotency key, with no server/provider retry.
+- Verified real SQL Server deadlock and lock timeout rollback, replay, mismatch
+  conflict and unrelated database failure behavior.
+- Added strict frontend machine-field parsing, safe VI/EN copy and stable retry
+  identities for checkout/payment, receipt/adjustment, cancellation/void,
+  handover/dispatch/deliver and existing POS behavior.
+- Added ADR-0044 and reconciled Architecture, BR-LOCK-105, API README and the
+  historical ADR-0026/0032 statements without rewriting history.
+- Verified backend 106/106, focused SQL 89/89, migration 1/1, frontend focused
+  116/116 and full 321/321, typecheck/build and diff checks. The independent
+  review's three P2/P3 findings were remediated and the re-review found no
+  actionable findings. No V35, dependency, authorization expansion, raw-detail
+  response or AUD-02/AUD-03/REC-002 work.
+
+## Checkpoint — 2026-10-11 AUD-02 VNPAY Manual QueryDr Reconciliation
+
+Agent: `/root`
+
+- Added an authorized, exact-Location-scoped manual QueryDr workflow for existing
+  `PENDING`/`REVIEW_REQUIRED` VNPAY attempts without creating another attempt.
+- Added official signed request construction and signature-first response checks,
+  including exact identity/amount/type matching and mandatory bounded numeric
+  response status/provider transaction fields.
+- Added durable actor/key/attempt idempotency and saved verified evidence around
+  one provider call outside database transactions; same-key local-contention retry
+  applies saved evidence without a second QueryDr.
+- Routed definitive outcomes through existing payment-result invariants; invalid,
+  mismatched, unavailable and unresolved outcomes cannot bypass Order/Reservation
+  rules or expose raw provider details.
+- Added V35, PAYMENT_RECONCILE authorization, operations API/UI, VI/EN copy and
+  ADR-0045 with architecture, lifecycle, business, security and API reconciliation.
+- Verified backend unit 123/123, clean SQL acceptance 50/50 with fresh/upgrade
+  migration and real contention, frontend 327/327, typecheck/build and diff check.
+  Independent re-review found no remaining Critical, Important or Minor issues.
+- Scheduled reconciliation worker and live VNPAY certification remain
+  unimplemented. AUD-03/REC-002 was not started.
+
+## Checkpoint — 2026-10-12 AUD-03 / REC-002 Inventory Transfer
+
+Agent: `/root`
+
+- Resumed only after DB-RECOVERY-01 and independent PRE-AUD03 returned the
+  authorized database gate PASS; rechecked the prescribed branch/HEAD and
+  preserved all existing dirty work and protected databases.
+- Added multi-line `DRAFT -> DISPATCHED -> RECEIVED` Transfer with dedicated
+  permission, both exact Location scopes, durable actor/key/action/payload
+  idempotency and deterministic Location-then-Variant balance locking.
+- Draft changes no stock. Full dispatch subtracts only source available on-hand
+  and records `TRANSFER_OUT`; full receipt adds destination on-hand and records
+  `TRANSFER_IN`. Reserved is unchanged and in-transit provenance is durable.
+- Added V36, REST commands/list/options, minimal Vue operations workflow,
+  explicit same-key client retry and safe VI/EN copy. Added ADR-0046 and
+  reconciled lifecycle, domain, architecture, business, security and API docs.
+- Verified focused backend 7/7; disposable SQL Transfer/AUD-01/REC-001/
+  checkout/POS regression 68/68; fresh V1->V36 and V35->V36 migration; DBCC,
+  constraints and zero invariant/provenance violations; frontend 329/329,
+  typecheck/build; diff and five-axis review.
+- Closed the independent review's two Required findings by rendering dispatched/
+  received quantities and lifecycle timestamps with exact VI/EN in-transit copy,
+  and adding unauthorized/invalid/disabled source plus multi-line dispatch and
+  receive rollback SQL evidence. Independent re-review found no remaining
+  Critical or Required findings.
+- Original `shoe_commerce` V20, rebuilt demo V35 and upgrade-copy V35 remained
+  ONLINE and unchanged. Physical-return movement was not implemented and stays
+  blocked by REQ-FUL-003; REQ-INV-002 therefore remains `in_progress`.
+
+## Checkpoint — 2026-10-13 POST-AUD03 Integration and Milestone Proposal
+
+Agent: `/root`
+
+- Created the collision-free V36 demo candidate
+  `shoe_commerce_v36_demo_candidate_20261012_232455` from a verified V35
+  COPY_ONLY/CHECKSUM backup. V36 migration, Flyway 36/36, Hibernate validation,
+  DBCC CHECKDB, constraints and pre/post migration data preservation passed.
+- Ran controlled real-stack Transfer, authorization, idempotency, checkout and
+  representative public/operations smoke. The candidate now contains clearly
+  identified synthetic smoke evidence and was not promoted.
+- Re-ran the exact SQL suites on a fresh disposable V1->V36 database: 68/68 PASS.
+  Frontend regression passed 329/329 with typecheck/build; `git diff --check`
+  passed. At this historical checkpoint local visual browser access was blocked;
+  the later gate-closure checkpoint records the independent browser PASS.
+- Independent five-axis review found no Critical or Required integration issue.
+  Rendered-component/browser coverage for Transfer remains a Recommended test
+  improvement, not a correctness failure demonstrated by current evidence.
+- Reconciled all 46 registry IDs against the acceptance matrix: 38 completed,
+  1 in progress, 4 planned, 2 superseded and 1 cancelled, with no orphan ID.
+  Physical-return movement remains NOT IMPLEMENTED and blocked by REQ-FUL-003.
+- Researched and ranked existing future scope without admitting it: REQ-PAY-003
+  live VNPAY sandbox certification first, REQ-NOT-001 second, and REQ-FUL-003
+  postponed pending return/inspection/refund policy decisions.
+- Protected V20/V35/V35 databases and user-owned Git changes were preserved.
+  Temporary services, SQL principal and disposable test database were removed;
+  the backup and V36 candidate remain for a separate promotion decision.
+
+## Checkpoint — 2026-10-13 POST-AUD03 Gate Closure and REQ-PAY-003 Preparation
+
+Agent: `/root`
+
+- Reverified branch `codex/remediation-audit-20260913`, HEAD
+  `3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f`, continuous V1-V36 migration source,
+  protected database identities and the intentional user-owned dirty worktree.
+- Ran real browser verification against the explicit V36 candidate at desktop
+  1440x900 and mobile 390x844. Transfer validation and full lifecycle, VI/EN,
+  storefront, PDP, cart and Operations navigation rendered with no browser
+  console warning/error or document-level horizontal overflow.
+- Classified two non-blocking UX observations: contained horizontal mobile nav
+  scrolling and a success toast that keeps its original locale after a mid-page
+  language switch. No critical action or information was hidden.
+- Added one clearly identified synthetic visual-gate Transfer and completed it;
+  the candidate now has two received Transfers, three lines and four units.
+  Inventory remains 469 on-hand, 11 reserved and 458 available across 146 rows
+  with zero invariant violations. Five demo accounts remained accessible.
+- Confirmed 18 products with media, no published HOME revision and zero public
+  offers. The deterministic fallback storefront renders; absent curated content
+  is demo configuration, not an application regression.
+- Returned `V36 DEMO PROMOTION READY` without changing any datasource. Recommended
+  a separate pristine V36 candidate only if presentation history must exclude
+  the preserved synthetic acceptance artifacts.
+- Reconciled current official VNPAY 2.1.0 PAY/IPN/Return/QueryDr/SIT material and
+  wrote `docs/REQ-PAY-003-VNPAY-SANDBOX-CERTIFICATION-PLAN.md`. Focused payment
+  tests passed 17/17 and Inventory Transfer frontend tests passed 2/2. No VNPAY
+  call, tunnel, secret disclosure or new payment behavior occurred.
+- REQ-PAY-003 remains planned until merchant credentials, an approved public
+  HTTPS IPN and redacted live sandbox evidence exist. All AUD-03/REQ-INV-002/
+  REQ-FUL-003 status and exclusions remain unchanged.

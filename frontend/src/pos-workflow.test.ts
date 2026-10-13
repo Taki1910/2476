@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { acceptScannedCandidate, candidateStateLabel, evaluateCashTender, moveCandidateSelection, selectedCandidate } from './pos-workflow'
+import { acceptScannedCandidate, candidateStateLabel, evaluateCashTender, moveCandidateSelection, posSaleKeyAfterFailure, selectedCandidate } from './pos-workflow'
+import posSource from './views/PosView.vue?raw'
 
 const candidates = [{ id: 'variant-a' }, { id: 'variant-b' }]
 
@@ -34,6 +35,14 @@ describe('P4A cashier workflow', () => {
 })
 
 describe('P4 POS cash tender', () => {
+  it('keeps the reviewed sale key after an unknown retryable failure', () => {
+    expect(posSource.match(/await api\.sellPos/g)).toHaveLength(1)
+    expect(posSource).toContain("const code = reason instanceof ApiError ? reason.code : ''")
+    expect(posSource).not.toMatch(/CONCURRENCY_RETRY_REQUIRED[\s\S]{0,200}saleKey\.value = ''/)
+    expect(posSaleKeyAfterFailure('sale-key', 'CONCURRENCY_RETRY_REQUIRED')).toBe('sale-key')
+    expect(posSaleKeyAfterFailure('sale-key', 'IDEMPOTENCY_KEY_CONFLICT')).toBe('')
+  })
+
   it('accepts exact integer VND with zero change', () => {
     expect(evaluateCashTender('1250000', 1250000)).toEqual({
       status: 'ready', received: 1250000, change: 0,

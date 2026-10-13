@@ -12,6 +12,8 @@ import PaymentResultView from './views/PaymentResultView.vue'
 import PickupQueueView from './views/PickupQueueView.vue'
 import PickupDetailView from './views/PickupDetailView.vue'
 import PeopleAccessView from './views/PeopleAccessView.vue'
+import pickupDetailSource from './views/PickupDetailView.vue?raw'
+import orderStatusSource from './views/OrderStatusView.vue?raw'
 
 // Run the views' normal initial loads during SSR for component-level checks.
 // These are unit fixtures, not browser or transaction acceptance evidence.
@@ -133,5 +135,23 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
     expect(html).toContain('staff.demo')
     expect(html).toContain(t('Base role'))
     expect(html).toContain('POS_SELL')
+  })
+})
+
+describe('terminal command retry identity', () => {
+  it('routes every fulfillment terminal action through one retained command key', () => {
+    expect(pickupDetailSource).toContain("submitRetryableCommand(terminalCommand, JSON.stringify([action, task.value.fulfillmentId])")
+    expect(pickupDetailSource.match(/await api\.handoverPickup/g)).toHaveLength(1)
+    expect(pickupDetailSource.match(/await api\.dispatchFulfillment/g)).toHaveLength(1)
+    expect(pickupDetailSource.match(/await api\.deliverFulfillment/g)).toHaveLength(1)
+    expect(pickupDetailSource).not.toContain('crypto.randomUUID()')
+  })
+
+  it('keeps cancellation and void retry identities separate and explicit', () => {
+    expect(orderStatusSource).toContain("JSON.stringify(['CANCEL', requestedId])")
+    expect(orderStatusSource).toContain("JSON.stringify(['RETRY_VOID', requestedId])")
+    expect(orderStatusSource.match(/api\.cancelConfirmed/g)).toHaveLength(1)
+    expect(orderStatusSource.match(/api\.retryVoid/g)).toHaveLength(1)
+    expect(orderStatusSource).not.toContain('crypto.randomUUID()')
   })
 })

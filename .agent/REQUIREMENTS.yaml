@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-10-07
+updated: 2026-10-13
 allowed_statuses:
   - planned
   - in_progress
@@ -121,12 +121,32 @@ requirements:
   - id: REQ-INV-002
     area: Inventory
     requirement: Make reserve, release, commit, receive, adjust, transfer, and return explicit transactional operations with immutable movements.
-    source: AGENTS.md; BR-INV-101 through BR-INV-107
-    status: completed
+    source: AGENTS.md; BR-INV-101 through BR-INV-112; ADR-0046
+    status: in_progress
     introduced: unknown (backfill)
     superseded_by: null
-    evidence: [docs/DOMAIN_MODEL.md, docs/LIFECYCLES.md, docs/FINAL_FREEZE.md]
-    notes: Return product workflow itself remains deferred under REQ-FUL-003.
+    evidence: [docs/ADR/0046-inventory-transfer-lifecycle.md, docs/DOMAIN_MODEL.md, docs/LIFECYCLES.md, backend/src/main/java/com/shoecommerce/inventory/InventoryTransferService.java, backend/src/main/resources/db/migration/V36__inventory_transfer.sql, backend/src/test/java/com/shoecommerce/inventory/InventoryTransferExternalIT.java, frontend/src/views/InventoryTransfersView.vue]
+    notes: Reserve, release, commit, adjust, direct receive and multi-line Transfer DRAFT -> DISPATCHED -> RECEIVED are implemented. Physical-return movement remains unimplemented and blocked by REQ-FUL-003 Return/inspection evidence, so REQ-INV-002 remains in_progress.
+
+  - id: REQ-INV-003
+    area: Inventory
+    requirement: Receive a strictly positive stock quantity into one authorized Location idempotently, increasing onHand while preserving reserved and appending distinct RECEIVE movement and audit evidence.
+    source: Historical Plan Recovery Audit REC-001; BR-INV-108
+    status: completed
+    introduced: 2026-10-08
+    superseded_by: null
+    evidence: [backend/src/main/java/com/shoecommerce/inventory/InventoryReceiptService.java, backend/src/main/resources/db/migration/V34__inventory_receive.sql, backend/src/test/java/com/shoecommerce/FlywayV34UpgradeExternalIT.java, backend/src/test/java/com/shoecommerce/inventory/VerticalSlice2ExternalIT.java, frontend/src/views/ProductManagementDetailView.vue]
+    notes: Reuses INVENTORY_ADJUST and persisted Location scope. Same actor/key/payload replays one receipt; payload mismatch conflicts. This completes REC-001 only, not REC-002.
+
+  - id: REQ-CONC-001
+    area: Cross-domain Concurrency
+    requirement: After complete local rollback, classify only SQL Server 1205/1222 as retryable contention and return a safe HTTP 503 contract whose caller explicitly retries the exact payload with the same idempotency key.
+    source: AUD-01 user specification 2026-10-08
+    status: completed
+    introduced: 2026-10-08
+    superseded_by: null
+    evidence: [docs/ADR/0044-client-owned-contention-retry.md, backend/src/main/java/com/shoecommerce/platform/api/SqlServerContentionClassifier.java, backend/src/test/java/com/shoecommerce/platform/api/ApiExceptionHandlerTest.java, backend/src/test/java/com/shoecommerce/platform/api/TransactionContentionExternalIT.java, frontend/src/retryable-command.test.ts]
+    notes: No server/global/provider automatic retry, broad SQLState/Spring-lock classification, Retry-After policy, dependency, or schema migration was added.
 
   - id: REQ-CHECKOUT-001
     area: Checkout and Order
@@ -218,8 +238,18 @@ requirements:
     activation: explicit_new_admission_required
     introduced: unknown (backfill)
     superseded_by: null
-    evidence: []
-    notes: DEFERRED deployment gate; deterministic local/provider contract evidence is not live certification.
+    evidence: [docs/REQ-PAY-003-VNPAY-SANDBOX-CERTIFICATION-PLAN.md]
+    notes: DEFERRED deployment gate; certification preparation and A-E matrix completed 2026-10-13, but merchant credentials, approved public HTTPS IPN and external sandbox evidence remain absent. Deterministic local/provider contract evidence is not live certification.
+
+  - id: REQ-PAY-004
+    area: Payment and Refund
+    requirement: Allow an authorized operator to manually reconcile an existing ambiguous VNPAY payment attempt through a verified QueryDr response without creating a new payment attempt or relying only on webhook/IPN delivery.
+    source: AUD-02 user specification 2026-10-09
+    status: completed
+    introduced: 2026-10-09
+    superseded_by: null
+    evidence: [docs/ADR/0045-manual-vnpay-querydr-reconciliation.md, backend/src/main/resources/db/migration/V35__manual_vnpay_reconciliation.sql, backend/src/test/java/com/shoecommerce/payment/VnPayQueryProviderTest.java, backend/src/test/java/com/shoecommerce/payment/PaymentReconciliationServiceTest.java, backend/src/test/java/com/shoecommerce/payment/VnPayPaymentExternalIT.java, frontend/src/reconciliation.test.ts]
+    notes: Manual QueryDr only. Scheduled reconciliation and live VNPAY certification remain separate future work and are not completed by this requirement.
 
   - id: REQ-FUL-001
     area: Fulfillment
@@ -437,8 +467,8 @@ requirements:
     status: completed
     introduced: unknown (backfill)
     superseded_by: null
-    evidence: [PRODUCT.md, docs/FRONTEND_ARCHITECTURE.md, docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
-    notes: Current certified browser evidence includes desktop and 390px; historical matrices cover additional widths.
+    evidence: [PRODUCT.md, docs/FRONTEND_ARCHITECTURE.md, docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md, frontend/src/app-navigation.test.ts, frontend/src/cart-flow.test.ts]
+    notes: Certified browser evidence includes desktop and 390px; historical matrices cover additional widths. Post-freeze 2026-10-13 navigation and locale polish has separate task/browser evidence; it does not promote the certified baseline.
 
   - id: REQ-UX-002
     area: Frontend UX

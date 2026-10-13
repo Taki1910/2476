@@ -73,6 +73,9 @@ changes to an accepted decision follow the supersession rules above.
 - [0035 — Voucher family, claim and usage](0035-voucher-family-claim-usage.md)
 - [0036 — Bounded single-instance login throttle](0036-bounded-single-instance-login-throttle.md)
 - [0042 — OpenAI manager merchandising assistance](0042-openai-manager-merchandising-assistance.md)
+- [0044 — Client-owned transaction-contention retry](0044-client-owned-contention-retry.md)
+- [0045 — Manual VNPAY QueryDr reconciliation](0045-manual-vnpay-querydr-reconciliation.md)
+- [0046 — Scoped inventory transfer lifecycle](0046-inventory-transfer-lifecycle.md)
 
 Accepted through the current remediation plan approval; implementation evidence is recorded separately in CURRENT_BASELINE.
 

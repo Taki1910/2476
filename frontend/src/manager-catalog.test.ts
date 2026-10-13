@@ -43,6 +43,21 @@ describe('P2A manager catalog contracts', () => {
     })
   })
 
+  it('sends a positive receipt quantity separately from inventory adjustment', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ afterOnHand: 15, reserved: 2, available: 13, created: true }), { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.receiveManagerInventory('variant/1', 'location/1', 3, 'PO-123', 'receipt-key')
+
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/operations/inventory/variants/variant%2F1/locations/location%2F1/receipts')
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'receipt-key', 'X-CSRF-TOKEN': 'csrf' },
+    })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ quantity: 3, note: 'PO-123' })
+  })
+
   it('updates a Draft barcode with optimistic concurrency and catalog authorization', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf' })))
@@ -115,6 +130,13 @@ describe('P2A manager catalog contracts', () => {
     expect(detailSource).toContain('SKU, color, and EU size cannot be changed after creation.')
     expect(detailSource).toContain('On-hand stock required')
     expect(detailSource).toContain('New on-hand target')
+    expect(detailSource).toContain('Receipt quantity')
+    expect(detailSource).toContain('api.receiveManagerInventory')
+    expect(detailSource).toContain('quantity <= 0')
+    expect(detailSource.match(/submitRetryableCommand\(/g)).toHaveLength(2)
+    expect(detailSource).toContain('key => api.receiveManagerInventory')
+    expect(detailSource).toContain('key => api.adjustManagerInventory')
+    expect(detailSource).not.toContain('crypto.randomUUID()')
     expect(detailSource).toContain('Reserved read-only')
     expect(detailSource).toContain("reason.code === 'INVENTORY_BALANCE_CHANGED'")
     expect(detailSource).not.toContain('v-model="row.reserved"')

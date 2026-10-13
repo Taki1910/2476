@@ -6,6 +6,7 @@ import { errorCopy, formatDateTime, formatVnd } from '../format'
 import { commerceCount, messageLabel, t } from '../i18n'
 import CommerceItems from '../components/CommerceItems.vue'
 import { paymentDestination, recoverablePayment } from '../checkout'
+import { submitRetryableCommand, type RetryableCommand } from '../retryable-command'
 
 const route = useRoute()
 const order = ref<Order>()
@@ -15,6 +16,7 @@ const error = ref('')
 const statusRegion = ref<HTMLElement>()
 const cancelDialog = ref<HTMLDialogElement>()
 const orderId = computed(() => String(route.params.id))
+const terminalCommand = ref<RetryableCommand>()
 let disposed = false
 let loadGeneration = 0
 
@@ -61,7 +63,8 @@ function closeDialog() { cancelDialog.value?.close() }
 async function cancel() {
   if (!order.value || busy.value) return
   busy.value = true; error.value = ''; closeDialog()
-  try { await api.cancelConfirmed(order.value.id, crypto.randomUUID()); await load(); await nextTick(); statusRegion.value?.focus() }
+  const requestedId = order.value.id
+  try { await submitRetryableCommand(terminalCommand, JSON.stringify(['CANCEL', requestedId]), key => api.cancelConfirmed(requestedId, key)); await load(); await nextTick(); statusRegion.value?.focus() }
   catch (reason) {
     const actionError = errorCopy(reason)
     await load()
@@ -72,11 +75,12 @@ async function cancel() {
 async function retryVoid() {
   if (!order.value || busy.value) return
   busy.value = true; error.value = ''
-  try { await api.retryVoid(order.value.id, crypto.randomUUID()); await load(); await nextTick(); statusRegion.value?.focus() }
+  const requestedId = order.value.id
+  try { await submitRetryableCommand(terminalCommand, JSON.stringify(['RETRY_VOID', requestedId]), key => api.retryVoid(requestedId, key)); await load(); await nextTick(); statusRegion.value?.focus() }
   catch (reason) { error.value = errorCopy(reason) }
   finally { busy.value = false }
 }
-watch(orderId, () => { order.value = undefined; load() })
+watch(orderId, () => { order.value = undefined; terminalCommand.value = undefined; load() })
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
 </script>

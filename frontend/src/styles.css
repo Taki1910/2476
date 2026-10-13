@@ -51,9 +51,18 @@ a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.22e
 .logo span { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; color: var(--white); background: var(--ink); font-weight: 800; }
 .logo strong { font-size: .95rem; text-transform: uppercase; letter-spacing: .08em; }
 .account-controls { display: flex; align-items: center; gap: 1rem; font-size: .8rem; }
-.account-controls nav { display: flex; align-items: center; gap: 1rem; font-weight: 700; }
+.account-controls > nav { display: flex; align-items: center; gap: 1rem; font-weight: 700; }
 .account-controls nav a { min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
 .account-controls nav a.router-link-active { color: var(--accent-surface); border-bottom: 2px solid currentColor; }
+.operations-menu { position: relative; font-weight: 700; }
+.operations-menu summary { min-height: 44px; padding: .5rem .75rem; display: flex; align-items: center; gap: .65rem; border: 1px solid var(--ink); cursor: pointer; list-style: none; white-space: nowrap; }
+.operations-menu summary::-webkit-details-marker { display: none; }
+.operations-menu summary::after { content: ''; width: .4rem; height: .4rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-.1rem); }
+.operations-menu[open] summary::after { transform: rotate(225deg) translate(-.1rem, -.1rem); }
+.operations-menu[open] summary { color: var(--white); background: var(--ink); }
+.operations-menu.is-current:not([open]) summary { color: var(--accent-surface); border-bottom: 2px solid currentColor; }
+.account-controls .operations-menu nav { position: absolute; top: calc(100% + .4rem); right: 0; z-index: 30; width: min(23rem, calc(100vw - 1.5rem)); max-height: min(70vh, 30rem); padding: .5rem; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .15rem .75rem; border: 1px solid var(--ink); background: var(--white); box-shadow: 0 .75rem 2rem rgba(25, 25, 21, .2); }
+.account-controls .operations-menu nav a { min-width: 0; padding: .4rem .5rem; font-size: .875rem; white-space: normal; }
 .account-controls span { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-controls .cart-count { min-width: 1.25rem; min-height: 1.25rem; margin-left: .25rem; padding: .1rem .25rem; display: inline-grid; place-items: center; color: var(--white); background: var(--accent-surface); font-size: .7rem; font-variant-numeric: tabular-nums; }
 .account-controls .cart-count.acknowledged { animation: cart-ack 220ms cubic-bezier(.2,.8,.2,1); }
@@ -747,8 +756,8 @@ button:disabled { opacity: 1 !important; color: var(--muted-readable); backgroun
 @media (min-width: 761px) and (max-width: 1100px) {
   .site-header { flex-wrap: wrap; }
   .account-controls { width: 100%; flex-wrap: wrap; }
-  .account-controls nav { min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
-  .account-controls nav a { flex: 0 0 auto; white-space: nowrap; }
+  .account-controls > nav { min-width: 0; flex-wrap: wrap; }
+  .account-controls > nav a { flex: 0 0 auto; white-space: nowrap; }
   .cart-layout { grid-template-columns: 1fr; }
   .pickup-row { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr) 4rem 1.5rem; gap: 1rem; }
   .pos-heading { align-items: stretch; flex-direction: column; }
@@ -783,12 +792,13 @@ button:disabled { opacity: 1 !important; color: var(--muted-readable); backgroun
   .commerce-item-price { text-align: left; }
   .payment-result-card > .commerce-items { grid-column: 1; }
   .site-header { flex-wrap: wrap; }
-  .account-controls { width: 100%; }
-  .account-controls nav { flex: 1; }
+  .account-controls { width: 100%; flex-wrap: wrap; }
+  .account-controls > nav { flex: 1 1 100%; }
   .account-controls span { display: none; }
   .account-controls { gap: .5rem; }
-  .account-controls nav { gap: .75rem; }
+  .account-controls > nav { gap: .75rem; }
   .account-controls nav a { font-size: .75rem; }
+  .account-controls .operations-menu nav { left: 0; right: auto; grid-template-columns: 1fr; }
   .catalog-hero { min-height: auto; grid-template-columns: 1fr; align-content: end; }
   .catalog-hero h1 { font-size: clamp(3.1rem, 15vw, 5.4rem); }
   .storefront-intents { grid-template-columns: 1fr; }
@@ -913,12 +923,12 @@ button:disabled { opacity: 1 !important; color: var(--muted-readable); backgroun
   .site-header { padding-inline: .5rem; gap: .5rem; }
   .logo { flex: 0 0 auto; }
   .logo strong { display: none; }
-  .account-controls, .account-controls nav { gap: .5rem; }
+  .account-controls, .account-controls > nav { gap: .5rem; }
   .account-controls nav a { font-size: .72rem; }
   .account-controls button { padding-inline: .55rem; }
   .account-controls { flex-wrap: wrap; }
-  .account-controls nav { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
-  .account-controls nav a { flex: 0 0 auto; white-space: nowrap; }
+  .account-controls > nav { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; }
+  .account-controls > nav a { flex: 0 0 auto; white-space: nowrap; }
   .account-controls > span { display: none; }
   .account-controls .cart-count { display: inline-grid; }
   .guest-actions { gap: .5rem; }
@@ -1335,6 +1345,8 @@ button:disabled { opacity: 1 !important; color: var(--muted-readable); backgroun
 .catalog-section-heading h2, .variant-color-group h3 { margin: 0; }
 .catalog-form-grid, .catalog-evidence-form, .catalog-add-variant > div { margin-block: 1rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .catalog-form-grid label, .catalog-evidence-form label, .catalog-add-variant label { display: grid; gap: .4rem; font-weight: 700; }
+.inventory-transfer-page select, .inventory-transfer-page input { min-height: 44px; padding: .65rem .75rem; border: 1px solid var(--ink); color: var(--ink); background: var(--white); font: inherit; }
+.inventory-transfer-page form > button { margin-top: 1rem; min-height: 44px; }
 .catalog-evidence-form .primary-button { align-self: end; }
 .variant-color-group { margin-top: 1.5rem; }
 .variant-color-group > h3 { padding: .7rem 0; display: flex; justify-content: space-between; }

@@ -5,6 +5,7 @@ import { api, ApiError, type PickupTask } from '../api'
 import { errorCopy, formatDateTime, pickupDisplayState } from '../format'
 import { messageLabel, statusLabel, t } from '../i18n'
 import CommerceItems from '../components/CommerceItems.vue'
+import { submitRetryableCommand, type RetryableCommand } from '../retryable-command'
 
 const route = useRoute()
 const task = ref<PickupTask>()
@@ -15,6 +16,7 @@ const success = ref('')
 const confirmDialog = ref<HTMLDialogElement>()
 const heading = ref<HTMLElement>()
 const pendingAction = ref<'HANDOVER' | 'DISPATCH' | 'DELIVER'>()
+const terminalCommand = ref<RetryableCommand>()
 const orderId = computed(() => String(route.params.id))
 const displayState = computed(() => task.value ? pickupDisplayState(task.value) : 'NOT_CREATED')
 const isDelivery = computed(() => task.value?.fulfillmentType === 'DELIVERY')
@@ -65,9 +67,11 @@ async function complete() {
   busy.value = true; error.value = ''; closeDialog()
   const action = pendingAction.value
   try {
-    if (action === 'HANDOVER') await api.handoverPickup(task.value.fulfillmentId, crypto.randomUUID())
-    else if (action === 'DISPATCH') await api.dispatchFulfillment(task.value.fulfillmentId, crypto.randomUUID())
-    else await api.deliverFulfillment(task.value.fulfillmentId, crypto.randomUUID())
+    await submitRetryableCommand(terminalCommand, JSON.stringify([action, task.value.fulfillmentId]), async key => {
+      if (action === 'HANDOVER') await api.handoverPickup(task.value!.fulfillmentId!, key)
+      else if (action === 'DISPATCH') await api.dispatchFulfillment(task.value!.fulfillmentId!, key)
+      else await api.deliverFulfillment(task.value!.fulfillmentId!, key)
+    })
     await load()
     success.value = t(action === 'HANDOVER' ? 'Handover recorded. Physical stock was issued exactly once.'
       : action === 'DISPATCH' ? 'Dispatch recorded. Physical stock was issued exactly once.'

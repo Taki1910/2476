@@ -1,4 +1,74 @@
 tasks:
+  AUTONOMOUS-UX-20261013:
+    parent_task: POST-AUD03-GATE-CLOSURE
+    role: frontend_ux
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    requirement_ids: [REQ-UX-001]
+    depends_on: [POST-AUD03-GATE-CLOSURE]
+    blockers: []
+    next_action: null
+    verification:
+      baseline: "codex/remediation-audit-20260913 / 3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f / intentionally dirty user-owned worktree"
+      certified_baseline: "docs/FINAL_FREEZE.md"
+      resource_mode: "CONSERVATIVE; 5-hour 89% used, weekly 76% used at 2026-10-13 09:21 +07; estimate UNKNOWN"
+      rollback: "artifacts/autonomous-ux-20261013-before/README.md and exact pre-slice copies"
+      red_green: "Operations-menu and live-locale toast tests failed before implementation, then passed"
+      frontend_full: "29 files, 330/330 PASS"
+      typecheck: PASS
+      production_build: "PASS; 105 modules; >500 kB chunk warning"
+      browser: "Desktop menu open; 390x844 menu open and full links; document scrollWidth equals clientWidth 375 after CSS fix"
+      diff_check: PASS
+
+  POST-AUD03-GATE-CLOSURE:
+    parent_task: POST-AUD03-INTEGRATION
+    role: visual_gate_and_payment_certification_preparation
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - POST-AUD03-INTEGRATION
+      - AUD-02-VNPAY-RECONCILIATION
+      - AUD-03-REC-002-TRANSFER
+    blockers: []
+    next_action: "Await separate approval for V36 datasource promotion and a separately admitted REQ-PAY-003 sandbox campaign; do not expose a callback or call VNPAY automatically."
+    verification:
+      baseline: "codex/remediation-audit-20260913 / 3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f / intentionally dirty user-owned worktree"
+      migration_source: "continuous V1-V36"
+      candidate_promotion_authorized: false
+      external_provider_calls_authorized: false
+      public_tunnel_authorized: false
+      next_feature_authorized: false
+      browser_gate: "PASS — real Windows-host IAB at desktop 1440x900 and mobile 390x844; transfer create/dispatch/receive, validation, VI/EN, storefront, PDP, empty cart and operations navigation rendered; console warnings/errors 0"
+      visual_findings: "Recommended only — mobile navigation uses a contained horizontal scroller; an already-rendered success toast does not retranslate when locale changes mid-session"
+      candidate_audit: "18 products with media; no published HOME revision; 0 public offers; 2 RECEIVED transfers / 3 lines / 4 units; one identified gate transfer plus prior acceptance transfer; balances 469 on-hand / 11 reserved / 458 available with 0 invariant violations; five demo accounts accessible"
+      promotion_verdict: "V36 DEMO PROMOTION READY"
+      payment_preparation: "docs/REQ-PAY-003-VNPAY-SANDBOX-CERTIFICATION-PLAN.md; 17/17 focused backend tests and 2/2 transfer frontend tests PASS; no provider call"
+
+  POST-AUD03-INTEGRATION:
+    parent_task: FULL-PROJECT-GAP-AUDIT
+    role: integration_review_and_milestone_planning
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - AUD-03-REC-002-TRANSFER
+    blockers: []
+    next_action: "Await the user's separate database-promotion decision and next-milestone selection; do not promote or implement automatically."
+    verification:
+      baseline: "codex/remediation-audit-20260913 / 3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f / intentionally dirty user-owned worktree"
+      candidate: "shoe_commerce_v36_demo_candidate_20261012_232455 — isolated V35 restore, V36 applied, Flyway 36/36, Hibernate validation and DBCC CHECKDB PASS"
+      preservation: "V35 pre/post migration counts and checksums matched; protected V20/V35/V35 databases remained ONLINE and were not migrated"
+      real_stack: "controlled synthetic multi-line Transfer create/dispatch/receive plus replay/conflict/scope checks PASS; checkout create/cancel and representative public/operations reads PASS"
+      regression: "fresh disposable V1->V36 SQL batch 68/68; frontend 329/329, typecheck and build PASS; git diff --check PASS"
+      visual_browser: "HISTORICAL task-close result — browser sandbox could not reach localhost/LAN then; superseded by POST-AUD03-GATE-CLOSURE browser PASS"
+      review: "No Critical or Required finding; rendered-component/browser coverage for Transfer remains Recommended"
+      backlog: "46/46 registry IDs match the matrix: 38 completed, 1 in_progress, 4 planned, 2 superseded, 1 cancelled"
+      cleanup: "temporary backend/frontend processes stopped; runtime SQL principal removed; disposable SQL database removed"
+      promotion_authorized: false
+      next_feature_authorized: false
+
   FREEZE-V29:
     parent_task: null
     role: release
@@ -197,3 +267,151 @@ tasks:
       anti_drift: ".agent/ORCHESTRATOR.md"
       behavioral_scenarios: "PM-A through PM-J added to session-continuity skill"
       reconciliation: "INCONSISTENCIES FOUND; structural ledger checks PASS, current-HEAD certification and two provenance gaps recorded"
+
+  REC-001-INVENTORY-RECEIVE:
+    parent_task: HISTORICAL-PLAN-RECOVERY
+    role: inventory_full_stack
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - PROJECT-MEMORY-LEDGER
+    blockers: []
+    next_action: null
+    verification:
+      backend_focused: "4/4 PASS"
+      sql_integration: "V34 fresh/upgrade plus inventory suite 9/9 PASS, 0 skipped"
+      frontend: "313/313 PASS"
+      typecheck: PASS
+      build: PASS
+      ui_detector: "0 findings"
+      diff_check: PASS
+
+  REC-002-INVENTORY-TRANSFER-RETURN:
+    parent_task: HISTORICAL-PLAN-RECOVERY
+    role: inventory_domain_database
+    owner: /root
+    agent_lifecycle: IDLE
+    status: IN_PROGRESS
+    depends_on:
+      - REC-001-INVENTORY-RECEIVE
+    blockers:
+      - physical-return movement is not admitted and requires REQ-FUL-003 Return/inspection evidence
+    next_action: "Transfer is complete. Leave physical Return unimplemented until REQ-FUL-003 Return/inspection evidence is explicitly admitted."
+    verification:
+      transfer_scope: "DONE — DRAFT -> DISPATCHED -> RECEIVED"
+      transfer_evidence: "ADR-0046; V36; InventoryTransferExternalIT 6/6 PASS; frontend 329/329 PASS"
+      remaining_scope: "Physical-return movement NOT IMPLEMENTED"
+
+  AUD-01-TRANSACTION-CONTENTION-CONTRACT:
+    parent_task: FULL-PROJECT-GAP-AUDIT
+    role: concurrency_backend_frontend_docs
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - REC-001-INVENTORY-RECEIVE
+    blockers: []
+    next_action: null
+    verification:
+      backend_unit: "106/106 PASS"
+      sql_focused: "89/89 PASS including real 1205/1222 contention, 0 skipped"
+      migration: "V34 fresh install and V33-to-V34 upgrade 1/1 PASS; no V35"
+      frontend_focused: "116/116 PASS"
+      frontend_full: "321/321 PASS"
+      typecheck: PASS
+      build: PASS
+      diff_check: PASS
+      independent_review: "PASS; no actionable findings after remediation re-review"
+
+  AUD-02-VNPAY-RECONCILIATION:
+    parent_task: FULL-PROJECT-GAP-AUDIT
+    role: payment_reconciliation
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - AUD-01-TRANSACTION-CONTENTION-CONTRACT
+    blockers: []
+    next_action: null
+    verification:
+      provider_focused: "VnPayQueryProviderTest 6/6 PASS"
+      backend_unit: "123/123 PASS"
+      sql_acceptance: "50/50 PASS on clean SQL Server database, including real 1222 saved-evidence retry; 0 skipped"
+      migration: "V1-to-V35 fresh install and V34-to-V35 upgrade PASS"
+      frontend: "327/327 PASS"
+      typecheck: PASS
+      build: PASS
+      diff_check: PASS
+      security_api_review: PASS
+      independent_review: "PASS; no Critical, Important or Minor findings after remediation re-review"
+
+  AUD-03-REC-002-TRANSFER:
+    parent_task: FULL-PROJECT-GAP-AUDIT
+    role: inventory_transfer
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - AUD-02-VNPAY-RECONCILIATION
+      - REC-002-INVENTORY-TRANSFER-RETURN
+    blockers: []
+    next_action: null
+    verification:
+      database_gate: "DB PREFLIGHT PASSED on shoe_commerce_rebuild_20261012"
+      backend_focused: "7/7 PASS"
+      sql_regression: "68/68 PASS on shoe_commerce_aud03_v36_fresh_20261012; 0 failed/error/skipped"
+      migration: "V1-to-V36 fresh and V35-to-V36 upgrade PASS on controlled disposable databases"
+      database_integrity: "DBCC CHECKDB and relevant table constraints PASS; balance/transfer/provenance violations 0"
+      frontend_focused: "2/2 PASS"
+      frontend_full: "329/329 PASS"
+      typecheck: PASS
+      build: PASS
+      diff_check: PASS
+      security_api_review: PASS
+      independent_review: "PASS; no remaining Critical or Required findings"
+      protected_databases: "shoe_commerce V20, rebuild V35 and upgrade-copy V35 preserved ONLINE"
+      full_backend_note: "Additional non-gate mvn test attempt runner-blocked by Java 25 Mockito self-attach/Surefire pipe; required focused suites passed"
+
+  PRE-AUD03-DATABASE-RECOVERY-PREFLIGHT:
+    parent_task: AUD-03-REC-002-TRANSFER
+    role: database_recovery_integrity_gate
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - AUD-02-VNPAY-RECONCILIATION
+    blockers: []
+    next_action: null
+    verification:
+      initial_verdict: "SCHEMA / INTEGRITY FAILED against original shoe_commerce V20"
+      recertification_verdict: "DB PREFLIGHT PASSED"
+      database_identity: "AN\\AN / shoe_commerce_rebuild_20261012 / ONLINE / FULL / SQL Server 16.0.1200.5 Developer Edition"
+      migration: "repository and database V1-V35 continuous; 35/35 successful; zero failed/duplicate versions; Flyway source validation PASS"
+      schema: "53 dbo user tables, 603 columns, 152 trusted checks, 124 trusted FKs; Hibernate validation PASS"
+      data: "authorized SYNTHETIC DEMO DATA; 18 products, 73 variants, 146 balances, 5 accounts, 134 orders, 117 movements"
+      physical_consistency: "DBCC CHECKDB PASS; per-table/per-constraint DBCC and manual checks zero violations; aggregate catalog variant check has a documented SQL Server collation-tooling error"
+      business_integrity: "inventory, catalog, commerce, payment, fulfillment, IAM, idempotency and orphan checks returned zero violations"
+      recovery: "current original V20 protected by verified COPY_ONLY backup; no pre-deletion historical business-data backup recovered"
+      aud03_gate: "OPEN FOR EXPLICIT RESUME; implementation not started"
+
+  DB-RECOVERY-01-CONTROLLED-REBUILD:
+    parent_task: PRE-AUD03-DATABASE-RECOVERY-PREFLIGHT
+    role: database_rebuild_and_recertification
+    owner: /root
+    agent_lifecycle: COMPLETE
+    status: DONE
+    depends_on:
+      - PRE-AUD03-DATABASE-RECOVERY-PREFLIGHT
+    blockers: []
+    next_action: null
+    verification:
+      verdict: "DB REBUILD PASSED — READY FOR PRE-AUD03"
+      original_preserved: "shoe_commerce remains ONLINE at V20; no schema/data writes"
+      rebuild_identity: "shoe_commerce_rebuild_20261012 / ONLINE / created 2026-10-12 08:25:23.313 +07"
+      flyway: "35/35 successful, zero failed/duplicate, source checksums validated"
+      demo_bootstrap: "PASS; authorized fixture only, SYNTHETIC DEMO DATA, demo providers active, AI disabled"
+      integrity: "DBCC CHECKDB PASS; zero business invariant/orphan/idempotency violations"
+      upgrade_path: "shoe_commerce V20 COPY_ONLY restore -> isolated V21-V35 PASS; semantic schema parity PASS"
+      pre_aud03: "DB PREFLIGHT PASSED"
+      full_certification_run: false

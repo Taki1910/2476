@@ -19,6 +19,7 @@ import StorefrontManagementView from './views/StorefrontManagementView.vue'
 import ProductPresentationsView from './views/ProductPresentationsView.vue'
 import ProductsView from './views/ProductsView.vue'
 import ProductManagementDetailView from './views/ProductManagementDetailView.vue'
+import InventoryTransfersView from './views/InventoryTransfersView.vue'
 import LoginView from './views/LoginView.vue'
 import RegisterView from './views/RegisterView.vue'
 import AccessDeniedView from './views/AccessDeniedView.vue'
@@ -57,6 +58,7 @@ const router = createRouter({
     { path: '/operations/product-presentations', name: 'product-presentations', component: ProductPresentationsView, meta: { requiresAuth: true, permission: 'STOREFRONT_MANAGE' } },
     { path: '/operations/products', name: 'products', component: ProductsView, meta: { requiresAuth: true, permission: 'CATALOG_MANAGE' } },
     { path: '/operations/products/:id', name: 'product-management', component: ProductManagementDetailView, meta: { requiresAuth: true, permission: 'CATALOG_MANAGE' } },
+    { path: '/operations/inventory/transfers', name: 'inventory-transfers', component: InventoryTransfersView, meta: { requiresAuth: true, permission: 'INVENTORY_TRANSFER' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: storefrontScrollBehavior,

@@ -40,6 +40,17 @@ Sources: `AGENTS.md`, `docs/PROJECT_OVERVIEW.md`,
 - Progressive Fit Assistant quick-size path; A4 remains mandatory only for the
   photo-measurement path.
 - Project Memory / Requirement Ledger so scope survives compaction and handoff.
+- Historical core-plan recovery: direct location-scoped Inventory Receive
+  (`REQ-INV-003` / REC-001) and multi-line Inventory Transfer
+  (`DRAFT -> DISPATCHED -> RECEIVED`, ADR-0046 / AUD-03) are completed.
+  Physical-return movement remains tracked under incomplete `REQ-INV-002` and
+  blocked by future-scope REQ-FUL-003 evidence.
+- Cross-domain transaction-contention contract (`REQ-CONC-001` / AUD-01): exact
+  SQL Server 1205/1222 rollback mapping and caller-owned same-key retry under
+  ADR-0044.
+- Manual VNPAY QueryDr reconciliation (`REQ-PAY-004` / AUD-02) is completed for
+  existing ambiguous attempts under ADR-0045. Scheduled reconciliation and live
+  VNPAY certification remain outside this slice.
 
 ## Milestones
 
@@ -53,6 +64,12 @@ Sources: `AGENTS.md`, `docs/PROJECT_OVERVIEW.md`,
 | P5A deterministic merchandising | Completed locally | `.agent/HISTORY.md`, P5A plan/tests |
 | P5B optional manager AI | Implemented; live provider smoke pending | `docs/FINAL_FREEZE.md` |
 | Project Memory ledger | Completed 2026-10-07 | `.agent/REQUIREMENTS.yaml`, `.agent/ACCEPTANCE_MATRIX.md`, skill scenarios |
+| REC-001 Inventory Receive recovery | Completed 2026-10-08 | V34; `FlywayV34UpgradeExternalIT`; `VerticalSlice2ExternalIT`; manager UI tests |
+| AUD-01 Transaction Contention Contract | Completed 2026-10-09 | ADR-0044; `ApiExceptionHandlerTest`; `TransactionContentionExternalIT`; frontend retry tests |
+| AUD-02 VNPAY Manual QueryDr Reconciliation | Completed 2026-10-11 | ADR-0045; V35; provider/service/SQL/frontend acceptance and independent review |
+| AUD-03 Inventory Transfer | Completed 2026-10-12 | ADR-0046; V36; domain/controller, SQL concurrency, migration, frontend and integrity acceptance |
+| POST-AUD03 V36 visual gate | Completed 2026-10-13 | Real desktop/mobile browser verification; `V36 DEMO PROMOTION READY`; datasource unchanged |
+| REQ-PAY-003 certification preparation | Prepared, not admitted | `docs/REQ-PAY-003-VNPAY-SANDBOX-CERTIFICATION-PLAN.md`; live sandbox/IPN evidence pending |
 
 ## Deferred or removed from active scope
 

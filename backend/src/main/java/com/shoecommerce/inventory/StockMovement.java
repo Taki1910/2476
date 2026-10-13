@@ -12,7 +12,7 @@ import jakarta.persistence.*;
         @UniqueConstraint(name = "UQ_inventory_stock_movement_key", columnNames = "operation_key")
 })
 public class StockMovement {
-    public enum Type { PICKUP_HANDOVER, DELIVERY_DISPATCH, CANCELLATION_RESTORE, POS_CASH_SALE, INVENTORY_ADJUSTMENT }
+    public enum Type { PICKUP_HANDOVER, DELIVERY_DISPATCH, CANCELLATION_RESTORE, POS_CASH_SALE, INVENTORY_ADJUSTMENT, RECEIVE, TRANSFER_OUT, TRANSFER_IN }
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "public_id", nullable = false, unique = true) private UUID publicId;
@@ -22,6 +22,7 @@ public class StockMovement {
     @Column(name = "reservation_public_id") private UUID reservationId;
     @Column(name = "pos_register_public_id") private UUID registerId;
     @Column(name = "cashier_shift_public_id") private UUID shiftId;
+    @Column(name = "transfer_public_id") private UUID transferId;
     @Column(name = "variant_public_id", nullable = false) private UUID variantId;
     @Column(name = "location_public_id", nullable = false) private UUID locationId;
     @Column(name = "actor_account_public_id", nullable = false) private UUID actorId;
@@ -32,6 +33,7 @@ public class StockMovement {
     @Nationalized @Column(length = 256) private String reason;
     @Column(name = "before_on_hand") private Long beforeOnHand;
     @Column(name = "after_on_hand") private Long afterOnHand;
+    @Column(name = "reserved_at_operation") private Long reservedAtOperation;
     @Column(name = "occurred_at", nullable = false) private Instant occurredAt;
 
     protected StockMovement() { }
@@ -109,8 +111,72 @@ public class StockMovement {
         return movement;
     }
 
+    public static StockMovement createReceipt(String operationKey, String requestFingerprint, String note,
+            UUID actorId, UUID variantId, UUID locationId, long quantity, long beforeOnHand, long afterOnHand,
+            long reservedAtOperation, Instant now) {
+        if (operationKey == null || operationKey.isBlank() || operationKey.length() > 128
+                || requestFingerprint == null || requestFingerprint.isBlank() || requestFingerprint.length() > 512
+                || note != null && (note.isBlank() || note.length() > 256) || actorId == null || variantId == null
+                || locationId == null || quantity <= 0 || beforeOnHand < 0 || afterOnHand < beforeOnHand
+                || afterOnHand - beforeOnHand != quantity || reservedAtOperation < 0
+                || reservedAtOperation > beforeOnHand || now == null) {
+            throw new IllegalArgumentException("Inventory receipt movement is invalid");
+        }
+        StockMovement movement = new StockMovement();
+        movement.publicId = UUID.randomUUID();
+        movement.type = Type.RECEIVE;
+        movement.operationKey = operationKey;
+        movement.actorId = actorId;
+        movement.variantId = variantId;
+        movement.locationId = locationId;
+        movement.quantity = quantity;
+        movement.onHandDelta = quantity;
+        movement.reservedDelta = 0;
+        movement.requestFingerprint = requestFingerprint;
+        movement.reason = note;
+        movement.beforeOnHand = beforeOnHand;
+        movement.afterOnHand = afterOnHand;
+        movement.reservedAtOperation = reservedAtOperation;
+        movement.occurredAt = now;
+        return movement;
+    }
+
+    public static StockMovement createTransfer(Type type, String operationKey, UUID transferId, UUID actorId,
+            UUID variantId, UUID locationId, long quantity, long beforeOnHand, long afterOnHand,
+            long reservedAtOperation, Instant now) {
+        long expectedDelta = type == Type.TRANSFER_OUT ? -quantity : quantity;
+        if (type != Type.TRANSFER_OUT && type != Type.TRANSFER_IN
+                || operationKey == null || operationKey.isBlank() || operationKey.length() > 128
+                || transferId == null || actorId == null || variantId == null || locationId == null
+                || quantity <= 0 || beforeOnHand < 0 || afterOnHand < 0
+                || afterOnHand - beforeOnHand != expectedDelta || reservedAtOperation < 0
+                || reservedAtOperation > beforeOnHand || type == Type.TRANSFER_OUT && afterOnHand < reservedAtOperation
+                || now == null) {
+            throw new IllegalArgumentException("Inventory transfer movement is invalid");
+        }
+        StockMovement movement = new StockMovement();
+        movement.publicId = UUID.randomUUID();
+        movement.type = type;
+        movement.operationKey = operationKey;
+        movement.transferId = transferId;
+        movement.actorId = actorId;
+        movement.variantId = variantId;
+        movement.locationId = locationId;
+        movement.quantity = quantity;
+        movement.onHandDelta = expectedDelta;
+        movement.reservedDelta = 0;
+        movement.beforeOnHand = beforeOnHand;
+        movement.afterOnHand = afterOnHand;
+        movement.reservedAtOperation = reservedAtOperation;
+        movement.occurredAt = now;
+        return movement;
+    }
+
     public UUID publicId() { return publicId; }
+    public Type type() { return type; }
+    public long quantity() { return quantity; }
     public boolean matchesAdjustment(String fingerprint) { return type == Type.INVENTORY_ADJUSTMENT && requestFingerprint.equals(fingerprint); }
+    public boolean matchesReceipt(String fingerprint) { return type == Type.RECEIVE && requestFingerprint.equals(fingerprint); }
     public UUID variantId() { return variantId; }
     public UUID locationId() { return locationId; }
     public UUID actorId() { return actorId; }
@@ -118,5 +184,7 @@ public class StockMovement {
     public long reservedDelta() { return reservedDelta; }
     public long beforeOnHand() { return beforeOnHand; }
     public long afterOnHand() { return afterOnHand; }
+    public long reservedAtOperation() { return reservedAtOperation; }
     public String reason() { return reason; }
+    public UUID transferId() { return transferId; }
 }

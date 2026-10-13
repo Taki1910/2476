@@ -17,7 +17,9 @@ implementation/evidence; `Completed` rows require evidence.
 | REQ-CAT-003 | Catalog | Completed | Immutable post-publication barcode | POS SQL tests | BR-CAT-110; `VerticalSlice6PosExternalIT` |
 | REQ-CAT-004 | Catalog | Completed | Controlled Product Evidence/presentation | SQL/frontend/browser acceptance | Product Evidence ledgers; `docs/FINAL_FREEZE.md` |
 | REQ-INV-001 | Inventory | Completed | Location balances/reservations | SQL/concurrency acceptance | ADR-0004; `docs/FINAL_FREEZE.md` |
-| REQ-INV-002 | Inventory | Completed | Explicit operations/movements | Lifecycle + SQL acceptance | `docs/LIFECYCLES.md`; `docs/FINAL_FREEZE.md` |
+| REQ-INV-002 | Inventory | In progress | Reserve/release/commit/adjust/receive and multi-line Transfer implemented; physical-return movement pending REQ-FUL-003 evidence | AUD-03 focused 7/7; SQL regression 68/68; V36 fresh/upgrade; frontend 329/329, typecheck/build | ADR-0046; V36; `InventoryTransferExternalIT`; `InventoryTransfersView.vue` |
+| REQ-INV-003 | Inventory | Completed | Idempotent scoped direct receive with RECEIVE movement/audit and admin UI | Domain/controller + fresh/upgrade SQL + concurrency + frontend regression | `InventoryReceiptService`; V34; `FlywayV34UpgradeExternalIT`; `VerticalSlice2ExternalIT`; manager UI tests |
+| REQ-CONC-001 | Cross-domain Concurrency | Completed | Exact SQL Server 1205/1222 rollback-to-503 contract and caller-owned same-key retry | Classifier/handler unit + real deadlock/timeout SQL + audited-flow frontend regression | ADR-0044; `ApiExceptionHandlerTest`; `TransactionContentionExternalIT`; `retryable-command.test.ts` |
 | REQ-CHECKOUT-001 | Checkout and Order | Superseded | Historical single-item checkout | Supersession review | ADR-0026 |
 | REQ-CHECKOUT-002 | Checkout and Order | Completed | Atomic multi-item checkout | Phase 15B + Phase 18 acceptance | ADR-0026; `docs/PHASE_18_FINAL_ACCEPTANCE.md` |
 | REQ-CHECKOUT-003 | Checkout and Order | Completed | Immutable quote/revalidation | Unit + SQL acceptance | Business rules; `docs/FINAL_FREEZE.md` |
@@ -26,7 +28,8 @@ implementation/evidence; `Completed` rows require evidence.
 | REQ-ORD-002 | Checkout and Order | Completed | Immutable historical snapshots | Reporting/history regression | Domain/Promotion docs; `docs/FINAL_FREEZE.md` |
 | REQ-PAY-001 | Payment and Refund | Completed | Payment attempts/events/idempotency | Unit + SQL provider-result tests | ADR-0005/0022; `docs/FINAL_FREEZE.md` |
 | REQ-PAY-002 | Payment and Refund | Completed | Component void/refund capacity | Financial SQL/reporting tests | ADR-0034; `docs/FINAL_FREEZE.md` |
-| REQ-PAY-003 | Payment and Refund | Planned / Future scope | Live VNPAY certification | Not run | Not a graduation blocker; explicit new admission required |
+| REQ-PAY-003 | Payment and Refund | Planned / Future scope | Live VNPAY certification; A-E certification plan prepared | Local contract review and focused 17/17 PASS; external sandbox/IPN not run | `docs/REQ-PAY-003-VNPAY-SANDBOX-CERTIFICATION-PLAN.md`; explicit new admission required |
+| REQ-PAY-004 | Payment and Refund | Completed | Authorized, location-scoped, idempotent manual QueryDr reconciliation for existing ambiguous VNPAY attempts; no new attempt or automatic provider retry | Provider/service unit 123/123; clean SQL acceptance 50/50 plus migration proof; frontend 327/327, typecheck/build; independent review | ADR-0045; V35; `VnPayQueryProviderTest`; `VnPayPaymentExternalIT`; `reconciliation.test.ts` |
 | REQ-FUL-001 | Fulfillment | Completed | Pickup preparation/handover | Browser + SQL evidence | ADR-0027; Phase 18 acceptance |
 | REQ-FUL-002 | Fulfillment | Completed | Delivery lifecycle/dispatch | Browser + SQL evidence | ADR-0027; Phase 18 acceptance |
 | REQ-FUL-003 | Fulfillment | Planned / Future scope | Return/exchange workflow | Not admitted | Not a graduation blocker; explicit new admission required |
@@ -47,7 +50,7 @@ implementation/evidence; `Completed` rows require evidence.
 | REQ-FIT-002 | Fit Assistant | Completed | Usual-size quick path + optional photo path | Frontend tests | Progressive Fit design; `cart-flow.test.ts` |
 | REQ-AI-002 | AI | Completed | Optional manager copy/intent preview | 25 focused backend; 10 provider-contract; frontend/full regression | ADR-0042; `docs/FINAL_FREEZE.md` |
 | REQ-AI-003 | AI | Planned / Optional release gate | Live OpenAI provider smoke | Not run; key absent | Not a graduation-core blocker; `docs/FINAL_FREEZE.md` |
-| REQ-UX-001 | Frontend UX | Completed | Responsive accessible VI/EN surfaces | Frontend/build/browser evidence | Frontend Architecture; readiness/freeze evidence |
+| REQ-UX-001 | Frontend UX | Completed | Responsive accessible VI/EN surfaces; post-freeze Operations menu and locale-reactive cart toast | Frontend 330/330; typecheck/build; desktop and 390px browser | Frontend Architecture; readiness/freeze evidence; `AUTONOMOUS-UX-20261013` task |
 | REQ-UX-002 | Frontend UX | Cancelled | Dark theme | Decision audit | Intentionally light-only; readiness/freeze evidence |
 
 ## Audit rules

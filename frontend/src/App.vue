@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { SESSION_ENDED_EVENT } from './api'
 import { locale, messageLabel, setLocale, t } from './i18n'
@@ -14,7 +14,14 @@ let sessionChanges: BroadcastChannel | undefined
 const logoutBusy = ref(false)
 const logoutError = ref('')
 const cartAcknowledged = ref(false)
+const operationsMenu = ref<HTMLDetailsElement>()
+const operationPermissions = new Set([
+  'FULFILL_ORDER', 'POS_SELL', 'REPORT_VIEW', 'INVENTORY_TRANSFER', 'SHIPPING_RATE_MANAGE',
+  'PROMOTION_MANAGE', 'CATALOG_MANAGE', 'STOREFRONT_MANAGE', 'STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE',
+])
+const showOperations = computed(() => session.account?.permissions.some(permission => operationPermissions.has(permission)) ?? false)
 let cartAcknowledgementTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => route.fullPath, () => { if (operationsMenu.value) operationsMenu.value.open = false })
 watch(cartCount, (current, previous) => {
   if (current === previous) return
   cartAcknowledged.value = true
@@ -58,22 +65,28 @@ onBeforeUnmount(() => {
         <span aria-hidden="true">SC</span><strong>Shoe Commerce</strong>
       </RouterLink>
       <div class="account-controls">
-        <nav :aria-label="t('Store')">
+        <nav class="store-nav" :aria-label="t('Store')">
           <RouterLink to="/">{{ t('Store') }}</RouterLink>
           <RouterLink to="/promotions">{{ t('Offers') }}</RouterLink>
           <RouterLink to="/cart">{{ t('Cart') }}<span v-if="cartCount" class="cart-count" :class="{ acknowledged: cartAcknowledged }" :aria-label="t('Cart items')">{{ cartCount }}</span></RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/orders">{{ t('My Orders') }}</RouterLink>
           <RouterLink v-if="session.account?.permissions.includes('ORDER_PLACE')" to="/account/vouchers">{{ t('My Vouchers') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('FULFILL_ORDER')" to="/operations/fulfillments">{{ t('Fulfillment') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('POS_SELL')" to="/operations/pos">{{ t('POS') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">{{ t('Reports') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('SHIPPING_RATE_MANAGE')" to="/operations/shipping">{{ t('Shipping rates') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('PROMOTION_MANAGE')" to="/operations/promotions">{{ t('Promotions') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('CATALOG_MANAGE')" to="/operations/products">{{ t('Products') }}</RouterLink>
-          <RouterLink v-if="canManageStorefront(session.account)" to="/operations/storefront">{{ t('Storefront') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.includes('STOREFRONT_MANAGE')" to="/operations/product-presentations">{{ t('Product copy') }}</RouterLink>
-          <RouterLink v-if="session.account?.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))" to="/operations/people">{{ t('People & Access') }}</RouterLink>
         </nav>
+        <details v-if="showOperations" ref="operationsMenu" class="operations-menu" :class="{ 'is-current': route.path.startsWith('/operations/') }">
+          <summary>{{ t('Operations') }}</summary>
+          <nav :aria-label="t('Operations')">
+            <RouterLink v-if="session.account?.permissions.includes('FULFILL_ORDER')" to="/operations/fulfillments">{{ t('Fulfillment') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('POS_SELL')" to="/operations/pos">{{ t('POS') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('REPORT_VIEW')" to="/operations/reports">{{ t('Reports') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('INVENTORY_TRANSFER')" to="/operations/inventory/transfers">{{ t('Inventory transfers') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('SHIPPING_RATE_MANAGE')" to="/operations/shipping">{{ t('Shipping rates') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('PROMOTION_MANAGE')" to="/operations/promotions">{{ t('Promotions') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('CATALOG_MANAGE')" to="/operations/products">{{ t('Products') }}</RouterLink>
+            <RouterLink v-if="canManageStorefront(session.account)" to="/operations/storefront">{{ t('Storefront') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.includes('STOREFRONT_MANAGE')" to="/operations/product-presentations">{{ t('Product copy') }}</RouterLink>
+            <RouterLink v-if="session.account?.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))" to="/operations/people">{{ t('People & Access') }}</RouterLink>
+          </nav>
+        </details>
         <div class="locale-switch" :aria-label="t('Choose language')">
           <button type="button" :aria-pressed="locale === 'vi-VN'" @click="setLocale('vi-VN')">VI</button><span aria-hidden="true">/</span><button type="button" :aria-pressed="locale === 'en'" @click="setLocale('en')">EN</button>
         </div>

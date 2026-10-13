@@ -20,7 +20,7 @@ import ProductPresentationSummary from './components/ProductPresentationSummary.
 import productPresentationSummarySource from './components/ProductPresentationSummary.vue?raw'
 import StorefrontIntentLinks from './components/StorefrontIntentLinks.vue'
 import storefrontIntentLinksSource from './components/StorefrontIntentLinks.vue?raw'
-import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail, type ProductSummary } from './api'
+import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail, type ProductSummary, type ReconciliationEntry } from './api'
 import { cart } from './cart'
 import { readCheckout } from './checkout'
 import { formatVnd } from './format'
@@ -175,12 +175,12 @@ describe('reporting interaction', () => {
     merchandiseGross:'200000',itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000',shippingGross:'30000',shippingDiscount:'0',shippingNetBeforeReversal:'30000',merchandiseVoids:'150000',shippingVoids:'30000',unallocatedLegacyVoids:'0'}
   const products = {context,rows:[{variantId:'variant',sku:'DISCOUNTED-SKU',size:'40',onlineGross:'200000',posGross:'0',grossSales:'200000',successfulVoids:'150000',netSales:'0',itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000'}],
     onlineGross:'200000',posGross:'0',grossSales:'200000',successfulVoids:'150000',netSales:'0',currency:'VND' as const,itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000',unallocatedLegacyVoids:'0'}
-  function reportsFixture() {
+  function reportsFixture(entries: ReconciliationEntry[] = []) {
     vi.spyOn(api,'reportScope').mockResolvedValue({asOf:context.asOf,businessTimezone:context.businessTimezone,defaultFromDate:'2026-08-28',defaultToDate:'2026-08-30',locations:[context.scope]})
     vi.spyOn(api,'netSales').mockResolvedValue(net)
     vi.spyOn(api,'productSales').mockResolvedValue(products)
     vi.spyOn(api,'inventoryReport').mockResolvedValue({context,rows:[],movements:[],reservations:[]})
-    vi.spyOn(api,'reconciliation').mockResolvedValue({context,entries:[],exceptionAmount:'0',exceptionCount:0,currency:'VND'})
+    vi.spyOn(api,'reconciliation').mockResolvedValue({context,entries,exceptionAmount:entries.length ? '125000' : '0',exceptionCount:entries.length,currency:'VND'})
   }
   it('renders server merchandise discounts, shipping and legacy explanation in both locales', async () => {
     reportsFixture()
@@ -208,6 +208,24 @@ describe('reporting interaction', () => {
     submit(); await settle()
     expect(text(root)).not.toContain('DISCOUNTED-SKU')
     expect(text(root)).toContain(t('This account is not authorized for this action or location.'))
+  })
+  it('shows one explicit QueryDr action only to an authorized operator and reports the safe outcome', async () => {
+    session.account = { accountId: 'operator', login: 'operator', roles: ['OPERATIONS'], permissions: ['REPORT_VIEW', 'PAYMENT_RECONCILE'] }
+    reportsFixture([{ category:'PAYMENT_REVIEW',referenceId:'attempt-1',orderId:'order-1',status:'REVIEW_REQUIRED',amount:'125000',netEffect:'0',occurredAt:context.asOf,exception:true }])
+    const reconcile = vi.spyOn(api,'reconcilePaymentAttempt').mockResolvedValue({attemptId:'attempt-1',orderId:'order-1',providerReference:'PAY123',previousState:'REVIEW_REQUIRED',currentState:'REVIEW_REQUIRED',outcome:'STILL_REVIEW_REQUIRED',resolved:false,replayed:false})
+    await mount(reportsComponent,'/reports')
+
+    await click('Reconcile with VNPAY')
+
+    expect(reconcile).toHaveBeenCalledOnce()
+    expect(text(root)).toContain(t('Still requires review'))
+  })
+  it('does not expose the financial action without PAYMENT_RECONCILE', async () => {
+    session.account = { accountId: 'reader', login: 'reader', roles: ['OPERATIONS'], permissions: ['REPORT_VIEW'] }
+    reportsFixture([{ category:'PAYMENT_REVIEW',referenceId:'attempt-1',orderId:'order-1',status:'REVIEW_REQUIRED',amount:'125000',netEffect:'0',occurredAt:context.asOf,exception:true }])
+    await mount(reportsComponent,'/reports')
+
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Reconcile with VNPAY'))).toBeUndefined()
   })
 })
 
@@ -449,6 +467,8 @@ describe('cart view interaction', () => {
     await settle()
     expect(cart.items[0].quantity).toBe(1)
     expect(text(root)).toContain('Added Court Classic · In cart: 1')
+    setLocale('vi-VN'); await settle()
+    expect(text(root)).toContain('Đã thêm Court Classic · Trong giỏ: 1')
     expect(add.props.disabled).toBe(true)
     expect(api.cartCheckout).not.toHaveBeenCalled()
     expect(JSON.parse(saved.get('shoe-commerce:cart:v2:owner')!).items[0].quantity).toBe(1)

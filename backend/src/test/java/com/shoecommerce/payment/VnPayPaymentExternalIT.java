@@ -12,6 +12,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
@@ -31,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +77,8 @@ import com.shoecommerce.platform.api.CorrelationIdFilter;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "spring.datasource.hikari.connection-init-sql=SET LOCK_TIMEOUT 1000")
 @ActiveProfiles("test")
 @Import(VnPayPaymentExternalIT.TestClockConfiguration.class)
 @EnabledIfEnvironmentVariable(named = "SPRING_DATASOURCE_URL", matches = ".+")
@@ -86,6 +90,7 @@ class VnPayPaymentExternalIT {
     private static final Instant TEST_NOW = Instant.parse("2026-08-27T02:00:00Z");
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired DataSource dataSource;
     @Autowired PasswordEncoder encoder;
     @Autowired AccountUserDetailsService users;
     @Autowired IdentityAdministrationService identities;
@@ -111,6 +116,8 @@ class VnPayPaymentExternalIT {
     @Autowired com.shoecommerce.reporting.ReportingService reports;
     @Autowired VoidResultService voidResults;
     @Autowired TestVoidProvider voidProvider;
+    @Autowired TestPaymentQueryProvider queryProvider;
+    @Autowired PaymentReconciliationService reconciliations;
     @Autowired TransactionTemplate transactions;
     @Autowired MutableClock clock;
     @Autowired ObjectMapper json;
@@ -118,6 +125,199 @@ class VnPayPaymentExternalIT {
 
     @BeforeEach
     void resetClock() { clock.set(TEST_NOW);jdbc.update("UPDATE promotion SET status='RETIRED',retired_at=? WHERE status='PUBLISHED'",Timestamp.from(TEST_NOW)); }
+
+    @Test
+    void manualQueryDrResolvesPendingAttemptAndSameKeyReplaysWithoutDuplicateEffect() {
+        Flow flow = flow("querydr-paid", 1);
+        int beforeCalls = queryProvider.calls();
+        queryProvider.next(PaymentQueryProvider.Outcome.CONFIRMED_PAID);
+
+        var applied = reconciliations.reconcile(flow.operations(), flow.attempt().id(), "querydr-paid-key");
+        var replay = reconciliations.reconcile(flow.operations(), flow.attempt().id(), "querydr-paid-key");
+
+        assertThat(applied.outcome()).isEqualTo("RESOLVED_PAID");
+        assertThat(replay.replayed()).isTrue();
+        assertPaidCommitted(flow);
+        assertThat(queryProvider.calls()).isEqualTo(beforeCalls + 1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='PAYMENT_SUCCEEDED' AND resource_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_reconciliation_command WHERE payment_attempt_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+    }
+
+    @Test
+    void reconciliationApplyLockTimeoutReturnsSafe503AndSameKeyRetryReusesSavedEvidence() throws Exception {
+        Flow flow = flow("qdr-lock", 1);
+        Browser operations = new Browser();
+        login(operations, flow.operations().getUsername());
+        int beforeCalls = queryProvider.calls();
+        queryProvider.next(PaymentQueryProvider.Outcome.CONFIRMED_PAID);
+        CountDownLatch queried = new CountDownLatch(1), resume = new CountDownLatch(1);
+        queryProvider.pauseNext(queried, resume);
+        HttpResponse<String> first;
+
+        try (Connection holder = dataSource.getConnection();
+                PreparedStatement lock = holder.prepareStatement(
+                        "UPDATE commerce_order SET entity_version=entity_version WHERE public_id=?");
+                var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            holder.setAutoCommit(false);
+            var request = executor.submit(() -> reconcile(operations, flow.attempt().id(), "querydr-lock-key"));
+            assertThat(queried.await(10, TimeUnit.SECONDS)).isTrue();
+            lock.setObject(1, flow.orderId());
+            assertThat(lock.executeUpdate()).isOne();
+            resume.countDown();
+            first = request.get(10, TimeUnit.SECONDS);
+
+            assertThat(first.statusCode()).isEqualTo(503);
+            JsonNode problem = json.readTree(first.body());
+            assertThat(problem.get("code").asString()).isEqualTo("CONCURRENCY_RETRY_REQUIRED");
+            assertThat(problem.get("retryable").asBoolean()).isTrue();
+            assertThat(problem.get("reuseSameIdempotencyKey").asBoolean()).isTrue();
+            assertThat(first.headers().firstValue("Retry-After")).isEmpty();
+            assertThat(first.body()).doesNotContain("SQLServer", "Hibernate", "JDBC", "1222");
+            assertThat(jdbc.queryForObject(
+                    "SELECT status FROM payment_reconciliation_command WHERE payment_attempt_public_id=?",
+                    String.class, flow.attempt().id())).isEqualTo("EVIDENCE_RECORDED");
+            holder.rollback();
+        }
+
+        assertPending(flow);
+        HttpResponse<String> retried = reconcile(operations, flow.attempt().id(), "querydr-lock-key");
+        assertThat(retried.statusCode()).isEqualTo(200);
+        assertThat(json.readTree(retried.body()).get("outcome").asString()).isEqualTo("RESOLVED_PAID");
+        assertThat(queryProvider.calls()).isEqualTo(beforeCalls + 1);
+        assertPaidCommitted(flow);
+    }
+
+    @Test
+    void manualQueryDrAppliesDefinitiveFailureWithoutCreatingAnotherAttempt() {
+        Flow flow = flow("querydr-failed", 2);
+        int attemptsBefore = jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt", Integer.class);
+        queryProvider.next(PaymentQueryProvider.Outcome.CONFIRMED_FAILED);
+
+        var result = reconciliations.reconcile(flow.operations(), flow.attempt().id(), "querydr-failed-key");
+
+        assertThat(result.outcome()).isEqualTo("RESOLVED_FAILED");
+        assertThat(payments.readOwn(flow.customer(), flow.attempt().id()).status()).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt", Integer.class)).isEqualTo(attemptsBefore);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='PAYMENT_FAILED' AND resource_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+    }
+
+    @Test
+    void manualQueryDrEnforcesPermissionAndExactLocationScopeBeforeCallingProvider() {
+        Flow flow = flow("querydr-scope", 2);
+        int beforeCalls = queryProvider.calls();
+
+        assertThatThrownBy(() -> reconciliations.reconcile(flow.customer(), flow.attempt().id(), "querydr-customer"))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        SessionPrincipal admin = bootstrapAdmin();
+        String foreignLogin = "querydr-foreign-ops-" + UUID.randomUUID() + "@example.com";
+        UUID foreignId = identities.createAccount(admin, foreignLogin, PASSWORD, RoleCode.OPERATIONS);
+        UUID foreignBranch = scopes.createBranch(admin, "QDR-FOREIGN-" + shortId(), "Foreign branch");
+        UUID foreignLocation = scopes.createLocation(admin, foreignBranch, "QDR-FOREIGN-" + shortId(), "Foreign floor");
+        scopes.setAssignment(admin, foreignId, foreignBranch, foreignLocation, true);
+
+        assertThatThrownBy(() -> reconciliations.reconcile(
+                principal(foreignLogin), flow.attempt().id(), "querydr-foreign"))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        assertThat(queryProvider.calls()).isEqualTo(beforeCalls);
+    }
+
+    @Test
+    void unresolvedOutageMismatchAndChangedTargetNeverCreateAnotherAttemptOrMutatePayment() {
+        Flow unresolved = flow("querydr-unresolved", 2);
+        int originalAttempts = jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt", Integer.class);
+        queryProvider.next(PaymentQueryProvider.Outcome.UNRESOLVED);
+        var result = reconciliations.reconcile(unresolved.operations(), unresolved.attempt().id(), "querydr-unresolved-key");
+        assertThat(result.outcome()).isEqualTo("STILL_UNRESOLVED");
+        assertPending(unresolved);
+
+        Flow outage = flow("querydr-outage", 2);
+        int beforeCalls = queryProvider.calls();
+        queryProvider.failNext(new PaymentProviderUnavailableException("private timeout"));
+        assertThatThrownBy(() -> reconciliations.reconcile(outage.operations(), outage.attempt().id(), "querydr-outage-key"))
+                .isInstanceOf(PaymentProviderUnavailableException.class);
+        assertThat(queryProvider.calls()).isEqualTo(beforeCalls + 1);
+        assertPending(outage);
+
+        queryProvider.next(PaymentQueryProvider.Outcome.CONFIRMED_PAID);
+        assertThat(reconciliations.reconcile(outage.operations(), outage.attempt().id(), "querydr-outage-retry-key").outcome())
+                .isEqualTo("RESOLVED_PAID");
+        assertThat(queryProvider.calls()).isEqualTo(beforeCalls + 2);
+
+        Flow mismatch = flow("querydr-mismatch", 2);
+        queryProvider.failNext(new PaymentReconciliationResultMismatchException("Provider result mismatch"));
+        assertThatThrownBy(() -> reconciliations.reconcile(
+                mismatch.operations(), mismatch.attempt().id(), "querydr-mismatch-key"))
+                .isInstanceOf(PaymentReconciliationResultMismatchException.class);
+        assertPending(mismatch);
+        assertThat(jdbc.queryForObject("SELECT status FROM payment_reconciliation_command WHERE payment_attempt_public_id=?",
+                String.class, mismatch.attempt().id())).isEqualTo("MISMATCH");
+
+        SessionPrincipal scopeAdmin = bootstrapAdmin();
+        UUID outageBranch = jdbc.queryForObject("SELECT branches.public_id FROM org_branch branches JOIN org_location locations ON locations.branch_id=branches.id WHERE locations.public_id=?",
+                UUID.class, outage.locationId());
+        scopes.setAssignment(scopeAdmin, unresolved.operations().publicId(), outageBranch, outage.locationId(), true);
+        SessionPrincipal refreshedOperations = principal(unresolved.operations().getUsername());
+        assertThatThrownBy(() -> reconciliations.reconcile(
+                refreshedOperations, outage.attempt().id(), "querydr-unresolved-key"))
+                .isInstanceOf(BusinessConflictException.class)
+                .extracting(error -> ((BusinessConflictException) error).code()).isEqualTo("IDEMPOTENCY_KEY_CONFLICT");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt", Integer.class)).isEqualTo(originalAttempts + 2);
+    }
+
+    @Test
+    void reviewRequiredQueryDrEvidenceCannotReopenExpiredOrder() {
+        Flow flow = flow("querydr-review", 2);
+        clock.set(flow.expiresAt().plusSeconds(1));
+        expiry.expireForVariant(flow.variantId());
+        assertThat(results.apply(verified(flow, "8100099001", 125_000, "00", "00")))
+                .isEqualTo(VerifiedPaymentResultService.Result.APPLIED);
+        assertThat(payments.readOwn(flow.customer(), flow.attempt().id()).status()).isEqualTo("REVIEW_REQUIRED");
+
+        queryProvider.next(PaymentQueryProvider.Outcome.CONFIRMED_PAID);
+        var result = reconciliations.reconcile(flow.operations(), flow.attempt().id(), "querydr-review-key");
+
+        assertThat(result.outcome()).isEqualTo("STILL_REVIEW_REQUIRED");
+        assertThat(result.resolved()).isFalse();
+        assertThat(orders.readOwn(flow.customer(), flow.orderId()).status()).isEqualTo("CANCELLED");
+        assertThat(reservations.readOwn(flow.customer(), flow.reservationId()).status()).isEqualTo("EXPIRED");
+    }
+
+    @Test
+    void concurrentOperatorsApplyOneVerifiedPaymentTransition() throws Exception {
+        Flow flow = flow("querydr-race", 1);
+        SessionPrincipal admin = bootstrapAdmin();
+        String login = "querydr-race-ops-" + UUID.randomUUID() + "@example.com";
+        UUID secondId = identities.createAccount(admin, login, PASSWORD, RoleCode.OPERATIONS);
+        UUID branchId = jdbc.queryForObject("SELECT branches.public_id FROM org_branch branches JOIN org_location locations ON locations.branch_id=branches.id WHERE locations.public_id=?", UUID.class, flow.locationId());
+        scopes.setAssignment(admin, secondId, branchId, flow.locationId(), true);
+        SessionPrincipal second = principal(login);
+        queryProvider.repeat(PaymentQueryProvider.Outcome.CONFIRMED_PAID, 2);
+        CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> race(ready, start,
+                    () -> reconciliations.reconcile(flow.operations(), flow.attempt().id(), "race-a")));
+            var other = executor.submit(() -> race(ready, start,
+                    () -> reconciliations.reconcile(second, flow.attempt().id(), "race-b")));
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(List.of(first.get(20, TimeUnit.SECONDS), other.get(20, TimeUnit.SECONDS)))
+                    .allMatch(value -> value instanceof PaymentReconciliationService.View
+                            || value instanceof BusinessConflictException);
+        }
+
+        assertPaidCommitted(flow);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='PAYMENT_SUCCEEDED' AND resource_public_id=?",
+                Integer.class, flow.attempt().id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt WHERE public_id=? AND status='SUCCEEDED'",
+                Integer.class, flow.attempt().id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action IN ('PAYMENT_RECONCILIATION_APPLIED','PAYMENT_RECONCILIATION_RECORDED') AND resource_public_id IN (SELECT public_id FROM payment_reconciliation_command WHERE payment_attempt_public_id=?)",
+                Integer.class, flow.attempt().id())).isOne();
+    }
 
     @Test
     void verifiedSuccessCommitsInventoryExactlyOnceAndPaidHoldCannotExpire() {
@@ -1407,6 +1607,13 @@ class VnPayPaymentExternalIT {
     private HttpResponse<String> initiate(Browser browser, UUID orderId, String key) throws Exception {
         Csrf csrf = csrf(browser);
         return browser.client.send(HttpRequest.newBuilder(uri("/api/v1/orders/" + orderId + "/payments"))
+                .header("Idempotency-Key", key).header(csrf.header(), csrf.token())
+                .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
+    }
+    private HttpResponse<String> reconcile(Browser browser, UUID attemptId, String key) throws Exception {
+        Csrf csrf = csrf(browser);
+        return browser.client.send(HttpRequest.newBuilder(
+                uri("/api/v1/operations/payment-attempts/" + attemptId + "/reconcile"))
                 .header("Idempotency-Key", key).header(csrf.header(), csrf.token())
                 .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
     }
