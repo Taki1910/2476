@@ -9,6 +9,7 @@ import { PRODUCT_IMAGE_PLACEHOLDER, productAlt } from '../product-media'
 import { evidenceHighlights, productPositioning } from '../product-evidence'
 import FitAssistant from '../components/FitAssistant.vue'
 import ProductPresentationSummary from '../components/ProductPresentationSummary.vue'
+import { comparisonIds, toggleComparison } from '../comparison'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +25,9 @@ const cartError = ref('')
 const fitNotice = ref('')
 const added = ref(false)
 const selectedMediaIndex = ref(0)
+const mainImageUnavailable = ref(false)
+const comparisonMessage = ref('')
+const selectionHeading = ref<HTMLHeadingElement>()
 const fitGuide = ref<HTMLDetailsElement>()
 const fitGuideSummary = ref<HTMLElement>()
 let addTimer: ReturnType<typeof setTimeout> | undefined
@@ -38,6 +42,10 @@ const productPrice = computed(() => {
     : { label: t('Price'), value: formatVnd(pricing.minimumAmount) }
 })
 const selectedMedia = computed(() => product.value?.media[selectedMediaIndex.value])
+const mainImageSource = computed(() => mainImageUnavailable.value ? PRODUCT_IMAGE_PLACEHOLDER : selectedMedia.value?.url ?? PRODUCT_IMAGE_PLACEHOLDER)
+const mainImageAlt = computed(() => !selectedMedia.value || mainImageUnavailable.value
+  ? t('No product image available')
+  : productAlt(product.value?.name ?? '', selectedMedia.value.alt))
 const selectedColorOption = computed(() => product.value?.options.find(option => option.color === selectedColor.value))
 const requestedOption = computed(() => selectedColorOption.value?.sizes.find(option => option.size === requestedSize.value))
 const productTaxonomy = computed(() => [product.value?.category, product.value?.collection]
@@ -74,6 +82,7 @@ async function loadProduct() {
     if (version !== loadVersion) return
     product.value = result
     selectedMediaIndex.value = 0
+    mainImageUnavailable.value = false
     applyRouteVariant()
   } catch (reason) {
     if (version !== loadVersion) return
@@ -100,6 +109,10 @@ async function openFitGuide() {
 function resetSelectionFeedback() {
   cartMessage.value = null; cartError.value = ''; fitNotice.value = ''
 }
+
+function focusSelection() { selectionHeading.value?.focus() }
+function handleMainImageError() { mainImageUnavailable.value = true }
+function selectMedia(index: number) { selectedMediaIndex.value = index; mainImageUnavailable.value = false }
 
 function resolve(option: SizeOption | undefined) {
   selected.value = option?.availability === 'AVAILABLE' && option.variantId
@@ -162,6 +175,11 @@ function buyNow() {
   if (add()) void router.push('/cart')
 }
 
+function compareProduct() {
+  const result = toggleComparison(product.value!.id)
+  comparisonMessage.value = result === 'limit' ? 'You can compare up to three products.' : ''
+}
+
 watch(() => route.params.id, loadProduct)
 watch(() => route.query.variant, applyRouteVariant)
 onMounted(loadProduct)
@@ -180,11 +198,11 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
       <section class="product-decision">
         <div class="product-media-region">
           <figure class="product-detail-figure">
-            <div class="product-detail-image"><img :src="selectedMedia?.url ?? PRODUCT_IMAGE_PLACEHOLDER" :alt="productAlt(product.name)" width="1456" height="1092" /></div>
+            <div class="product-detail-image"><img :src="mainImageSource" :alt="mainImageAlt" width="1456" height="1092" @error="handleMainImageError" /></div>
             <figcaption>{{ t('Illustrative product view. Your color and size selection below is what applies to the cart.') }}</figcaption>
           </figure>
           <div v-if="product.media.length > 1" class="product-media-picker" role="group" :aria-label="t('Product images')">
-            <button v-for="(media, index) in product.media" :key="`${media.position}-${media.url}`" type="button" class="product-media-option" :class="{ selected: selectedMediaIndex === index }" :aria-label="t('Show image {position} of {total}', { position: index + 1, total: product.media.length })" :aria-pressed="selectedMediaIndex === index" @click="selectedMediaIndex = index"><img :src="media.url" alt="" width="160" height="120" /></button>
+            <button v-for="(media, index) in product.media" :key="`${media.position}-${media.url}`" type="button" class="product-media-option" :class="{ selected: selectedMediaIndex === index }" :aria-label="t('Show image {position} of {total}', { position: index + 1, total: product.media.length })" :aria-pressed="selectedMediaIndex === index" @click="selectMedia(index)"><img :src="media.url" alt="" width="160" height="120" loading="lazy" /></button>
           </div>
         </div>
         <div class="product-decision-panel">
@@ -192,6 +210,8 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
             <h1>{{ product.name }}</h1>
             <p v-if="productTaxonomy" class="product-taxonomy">{{ productTaxonomy }}</p>
             <p class="product-option-count">{{ product.variants.length }} {{ t(product.variants.length === 1 ? 'available option' : 'size/color options') }}</p>
+            <button class="comparison-product-button" type="button" :aria-pressed="comparisonIds.includes(product.id)" @click="compareProduct">{{ t(comparisonIds.includes(product.id) ? 'Remove from comparison' : 'Compare') }}</button>
+            <p v-if="comparisonMessage" class="comparison-limit-message" role="status">{{ t(comparisonMessage) }}</p>
             <div v-if="productEvidence || fitSummary" class="product-decision-evidence">
               <p v-if="productEvidence">{{ productEvidence }}</p>
               <p v-if="fitSummary"><span>{{ t('Fit') }}</span><strong>{{ fitSummary }}</strong></p>
@@ -201,7 +221,7 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
           <div class="public-price" aria-live="polite"><span>{{ selected ? t('Selected price') : productPrice.label }}</span><strong>{{ selected ? formatVnd(selected.amount) : productPrice.value }}</strong></div>
 
           <section class="selection-panel" aria-labelledby="variant-heading">
-            <div class="selection-copy"><h2 id="variant-heading">{{ t('Choose a color') }}</h2><p>{{ t('Availability can change until your order is placed.') }}</p></div>
+            <div class="selection-copy"><h2 id="variant-heading" ref="selectionHeading" tabindex="-1">{{ t('Choose a color') }}</h2><p>{{ t('Availability can change until your order is placed.') }}</p></div>
             <div v-if="!product.options.length" class="inline-state"><h3>{{ t('No sizes available') }}</h3><p>{{ t('This product cannot be added to a cart right now.') }}</p></div>
             <template v-else>
               <fieldset class="color-list"><legend>{{ t('Color') }}</legend><button v-for="option in product.options" :key="option.color" type="button" class="color-option" :class="{ selected: selectedColor === option.color }" :aria-pressed="selectedColor === option.color" @click="chooseColor(option.color)"><span>{{ t(option.color) }}</span></button></fieldset>
@@ -211,7 +231,7 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
             </template>
 
             <div class="product-add-panel">
-              <div v-if="selected" class="selected-summary"><span>{{ t('Selected') }}</span><strong>{{ t('Size') }} {{ selected.size }} · {{ t(selected.color) }}</strong></div>
+              <div v-if="selected" class="selected-summary"><span>{{ t('Selected size') }}</span><strong>{{ t('Size') }} {{ selected.size }} · {{ t(selected.color) }}</strong></div>
               <div class="purchase-assurance"><p>{{ t('Review final price and availability in your cart, where you can choose pickup or delivery.') }}</p></div>
               <div v-if="cartMessage" class="cart-toast" role="status" aria-live="polite"><span>{{ t('Added {name} · In cart: {quantity}', cartMessage) }}</span><RouterLink to="/cart">{{ t('View cart') }}</RouterLink></div>
               <p v-if="cartError" class="form-error" role="alert">{{ messageLabel(cartError) }}</p>
@@ -242,8 +262,18 @@ onBeforeUnmount(() => { ++loadVersion; clearTimeout(addTimer); clearTimeout(toas
         </div>
       </details>
 
-      <FitAssistant :product-id="product.id" :fit-supported="product.fitSupported" :fit-guidance="product.fitGuidance" :selected-color="selectedColor || undefined" :variants="product.variants" @select-size="selectFitSize" @select-color="selectFitColor" />
+      <FitAssistant :key="product.id" :product-id="product.id" :fit-supported="product.fitSupported" :fit-guidance="product.fitGuidance" :selected-color="selectedColor || undefined" :variants="product.variants" @select-size="selectFitSize" @select-color="selectFitColor" />
       <p v-if="fitNotice" class="form-error fit-selection-notice" role="alert">{{ t(fitNotice) }}</p>
+      <div v-if="product.options.length" class="mobile-purchase-bar">
+        <div class="mobile-purchase-summary">
+          <strong>{{ t(selected ? 'Selected size' : 'Choose a size first') }}</strong>
+          <span>{{ selected ? `EU ${selected.size} · ${t(selected.color)}` : t('Choose a color and size to continue.') }}</span>
+          <p v-if="cartMessage" class="cart-toast" role="status" aria-live="polite">{{ t('Added {name} · In cart: {quantity}', cartMessage) }}</p>
+          <p v-if="cartError" class="form-error" role="alert">{{ messageLabel(cartError) }}</p>
+          <p v-if="cart.storageError" class="form-error" role="alert">{{ t('Browser storage is unavailable. Your cart may not survive a refresh.') }}</p>
+        </div>
+        <button class="primary-button mobile-purchase-action" type="button" :disabled="added" @click="selected ? add() : focusSelection()">{{ t(selected ? added ? 'Added to cart.' : 'Add to cart' : 'Choose a size') }}</button>
+      </div>
     </template>
   </div>
 </template>

@@ -73,6 +73,9 @@ describe('locale and return-route rules', () => {
     expect(t('Try a broader product name, color, use, or price.')).toBe('Hãy thử tên sản phẩm, màu sắc, nhu cầu hoặc mức giá rộng hơn.')
     expect(t('Not sure about size?')).toBe('Chưa chắc về kích cỡ?')
     expect(t('You might like')).toBe('Có thể bạn sẽ thích')
+    expect(t('Search suggestions')).toBe('Gợi ý tìm kiếm')
+    expect(t('Similar products')).toBe('Sản phẩm tương tự')
+    expect(t('{count} search suggestions', { count: 3 })).toBe('3 gợi ý tìm kiếm')
   })
 
   it('uses the role workspace unless an explicit local destination was supplied', () => {

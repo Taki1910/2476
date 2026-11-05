@@ -479,3 +479,13 @@ requirements:
     superseded_by: null
     evidence: [docs/FINAL_PRODUCT_READINESS_EXECUTION_LEDGER.md, docs/FINAL_FREEZE.md]
     notes: Intentionally light-only; add only after a separately approved palette and requirement.
+
+  - id: REQ-UX-003
+    area: Frontend UX
+    requirement: Deliver the agreed seven-part shopping and staff experience upgrade through independently verified slices for comparison, product presentation, size guidance, cart recovery, order journey, intent discovery and role-based task surfaces.
+    source: User accepted UX proposal and requested a plan on 2026-10-13
+    status: in_progress
+    introduced: 2026-10-13
+    superseded_by: null
+    evidence: [docs/UX_UPGRADE_VERIFICATION_20261015.md, docs/superpowers/plans/2026-10-13-shopping-experience-upgrade.md]
+    notes: Implementation present for seven slices, including UX01 cache revalidation observed in current ProductComparison.vue and mounted regression cases; user reports its technical PASS. UX05 2026-10-20 verification 366/366 frontend tests and typecheck/build PASS with isolated Edge behavior evidence, but final visual no-clipping evidence and real-stack acceptance remain pending; latest tool retry is blocked. UX01 and other visual/media/network acceptance remain pending, not implementation work. No new size policy, commercial API, external provider, publication or protected database changes. REQ-UX-001 historical completion is unchanged. Other milestone reconciliation is recorded in CURRENT_STATE without changing this requirement's scope.

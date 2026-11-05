@@ -1,5 +1,26 @@
 # Progress History
 
+## Checkpoint — 2026-10-13 isolated sample-data experience
+
+Agent: `/root`
+
+- User approved a new local demo database. `shoe_commerce_experience_20261013`
+  was absent, created empty and populated by the existing Flyway V1-V36 and
+  `DemoDataBootstrap` through the `demo` profile. The preserved databases and
+  the process already using port 8080 were not changed.
+- Verified 18 products, 73 variants, 146 balances, five synthetic accounts,
+  134 orders, zero failed migrations, zero invalid balances and zero duplicate
+  SKUs. Customer catalog imagery and `manager.demo` login/fulfillment queue
+  were observed in the real browser; a final reload again showed the manager
+  session and 18 products.
+- Backend runs on `127.0.0.1:8081` and Vite on `127.0.0.1:5173`, with both
+  listeners verified loopback-only; one process-local proxy target lets the
+  demo coexist with port 8080. An exact pre-edit Vite config and runtime
+  details are saved in ignored `artifacts/demo-experience-20261013/`.
+- Current-source backend package and frontend production build passed. No
+  external payment or AI provider was called and no certified baseline or
+  datasource was promoted.
+
 ## Checkpoint — 2026-10-13 autonomous frontend UX polish
 
 Agent: `/root`
@@ -295,3 +316,39 @@ Agent: `/root`
 - REQ-PAY-003 remains planned until merchant credentials, an approved public
   HTTPS IPN and redacted live sandbox evidence exist. All AUD-03/REQ-INV-002/
   REQ-FUL-003 status and exclusions remain unchanged.
+
+## 2026-10-13 — autonomous route-loading/build improvement
+
+REQ-UX-001: 24 route pages now load on demand; fixed pre-existing Vite config
+TS2591 using loadEnv. Frontend 333/333, typecheck/build and diff check passed.
+Entry JS 532.02 -> 260.11 kB, gzip 152.22 -> 84.10 kB. Rollback/evidence in
+artifacts/autonomous-completion-20261013. Whole-project/provider completion
+is not claimed; certified baseline unchanged.
+
+## 2026-10-13 — Seven-part UX upgrade plan
+
+User accepted direction and requested planning. Added REQ-UX-003 (planned),
+DEC-0013 and one canonical brief/implementation plan covering UX-01..07.
+No application code, tests, DB or provider changed; no implementation claim.
+
+- 2026-10-15: Reconciled UX01..07 implementation; 351 frontend tests, production build/typecheck and diff check pass. Partial browser evidence retained; stopped MSSQL$AN service and OS service-start permission block remaining live acceptance. See docs/UX_UPGRADE_VERIFICATION_20261015.md. REQ-UX-003 stays in_progress, FINAL_FREEZE unchanged.
+
+## 2026-10-15 — Research skill and feature audit
+
+Later UX05-only implementation: reused current research skill (activation PASS, full installation still incomplete), reproduced 4 stale-data failures with mounted tests, cleared order at read start, and verified 358/358 frontend tests plus typecheck/build. Seven new mounted cases cover denied reads, network retry, ID/response ordering and App account isolation. Demo browser connection refused; acceptance pending, no complete-program or release claim. Evidence: docs/UX_UPGRADE_VERIFICATION_20261015.md and artifacts/ux05-20261015.
+
+Inspected existing Markdown-only `.codex/skills/reuse-first-research`, router overlap, dirty source and all 47 registry/matrix IDs. Requested installer and AGENTS snippets were absent, so no install or AGENTS edit occurred. Wrote `docs/REUSE_RESEARCH_FEATURE_RECONCILIATION_20261015.md` with feature inventory, Research Decisions, evidence limits and UX05 as the single next implementation target. No application, database or Git state changes; no new tests/browser run. Existing UX01/UX05 findings and guest registration merge gap remain unaccepted.
+
+## 2026-10-17 — UX05 host-side recovery handoff
+
+Inspected frontend dev lifecycle/config and tool execution capabilities. No confirmed outside-sandbox host execution channel; host HTTP/browser remain UNTESTED. No repeated socket attempts. Prepared normal host PowerShell startup/listener/curl and private-browser evidence handoff in UX_UPGRADE_VERIFICATION_20261015.md, using process-local dead backend proxy destination to avoid real service access. Mocked tests NOT RUN, real-stack PENDING; no new defect, source/backend/database/security/Git mutations. UX05 browser acceptance blocked, REQ-UX-003 in progress, UX01 deferred pending host evidence.
+
+## 2026-10-20 — UX05 isolated browser checkpoint
+Fresh366/366 frontend tests and build/typechecks PASS. Mobile delayed/late-response/account/403 keyboard retry/404/network and desktop EN pickup/delivery timeline/401 clearing observed with strict fixtures. Release failure localized to absent activation; Enter released exact held request. Added only prepared fixture control and diagnostics wrapping. Full acceptance remains pending reliable no-clipping screenshots because MCP captures were inconsistent. No production/backend/DB/Git mutations; UX01 deferred. Detailed receipt in docs/UX_UPGRADE_VERIFICATION_20261015.md.
+
+## 2026-10-20 — Close old Release investigation; browser channel unavailable
+Closed old investigation with user-specified NON_REPRODUCIBLE WITH TEST-ONLY TELEMETRY; ROOT CAUSE UNKNOWN; NO PRODUCT DEFECT ESTABLISHED. No Release re-run/edit. Edge no longer exposed; IAB localhost refused then timed out after safe Vite startup. Fresh browser gates pending tool recovery; no PASS promotion or source/database changes. Details in latest UX05 receipt.
+
+## 2026-10-20 — Incremental milestone memory correction
+
+Documentation-only inspection found UX01 cache revalidation, Guest Cart cross-tab/stale-login remediation, SEARCH-01 typo suggestions and SEARCH-02 frontend autocomplete still present in current source with relevant regression cases. The user reports technical PASS for all four and two Guest Cart RED→GREEN regressions; exact recent execution/benchmark receipts were not found locally, so the ledger records that provenance rather than inventing commands or timing. UX01 implementation is no longer an eligible next target. Guest Cart backend race remains INCONCLUSIVE; UX05 is PENDING_TOOL_RETRY; browser/endpoint/performance acceptance remains pending. No production source, tests, API, database, migration, Git state, or release certification changed. No eligible active unimplemented task selected.

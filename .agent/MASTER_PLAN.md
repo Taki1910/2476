@@ -97,3 +97,15 @@ them. Their registry entry or a new explicit requirement must authorize work.
 
 Never delete historical requirements. Use `superseded` or `cancelled`, retain
 the old ID, and link the replacement when one exists.
+
+## Planned UX upgrade — 2026-10-13
+
+REQ-UX-003 adds the user-accepted seven-part experience direction: product
+comparison, PDP/lookbook, existing size-guidance refinement, cart recovery,
+order journey, intent discovery and role-based staff task surfaces. Status is
+planned, not implemented; DEC-0013 records its boundary. Canonical plan:
+`docs/superpowers/plans/2026-10-13-shopping-experience-upgrade.md`.
+
+2026-10-15 execution supersedes the planning-only status above: implementation present,351 frontend tests/build PASS, live discovery/recovery/role-boundary and responsive checks added. Remaining visual acceptance is tracked in docs/UX_UPGRADE_VERIFICATION_20261015.md; REQ-UX-003 remains in_progress.
+
+2026-10-20 incremental reconciliation: current source retains UX01 cache revalidation, Guest Cart cross-tab/stale-login remediation, SEARCH-01 bounded typo suggestions and SEARCH-02 frontend autocomplete. User reports technical PASS for each; local source/regression cases corroborate implementation, while exact recent RED/GREEN and benchmark receipts were not located. UX01 and SEARCH-02 browser/endpoint acceptance, UX05 visual acceptance, and wider performance acceptance remain pending as applicable. Guest Cart backend race is INCONCLUSIVE, not a confirmed defect. This does not admit new scope or change the certified/release baseline; see CURRENT_STATE.md.

@@ -1,16 +1,17 @@
 import { reactive } from 'vue'
 import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
 import { api, ApiError, type Account } from './api'
-import { activateCart } from './cart'
+import { activateCart, cart } from './cart'
 
 export const SESSION_CHANGE_CHANNEL = 'shoe-commerce:session-change'
 export const SESSION_CHANGE_SOURCE = crypto.randomUUID()
 export const session = reactive<{ loaded: boolean; unavailable: boolean; generation: number; account?: Account }>({ loaded: false, unavailable: false, generation: 0 })
+let pendingLogins = 0
 
 export function clearPrivateSession() {
+  session.generation++
   activateCart(null)
   session.account = undefined
-  session.generation++
 }
 
 function notifySessionChange() {
@@ -20,12 +21,14 @@ function notifySessionChange() {
 }
 
 export async function loadSession() {
-  const generation = session.generation
+  const generation = ++session.generation
   session.unavailable = false
+  if (pendingLogins) { session.loaded = false; return }
   try {
     const account = await api.me()
     if (generation === session.generation) {
-      activateCart(account.accountId)
+      await activateCart(account.accountId)
+      if (generation !== session.generation) return
       session.account = account
     }
   }
@@ -39,19 +42,37 @@ export async function loadSession() {
 }
 
 export async function signIn(login: string, password: string) {
-  const account = await api.login(login, password)
-  session.generation++
-  activateCart(account.accountId)
-  session.account = account
-  session.unavailable = false
-  session.loaded = true
-  notifySessionChange()
-  return session.account
+  const generation = ++session.generation
+  const consumeGuest = cart.owner === null
+  pendingLogins++
+  activateCart(null)
+  session.account = undefined
+  session.loaded = false
+  try {
+    const account = await api.login(login, password).finally(() => { pendingLogins-- })
+    if (generation !== session.generation) throw new Error('Sign-in superseded')
+    await activateCart(account.accountId, consumeGuest)
+    if (generation !== session.generation) throw new Error('Sign-in superseded')
+    session.account = account
+    session.unavailable = false
+    session.loaded = true
+    notifySessionChange()
+    return account
+  } catch (error) {
+    if (generation === session.generation) {
+      session.account = undefined
+      session.loaded = false
+      session.unavailable = true
+    }
+    throw error
+  }
 }
 
 export async function signOut() {
-  await api.logout()
   clearPrivateSession()
+  const generation = session.generation
+  await api.logout()
+  if (generation !== session.generation) clearPrivateSession()
   notifySessionChange()
   return '/'
 }
@@ -93,7 +114,8 @@ export function routeAccessDestination(
 
 export async function refreshSessionRoute(to: SessionRoute) {
   clearPrivateSession()
+  const check = loadSession()
   const generation = session.generation
-  await loadSession()
+  await check
   return session.unavailable || generation !== session.generation ? undefined : routeAccessDestination(to)
 }

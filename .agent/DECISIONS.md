@@ -240,3 +240,27 @@ Location-then-Variant locking, durable in-transit line evidence and immutable
 `TRANSFER_OUT`/`TRANSFER_IN` movements. Create, dispatch and receive use
 actor/key/action/payload idempotency and ADR-0044 explicit same-key retry.
 Physical Return remains unimplemented and blocked by REQ-FUL-003.
+
+## DEC-0013 — Seven-part UX upgrade direction accepted; planning requested
+
+Date: 2026-10-13
+Status: ACTIVE
+
+The user accepted the seven proposed UX directions and requested a plan, then
+asked to continue that planning. Track the additive program as REQ-UX-003
+planned; preserve the completed historical REQ-UX-001 and cancelled dark theme.
+Canonical brief, ordered tasks, proposed implementation defaults, dependencies
+and acceptance are in docs/superpowers/plans/2026-10-13-shopping-experience-upgrade.md.
+Order: comparison, PDP/lookbook, size guidance, cart recovery, order journey,
+intent discovery, staff task surfaces. Existing gallery/quick-size are reused.
+Agreement to UX direction does not invent new size rules, product claims,
+stock thresholds, financial states or external provider authorization.
+This turn creates the plan only; no application implementation is claimed.
+
+### DEC-0013 execution admission
+
+User now explicitly authorizes implementing the plan and using economical
+subagents. Implementation defaults in the plan are admitted within its stated
+API/domain constraints. One GPT-6 Luna implementer at a time is selected from
+the available tool models; root integrates/reviews. Previous no-delegation
+plan default is superseded by this explicit authorization. No Git mutations.

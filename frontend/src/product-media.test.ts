@@ -4,6 +4,8 @@ import { PRODUCT_IMAGE_PLACEHOLDER, productAlt, productListingImage } from './pr
 describe('product media fallback', () => {
   it('uses only the canonical product name as fallback alt', () => {
     expect(productAlt('City Loafer')).toBe('City Loafer')
+    expect(productAlt('City Loafer', 'Side profile on foot')).toBe('Side profile on foot')
+    expect(productAlt('City Loafer', '  ')).toBe('City Loafer')
     expect(productAlt('Unknown Product')).toBe('Unknown Product')
     expect(productAlt('City Loafer')).not.toMatch(/leather|da |technical|mesh|suede/i)
   })

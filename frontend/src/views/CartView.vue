@@ -193,7 +193,10 @@ onBeforeUnmount(() => { disposed = true; ++districtLoadVersion; ++wardLoadVersio
             <p>{{ t('Size') }} {{ item.size }} · {{ t(item.color) }}</p>
             <p class="field-help">{{ t('Reference price') }}: {{ formatVnd(item.amount) }}</p>
             <p v-for="changed in changes.filter(line => line.variantId === item.variantId)" :key="changed.variantId" class="cart-change" role="status">{{ t('{name} · Size {size} is now {amount}. Review the updated total before continuing.', { name: item.productName, size: item.size, amount: formatVnd(changed.unitPriceAmount) }) }}</p>
-            <p v-if="affectedVariant === item.variantId && error" :id="'cart-error-' + item.variantId" class="cart-change" role="alert">{{ error }}</p>
+            <div v-if="affectedVariant === item.variantId && error" :id="'cart-error-' + item.variantId" class="cart-change" role="alert">
+              <p>{{ error }}</p>
+              <RouterLink v-if="!checkoutLocked" class="cart-line-recovery" :to="{ path: '/products/' + item.productId, query: { variant: item.variantId } }">{{ t('Choose your size') }} · {{ item.productName }}</RouterLink>
+            </div>
           </div>
           <div class="cart-line-controls">
             <label :for="'cart-quantity-' + item.variantId">{{ t('Quantity') }}<span class="sr-only"> · {{ item.productName }} · {{ t('Size') }} {{ item.size }}</span></label>

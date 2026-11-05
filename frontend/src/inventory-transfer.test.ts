@@ -46,4 +46,5 @@ describe('inventory transfer workflow', () => {
     expect(viewSource).toContain("'Dispatched / In transit'")
     expect(i18nSource).toContain("'Dispatched / In transit': 'Đã xuất kho / Đang vận chuyển'")
   })
+
 })

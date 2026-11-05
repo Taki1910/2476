@@ -7,6 +7,14 @@ import {
 describe('storefront scroll restoration', () => {
   const route = (hash = '') => ({ hash }) as never
 
+  it('keeps the current viewport when expanding the catalog without changing its search', () => {
+    expect(storefrontScrollBehavior(
+      { name: 'catalog', query: { view: 'all', q: 'trail' }, hash: '' } as never,
+      { name: 'catalog', query: { q: 'trail' }, hash: '' } as never,
+      null,
+    )).toBe(false)
+  })
+
   it('restores browser history, honors hashes, and resets new navigation', () => {
     expect(storefrontScrollBehavior(route(), route(), { left: 12, top: 480 })).toEqual({ left: 12, top: 480 })
     expect(storefrontScrollBehavior(route('#product-search'), route(), null)).toEqual({ el: '#product-search', top: 16 })

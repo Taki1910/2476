@@ -35,32 +35,47 @@ function storedCart(owner: string | null) {
 }
 export const cart = reactive<{ items: CartItem[]; owner: string | null; storageError: boolean }>({ items: [], owner: null, storageError: false })
 
-export function activateCart(owner: string | null) {
+export async function activateCart(owner: string | null, consumeGuest = true): Promise<void> {
   const previousOwner = cart.owner
-  const guest = previousOwner === null ? (cart.items.length ? cart.items : storedCart(null)) : []
   const items = storedCart(owner)
   cart.owner = owner
   cart.items = items
-  if (owner !== null && previousOwner === null) {
-    // Account lines win metadata/order; guest quantities merge up to the purchase cap.
-    for (const line of guest) {
-      const existing = cart.items.find(item => item.variantId === line.variantId)
-      if (existing) existing.quantity = Math.min(MAX_CART_QUANTITY, existing.quantity + line.quantity)
-      else if (cart.items.length < MAX_CART_LINES) cart.items.push({ ...line })
-    }
-  }
   try {
     localStorage.removeItem('shoe-commerce:cart') // Unowned legacy data cannot be attributed safely.
-    if (owner !== null) localStorage.removeItem(storageKey(null))
   } catch { cart.storageError = true }
-  persist()
+  if (owner === null || previousOwner !== null || !consumeGuest) return
+  if (!navigator.locks?.request) { cart.storageError = true; return }
+  await navigator.locks.request('shoe-commerce:guest-cart-merge', async () => {
+    try {
+      if (cart.owner !== owner) return
+      const guestRaw = localStorage.getItem(storageKey(null))
+      if (!guestRaw) return
+      const guest = storedCart(null)
+      if (!guest.length) return
+      const accountRaw = localStorage.getItem(storageKey(owner))
+      const saved = accountRaw ? JSON.parse(accountRaw) : null
+      if (saved?.mergedGuest !== guestRaw) {
+        const merged = storedCart(owner)
+        for (const line of guest) {
+          const existing = merged.find(item => item.variantId === line.variantId)
+          if (existing) existing.quantity = Math.min(MAX_CART_QUANTITY, existing.quantity + line.quantity)
+          else if (merged.length < MAX_CART_LINES) merged.push({ ...line })
+        }
+        localStorage.setItem(storageKey(owner), JSON.stringify({ owner, items: merged, mergedGuest: guestRaw }))
+        if (cart.owner === owner) cart.items = merged
+      }
+      localStorage.removeItem(storageKey(null))
+      cart.storageError = false
+    } catch { cart.storageError = true }
+  }).catch(() => { cart.storageError = true })
 }
 // Navigation badge counts total units, not distinct variants.
 export const cartCount = computed(() => cart.items.reduce((total, item) => total + item.quantity, 0))
 
 function persist() {
   try {
-    localStorage.setItem(storageKey(cart.owner), JSON.stringify({ owner: cart.owner, items: cart.items }))
+    const saved = JSON.parse(localStorage.getItem(storageKey(cart.owner)) ?? 'null')
+    localStorage.setItem(storageKey(cart.owner), JSON.stringify({ owner: cart.owner, items: cart.items, ...(cart.owner === null ? { revision: crypto.randomUUID() } : saved?.owner === cart.owner && saved.mergedGuest ? { mergedGuest: saved.mergedGuest } : {}) }))
     cart.storageError = false
   } catch { cart.storageError = true }
 }

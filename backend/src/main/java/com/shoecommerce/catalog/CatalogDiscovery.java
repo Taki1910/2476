@@ -74,6 +74,16 @@ final class CatalogDiscovery {
             return new Outcome(matches.stream().map(scored -> scored.document().productId()).toList(), List.of());
         }
 
+        if (intent.sku() == null && !intent.terms().isEmpty()) {
+            List<UUID> typoSuggestions = documents.stream()
+                    .filter(document -> document.availableVariantCount() > 0)
+                    .filter(document -> fuzzyNameMatch(intent, document))
+                    .sorted(Comparator.comparingInt(SearchDocument::merchandisingRank)
+                            .thenComparing(SearchDocument::name).thenComparing(SearchDocument::productId))
+                    .limit(6).map(SearchDocument::productId).toList();
+            if (!typoSuggestions.isEmpty()) return new Outcome(List.of(), typoSuggestions);
+        }
+
         List<UUID> suggestions = documents.stream()
                 .filter(document -> document.availableVariantCount() > 0)
                 .map(document -> new Scored(document, suggestionScore(intent, document)))
@@ -122,6 +132,49 @@ final class CatalogDiscovery {
         score += (int) intent.terms().stream().filter(searchable::contains).count() * 20;
         if (intent.maximumPrice() != null && document.fromAmount() <= intent.maximumPrice()) score += 10;
         return score;
+    }
+
+    private static boolean fuzzyNameMatch(QueryIntent intent, SearchDocument document) {
+        String name = normalize(document.name());
+        String[] nameWords = name.split(" ");
+        if (intent.terms().stream().filter(term -> term.length() >= 4)
+                .noneMatch(term -> java.util.Arrays.stream(nameWords).anyMatch(word -> oneEditApart(term, word)))) {
+            return false;
+        }
+        String searchable = normalize(document.name() + " " + document.category() + " " + document.collection()
+                + " " + String.join(" ", document.colors()) + " " + String.join(" ", document.attributes()));
+        int typos = 0;
+        for (String term : intent.terms()) {
+            if (searchable.contains(term)) continue;
+            if (term.length() < 4 || java.util.Arrays.stream(nameWords)
+                    .noneMatch(word -> oneEditApart(term, word))) return false;
+            if (++typos > 1) return false;
+        }
+        if (typos != 1) return false;
+        if (intent.maximumPrice() != null && document.fromAmount() > intent.maximumPrice()) return false;
+        if (!recognized(String.join(" ", document.colors()), COLOR_ALIASES)
+                .containsAll(intent.colorFamilies())) return false;
+        if (!recognized(document.category() + " " + document.collection() + " "
+                + String.join(" ", document.attributes()), CATEGORY_ALIASES)
+                .containsAll(intent.categories())) return false;
+        return true;
+    }
+
+    // One insertion, deletion, substitution or adjacent swap; short tokens remain exact-only.
+    private static boolean oneEditApart(String left, String right) {
+        if (Math.abs(left.length() - right.length()) > 1) return false;
+        int i = 0, j = 0, edits = 0;
+        while (i < left.length() && j < right.length()) {
+            if (left.charAt(i) == right.charAt(j)) { i++; j++; continue; }
+            if (++edits > 1) return false;
+            if (left.length() == right.length() && i + 1 < left.length() && j + 1 < right.length()
+                    && left.charAt(i) == right.charAt(j + 1)
+                    && left.charAt(i + 1) == right.charAt(j)) { i += 2; j += 2; }
+            else if (left.length() < right.length()) j++;
+            else if (left.length() > right.length()) i++;
+            else { i++; j++; }
+        }
+        return edits + (i < left.length() || j < right.length() ? 1 : 0) == 1;
     }
 
     private static int intersectionSize(Set<String> first, Set<String> second) {

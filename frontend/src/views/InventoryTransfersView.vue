@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, type CreateInventoryTransfer, type InventoryTransfer, type InventoryTransferOptions } from '../api'
 import { errorCopy, formatDateTime } from '../format'
 import { t } from '../i18n'
@@ -17,9 +17,21 @@ const success = ref('')
 const createCommand = ref<RetryableCommand>()
 const dispatchCommands = new Map<string, { value: RetryableCommand | undefined }>()
 const receiveCommands = new Map<string, { value: RetryableCommand | undefined }>()
+const statusFilter = ref<'ALL' | InventoryTransfer['status']>('ALL')
+let loadVersion = 0
+let disposed = false
 
 const sourceStock = computed(() => options.value.stock.filter(row => row.locationId === sourceLocationId.value))
 const destinations = computed(() => options.value.locations.filter(row => row.locationId !== sourceLocationId.value))
+const statusCounts = computed(() => ({
+  ALL: transfers.value.length,
+  DRAFT: transfers.value.filter(transfer => transfer.status === 'DRAFT').length,
+  DISPATCHED: transfers.value.filter(transfer => transfer.status === 'DISPATCHED').length,
+  RECEIVED: transfers.value.filter(transfer => transfer.status === 'RECEIVED').length,
+}))
+const visibleTransfers = computed(() => statusFilter.value === 'ALL'
+  ? transfers.value
+  : transfers.value.filter(transfer => transfer.status === statusFilter.value))
 
 function commandState(store: Map<string, { value: RetryableCommand | undefined }>, transferId: string) {
   const existing = store.get(transferId)
@@ -33,15 +45,25 @@ function statusCopy(status: InventoryTransfer['status']) {
   return status === 'DRAFT' ? 'Draft' : status === 'DISPATCHED' ? 'Dispatched / In transit' : 'Received at destination'
 }
 
+function filterStatus(event: Event) {
+  statusFilter.value = (event.target as HTMLSelectElement).value as 'ALL' | InventoryTransfer['status']
+}
+
 async function load() {
+  const version = ++loadVersion
   loading.value = true; error.value = ''
   try {
     const [nextOptions, nextTransfers] = await Promise.all([api.inventoryTransferOptions(), api.inventoryTransfers()])
+    if (disposed || version !== loadVersion) return
     options.value = nextOptions; transfers.value = nextTransfers
     if (!sourceLocationId.value) sourceLocationId.value = nextOptions.locations[0]?.locationId ?? ''
     if (!destinationLocationId.value || destinationLocationId.value === sourceLocationId.value) destinationLocationId.value = nextOptions.locations.find(location => location.locationId !== sourceLocationId.value)?.locationId ?? ''
-  } catch (reason) { error.value = errorCopy(reason) }
-  finally { loading.value = false }
+  } catch (reason) {
+    if (!disposed && version === loadVersion) {
+      options.value = { locations: [], stock: [] }; transfers.value = []; error.value = errorCopy(reason)
+    }
+  }
+  finally { if (!disposed && version === loadVersion) loading.value = false }
 }
 
 function createPayload(): CreateInventoryTransfer {
@@ -88,6 +110,7 @@ async function receive(transferId: string) {
 }
 
 onMounted(load)
+onUnmounted(() => { disposed = true; loadVersion++ })
 </script>
 
 <template>
@@ -112,10 +135,11 @@ onMounted(load)
       <button type="submit" :disabled="!!busy || options.locations.length < 2">{{ t(busy === 'create' ? 'Creating…' : 'Create draft') }}</button>
     </form>
 
-    <section class="catalog-work-section" aria-labelledby="transfer-history-title"><div class="catalog-section-heading"><div><h2 id="transfer-history-title">{{ t('Transfer history') }}</h2><p>{{ t('Only the next valid lifecycle action is available.') }}</p></div><button class="text-button" type="button" :disabled="!!busy" @click="load">{{ t('Refresh') }}</button></div>
+    <section class="catalog-work-section" aria-labelledby="transfer-history-title"><div class="catalog-section-heading"><div><h2 id="transfer-history-title">{{ t('Transfer history') }}</h2><p>{{ t('Only the next valid lifecycle action is available.') }}</p></div><button class="text-button" type="button" :disabled="!!busy || loading" @click="load">{{ t('Refresh') }}</button></div>
+      <div class="transfer-list-controls"><label>{{ t('Filter by status') }}<select :value="statusFilter" @change="filterStatus"><option value="ALL">{{ t('All') }} ({{ statusCounts.ALL }})</option><option value="DRAFT">{{ t('Draft') }} ({{ statusCounts.DRAFT }})</option><option value="DISPATCHED">{{ t('Dispatched / In transit') }} ({{ statusCounts.DISPATCHED }})</option><option value="RECEIVED">{{ t('Received at destination') }} ({{ statusCounts.RECEIVED }})</option></select></label></div>
       <div class="catalog-table-wrap" tabindex="0" :aria-label="t('Transfer history table')"><table class="catalog-inventory-table"><thead><tr><th>{{ t('Route') }}</th><th>{{ t('Items') }}</th><th>{{ t('Requested quantity') }}</th><th>{{ t('Dispatched quantity') }}</th><th>{{ t('Received quantity') }}</th><th>{{ t('Status') }}</th><th>{{ t('Timeline') }}</th><th>{{ t('Action') }}</th></tr></thead><tbody>
-        <tr v-for="transfer in transfers" :key="transfer.transferId"><th scope="row">{{ transfer.sourceLocationCode }} → {{ transfer.destinationLocationCode }}<small>{{ transfer.transferId }}</small></th><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.sku }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.requestedQuantity }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.dispatchedQuantity }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.receivedQuantity }}<br></span></td><td>{{ t(statusCopy(transfer.status)) }}</td><td><small>{{ t('Created at') }}: {{ formatDateTime(transfer.createdAt) }}<template v-if="transfer.dispatchedAt"><br>{{ t('Dispatched at') }}: {{ formatDateTime(transfer.dispatchedAt) }}</template><template v-if="transfer.receivedAt"><br>{{ t('Received at') }}: {{ formatDateTime(transfer.receivedAt) }}</template></small></td><td><button v-if="transfer.status === 'DRAFT'" type="button" :disabled="!!busy" @click="dispatch(transfer.transferId)">{{ t(busy === `dispatch:${transfer.transferId}` ? 'Dispatching…' : 'Dispatch') }}</button><button v-else-if="transfer.status === 'DISPATCHED'" type="button" :disabled="!!busy" @click="receive(transfer.transferId)">{{ t(busy === `receive:${transfer.transferId}` ? 'Receiving…' : 'Receive') }}</button><span v-else>{{ t('Complete') }}</span></td></tr>
-        <tr v-if="!transfers.length"><td colspan="8">{{ t('No transfers yet.') }}</td></tr>
+        <tr v-for="transfer in visibleTransfers" :key="transfer.transferId"><th scope="row">{{ transfer.sourceLocationCode }} → {{ transfer.destinationLocationCode }}<small>{{ transfer.transferId }}</small></th><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.sku }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.requestedQuantity }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.dispatchedQuantity }}<br></span></td><td><span v-for="line in transfer.items" :key="line.variantId">{{ line.receivedQuantity }}<br></span></td><td>{{ t(statusCopy(transfer.status)) }}</td><td><small>{{ t('Created at') }}: {{ formatDateTime(transfer.createdAt) }}<template v-if="transfer.dispatchedAt"><br>{{ t('Dispatched at') }}: {{ formatDateTime(transfer.dispatchedAt) }}</template><template v-if="transfer.receivedAt"><br>{{ t('Received at') }}: {{ formatDateTime(transfer.receivedAt) }}</template></small></td><td><button v-if="transfer.status === 'DRAFT'" type="button" :disabled="!!busy" @click="dispatch(transfer.transferId)">{{ t(busy === `dispatch:${transfer.transferId}` ? 'Dispatching…' : 'Dispatch') }}</button><button v-else-if="transfer.status === 'DISPATCHED'" type="button" :disabled="!!busy" @click="receive(transfer.transferId)">{{ t(busy === `receive:${transfer.transferId}` ? 'Receiving…' : 'Receive') }}</button><span v-else>{{ t('Complete') }}</span></td></tr>
+        <tr v-if="!visibleTransfers.length"><td colspan="8">{{ t(transfers.length ? 'No transfers match this status.' : 'No transfers yet.') }}</td></tr>
       </tbody></table></div>
     </section>
   </section>

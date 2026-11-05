@@ -108,8 +108,12 @@ mismatch; do not change business semantics just to make files agree.
 
 ## Current coordination boundary
 
-- Working tree is intentionally dirty and user-owned.
-- Do not stage, commit, switch, restore, stash, reset, clean, merge, rebase or push.
+- The working tree may contain user-owned changes. Do not discard or rewrite them
+  without explicit authorization; stage, commit and push are allowed when the
+  user explicitly requests those actions.
+- Increase the project version for every release; keep frontend and backend
+  version declarations aligned, and increment the patch component for a patch
+  release unless the user specifies another version.
 - `docs/FINAL_FREEZE.md` is the latest verified product baseline.
 - HEAD `3170a896cd7cbe6f9575a4cbfeb1651cb1d8697f` plus the intentional dirty
   working tree is the current observable source, not automatically a certified baseline.

@@ -6,6 +6,7 @@ import catalogSource from './views/CatalogView.vue?raw'
 import { api, type ProductSummary, type PublicOffer } from './api'
 import StorefrontHomepage from './components/StorefrontHomepage.vue'
 import StorefrontIntentLinks from './components/StorefrontIntentLinks.vue'
+import { discoveryQuery } from './components/StorefrontIntentLinks.vue'
 import { setLocale } from './i18n'
 import {
   storefrontCtaLocation, type StorefrontCustomerCta, type StorefrontCustomerSection, type StorefrontHomepage as Homepage,
@@ -167,6 +168,12 @@ describe('storefront CTA routing and catalog regression', () => {
     expect(html).toContain('q=daily')
     expect(html).toContain('q=trail')
     expect(html).toContain('#product-search')
+  })
+  it('builds discovery queries only from the supported category, color, and maximum-price grammar', () => {
+    expect(discoveryQuery({ need: 'running', color: 'black', budget: '1500000' })).toBe('running black under 1500000')
+    expect(discoveryQuery({ need: '', color: 'navy', budget: '' })).toBe('navy')
+    expect(discoveryQuery({ need: 'work', color: '', budget: '' })).toBe('')
+    expect(discoveryQuery({ need: '', color: '', budget: '0' })).toBe('')
   })
   it('maps only the four approved CTA categories to existing flows', () => {
     expect(storefrontCtaLocation(cta('PRODUCT_DETAIL', 'product/1'))).toBe('/products/product%2F1')

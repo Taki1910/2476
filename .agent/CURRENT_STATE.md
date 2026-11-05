@@ -1,5 +1,72 @@
 # Current State
 
+## Campaign Store UI — 2026-10-30
+
+- Objective: add a four-campaign hero and collection links to the existing Store page; preserve catalog behaviors. Requirement IDs: user request (campaign hero, collections, existing discovery navigation, responsive layout).
+- Observed baseline: intentionally dirty user-owned worktree; branch `codex/remediation-audit-20260913`, HEAD `b60b69f15273e96b73242ff6be13f5e4d89939ff`. Certified baseline remains `docs/FINAL_FREEZE.md`; do not promote certification from this task.
+- Source findings: Vue 3/Vite, `CatalogView.vue`, query-driven `api.discovery`, category/collection fields and four local 3:2 product images; the original banner creatives are absent. Demo catalog maps campaigns to existing collection names (Court Originals, Metro Motion, Daily Essentials, After Hours).
+- Research decision: ADAPT existing Vue Router/discovery and local campaign-matching images; no dependency, API, schema, or product ID added. Limitation: product artwork is available, campaign banner creative is not.
+- Active skills: `shoe-commerce-skill-router` F0B91A40E6F53…; `reuse-first-research` B89EE711B3398…; `design-taste-frontend` AA194351B246B…; `superpowers:brainstorming` 7.0.1 / 61A7EF9186521…; Ponytail full per user instruction. Resource mode: conservative, single agent, quota unknown.
+- Verification: campaign route/asset-config tests PASS (5/5); frontend suite PASS (392/392); `npm.cmd --prefix frontend run typecheck` PASS; production build PASS (111 modules); `git diff --check` PASS. Browser visual verification is UNVERIFIED: the in-app browser timed out reaching local Vite, and Windows browser automation stopped before further UI actions because it could not determine the current URL. No backend was started. The project has no lint script.
+- Outcome: campaign cards and hero use the existing collection discovery query; existing catalog tests pass, including six-item preview/show-all behavior. Responsive CSS is implemented for two-column tablet and single-column mobile cards, but browser viewport acceptance remains open. Exact supplied banner creatives were not found; only matching product photos are present and used provisionally.
+- Exclusions: backend/API/schema changes, product ID routing, unrelated dirty worktree changes, Git state changes.
+- Exclusions: backend/API/schema changes, replacing missing banner art with unrelated/generated media, product ID routing, unrelated dirty worktree changes, Git state changes.
+
+## Incremental milestone reconciliation — 2026-10-20
+
+Documentation-only check against current dirty working tree; certified baseline remains `docs/FINAL_FREEZE.md`. No tests, browser, benchmark, backend, database or Git state-changing operation was run. The user's current milestone statement supplies the technical-PASS outcome; matching source and regression cases are present, but fresh command/exit-code receipts for these four later slices were not found in this workspace. Do not promote release acceptance from that statement.
+
+| Slice | Current classification | Source and evidence boundary |
+| --- | --- | --- |
+| REQ-UX-003 / UX01 comparison cache | IMPLEMENTED; TECHNICAL_PASS reported; ACCEPTANCE_PENDING | `frontend/src/components/ProductComparison.vue` refetches on reopen, clears the old value during refresh and guards request epochs. `frontend/src/product-comparison.test.ts` has mounted price-change, 404/retry and stale-response cases. The old 2026-10-15 "fix cache revalidation" recommendation is superseded for implementation; visual acceptance remains open. No SOURCE_MISMATCH observed. |
+| ADR-0029 / BR-CHK-109 Guest Cart | IMPLEMENTED; TECHNICAL_PASS reported for cross-tab merge and stale login remediation; backend race INCONCLUSIVE | `frontend/src/cart.ts` uses a Web Lock, storage reread and merge marker; `frontend/src/session.ts` guards pending/superseded login and session checks. `cart.test.ts`, `session.test.ts` and registration cases in `cart-flow.test.ts` cover these paths. The user reports two RED→GREEN regressions; their execution logs were not found, so the exact run/exit codes remain unverified here. Do not restart the backend authentication or cart-race investigation. |
+| SEARCH-01 typo/performance | IMPLEMENTED; TECHNICAL_PASS reported within measured scope; performance acceptance beyond that scope unverified | `CatalogDiscovery.java` contains bounded typo suggestions after exact results, and `CatalogDiscoveryTest.java` contains typo/noise/constraint cases. The current diff retains the implementation. Benchmark inputs, timings and command receipt were not found locally; do not infer wider performance certification. |
+| SEARCH-02 autocomplete | IMPLEMENTED; frontend TECHNICAL_PASS reported; endpoint/browser ACCEPTANCE_PENDING | `CatalogView.vue` contains debounced, bounded, keyboard-accessible suggestions with stale-response guards. `cart-flow.test.ts` contains mounted autocomplete cases. Current source retains the implementation; no SOURCE_MISMATCH observed. |
+
+UX05 remains `PENDING_TOOL_RETRY` / ENVIRONMENT_BLOCKED for remaining browser and visual acceptance. The Release investigation remains CLOSED. Earlier notes below that call UX01 or typo/autocomplete implementation pending are historical and superseded by this checkpoint. No active unimplemented task is sufficiently admitted and unblocked for selection: `NO ELIGIBLE ACTIVE TASK — USER DECISION REQUIRED`. Keep all outstanding browser/performance acceptance in pending backlog; do not reactivate deferred scope.
+
+## UX05 latest — 2026-10-20
+
+Old Release investigation CLOSED: NON_REPRODUCIBLE WITH TEST-ONLY TELEMETRY; ROOT CAUSE UNKNOWN; NO PRODUCT DEFECT ESTABLISHED. Telemetry retained, behavior unchanged, no Release scenario run this continuation. UX05 PENDING_TOOL_RETRY: Edge id3 unavailable; only IAB/MCP Apps exposed. Safe frontend Vite startup reported ready but IAB timed out and shell curl failed; own process received Ctrl+C. Remaining fresh mobile late-A,403 keyboard recovery-A and prepared timeline/layout screenshot gates NOT RUN. Prior366/366 is historical, no fresh promotion. REQ-UX-003 IN_PROGRESS; UX01 deferred. See latest receipt. Routing: router + existing harness REUSE + verification-before-completion, single agent, quota UNKNOWN; source/backend/DB/Git unchanged.
+
+
+
+## UX05 browser checkpoint — 2026-10-20
+
+Fresh isolated Edge behavior gates passed: mobile390x844 delayed/late-A/403 keyboard retry/404/network retry/account switch; desktop1440x900 EN pickup+delivery timeline and401 clearing. Full frontend366/366, production build/typecheck and harness typecheck PASS. Full UX05 acceptance still pending reliable visual no-clipping/occlusion evidence: MCP captures show inconsistent stitching/sticky-header placement. Release click failure now localized before handler; Enter acknowledged and recovered. Production unchanged; no backend/DB/Git mutation. REQ-UX-003 IN_PROGRESS; UX01 deferred. Latest detailed receipt: docs/UX_UPGRADE_VERIFICATION_20261015.md, 2026-10-20 browser recovery receipt. Earlier blocked-host sections below are historical.
+
+
+
+## UX05 host-side handoff — 2026-10-17
+
+CASE D: no confirmed trusted host execution channel outside sandbox. Host HTTP/browser UNTESTED; namespace relationship UNKNOWN. No network retry this phase. Inspected dev script (vite only) and proxy; handoff uses process-local DEMO_API_TARGET=http://127.0.0.1:0 to prevent real backend access. Normal host PowerShell listener/curl and fresh private browser evidence required; exact commands in latest UX_UPGRADE_VERIFICATION_20261015.md section. Router + reuse-first-research + debugging + sneaker-store-user-flow-qa; REUSE, single agent, quota UNKNOWN. UX05 implemented / BROWSER ACCEPTANCE BLOCKED; mocked A-F NOT RUN, real-stack PENDING, no new defect. Historical freeze unchanged, REQ-UX-003 IN_PROGRESS, UX01 deferred. Next action: interpret user's same-host startup/listener/HTTP/browser evidence before controlled fixtures. No application, backend, DB, Git or security changes.
+
+
+## UX05 safe recovery checkpoint — 2026-10-17
+
+UX05 BROWSER ACCEPTANCE BLOCKED. Fresh Vite ready (session10908), browser localhost/127.0.0.1 timeout; same-context shell HTTP forbidden by socket permissions. Process/listener visibility insufficient to identify host ownership or prove separate network namespace. Registry confirms SQL instance AN=MSSQL16.AN; Service Manager permission denied, running state UNKNOWN. Backend not started: demo runner/Flyway can write, catalog reads can trigger payment/promotion/reservation/order expiry. No proven read-only runtime. Own Vite session stopped; application hash unchanged. 358/358 remains historical, mocked browser and real-stack scenarios NOT RUN. Keep REQ-UX-003 IN_PROGRESS and UX01 deferred. Latest receipt: docs/UX_UPGRADE_VERIFICATION_20261015.md, safe browser recovery section. Next: establish permitted host/browser loopback reachability, then controlled frontend fixtures; real stack requires proven safe data boundary. No new privileges, Git or DB operations.
+
+
+## UX05 browser acceptance checkpoint — 2026-10-17
+
+UX05 BROWSER ACCEPTANCE BLOCKED. Browser initially refused frontend5173 and backend8081; authorized Vite startup reported ready but browser then timed out to127.0.0.1:5173. The attempt's own foreground process was interrupted afterward. Get-Service reports MSSQL$AN not found in visible environment; listener query fails CIM access, so SQL host state/datasource remain UNKNOWN. Historical demo datasource is shoe_commerce_experience_20261013; backend demo bootstrap can seed/synchronize data, so no backend restart under no-data-change constraint. No elevation/DB/Git/application mutation. Router + unchanged reuse-first-research B89EE711 + browser verification; CONSERVATIVE single agent, quota UNKNOWN. Source hash unchanged; 358 tests remain historical. All live UX05 gates including flicker remain unverified. Next exact action: establish browser-reachable existing demo without seed/migration/data changes, then execute live acceptance. UX01 research/implementation waits until UX05 acceptance. Receipt: docs/UX_UPGRADE_VERIFICATION_20261015.md, 2026-10-17 section.
+
+## Active UX05 correction (2026-10-15)
+
+Completion checkpoint: one-line OrderStatusView read reset and seven mounted regressions added. RED 4 expected failures / 2 existing-guard passes, GREEN focused 176/176, final full 358/358 across 31 files; typecheck/build and diff check PASS. Skill activation PASS for incumbent; SKILL INSTALLATION INCOMPLETE remains. Browser attempted 5173 and received connection-refused; service-manager access denied, SQL state UNKNOWN. UX05 NOT YET ACCEPTED; REQ-UX-003 stays in_progress. Next exact action: restore access to the existing isolated demo through normal authorized runtime setup, then verify UX05 denied refresh/account change/network retry and VI/EN/keyboard in browser. No new feature, database or Git mutation performed. Detailed receipt: docs/UX_UPGRADE_VERIFICATION_20261015.md, UX05 correction section.
+
+User authorizes UX05 only. Research Decision ADAPT: clear previously loaded order on each new read, expose private details/actions only after a successful current read, preserve retry and existing generation/idempotency guards. Existing API/session/errorCopy handle 401 session expiry, 403 denial, 404 unavailable and temporary network failures distinctly. Reuse Transfer read-failure clearing; no new dependency/API/domain rule. Before-copies: artifacts/ux05-20261015. Observed HEAD b60b69f with user-owned dirty tree; certified V33 unchanged. Primary systematic-debugging; support router, existing reuse-first-research B89EE711, TDD, verification and Ponytail full. Skill activation available from .codex/skills; .agents target absent and requested installer/snippets missing: SKILL INSTALLATION INCOMPLETE. CONSERVATIVE, single agent, quota/cost UNKNOWN; next step mounted RED tests, minimal fix, focused/full frontend and optional safe demo browser checks.
+
+## Research-skill and feature reconciliation checkpoint (2026-10-15)
+
+- Objective / IDs: audit the requested research-skill integration and feature status; REQ-UX-003, REQ-INV-002 and relevant historical/deferred IDs. This is an audit and execution plan, not admission of search/autocomplete or deferred features.
+- Observed baseline: `codex/remediation-audit-20260913`, HEAD `b60b69f15273e96b73242ff6be13f5e4d89939ff`, intentionally dirty user-owned tree; V1–V36 migration source. Certified baseline remains `docs/FINAL_FREEZE.md` (V33). No database was accessed or changed.
+- Primary skill: shoe-commerce-skill-router `F0B91A40`; support: existing reuse-first-research `B89EE711`, session-continuity `54DC6217`, hybrid-engineering-router `814B2F75`, Ponytail full. Reason: inspect skill compatibility, research decisions and historical/current feature evidence. Exclusions: no application feature work, new provider/dependency, Git mutation, protected database change, promotion or certification.
+- Resource mode: CONSERVATIVE, one inline agent; current subscription quota and exact token cost UNKNOWN. Loaded current ledger, ADR-0029, UX plan/report, relevant source/tests and public official references. No worker delegated.
+- Result: `docs/REUSE_RESEARCH_FEATURE_RECONCILIATION_20261015.md`. Registry/matrix 47/47 IDs: 38 completed, 2 in progress, 4 planned, 2 superseded, 1 cancelled. UX01/UX05 review findings remain; registration merge journey and typo/autocomplete acceptance remain unproven. Historical receipts were not rerun.
+- Skill package: requested installer/two AGENTS snippets absent in searched locations. Existing Markdown-only `.codex/skills/reuse-first-research` was statically inspected; no new install or AGENTS edit. Instruction-only research gate exists, activation in a fresh session unverified.
+- Next exact action: open a separate UX05 implementation slice, reproduce success→403/404 stale order content, adapt `OrderStatusView.vue`, add mounted regression, run focused/full frontend and browser account-switch checks. Keep server authorization and finance untouched. Installation can resume only when the requested complete package/installer is supplied or located and reviewed.
+
 ## Project position
 
 - Project Memory / Requirement Ledger upgrade: completed 2026-10-07.
@@ -10,6 +77,70 @@
 - Working tree is intentionally dirty and user-owned; HEAD alone is not the baseline.
 
 ## Active task
+
+`DEMO-SEED-20261013` is complete: satisfy the user's 2026-10-13 request for
+sample data to try the application. Treat this as disposable local demo setup,
+not a new business rule. Reuse the existing idempotent `demo` bootstrap and
+`docs/DEMO.md` flow in a new, uniquely named SQL database; verify the actual
+seed and provide a working local path to the UI. Do not write to the protected
+`shoe_commerce`, rebuild, upgrade, acceptance or V36 candidate databases, and
+do not promote a datasource or change the certified baseline.
+
+### Routing and resource checkpoint (2026-10-13 13:56 +07)
+
+- Observed source: branch `codex/remediation-audit-20260913`, HEAD
+  `b60b69f15273e96b73242ff6be13f5e4d89939ff`, clean tracked worktree at
+  routing. Certified baseline remains `docs/FINAL_FREEZE.md`.
+- Primary workflow: Hybrid Engineering Router with existing demo bootstrap;
+  support: Shoe Commerce Router, Session Continuity, Ponytail full and
+  Verification. Existing seed and demo documentation are the implementation
+  source; no new dependency or business-data SQL planned.
+- Resource source: Codex usage tool at 13:56 +07 reports 26% used in the
+  5-hour window and 4% in the weekly window. Tool/verification cost estimate
+  UNKNOWN; mode CONSERVATIVE, one local disposable database and one inline
+  worker, with verification/state handoff reserve.
+- Next exact action: inspect SQL connectivity and instance, create a distinct
+  empty demo database only after an absence check, run Flyway plus existing
+  bootstrap against it, verify counts and API/UI. If local runtime access
+  fails, preserve a reproducible setup path without touching protected data.
+
+### Setup checkpoint (2026-10-13 14:10 +07)
+
+- User explicitly approved a new `shoe_commerce_experience_20261013` demo
+  database. Its name was absent, it was created empty on `AN\\AN`, and JDBC
+  connected with Windows integrated authentication through the machine name;
+  no SQL login or stored secret was added.
+- Current-source backend package built; the first start applied Flyway V1-V36
+  successfully but stopped before `DemoDataBootstrap` because port 8080 was
+  occupied by another process. That process was not stopped or changed.
+- Exact pre-edit Vite config is copied to
+  `artifacts/demo-experience-20261013/vite.config.ts.before`. The proxy now
+  accepts a process-local `DEMO_API_TARGET` so the isolated backend can use
+  port 8081 while the normal 8080 default stays intact.
+- Next exact action: start backend on 8081, confirm the seed counts in the new
+  database, run Vite with `DEMO_API_TARGET=http://127.0.0.1:8081`, then verify
+  the customer catalog and demo login from the actual UI.
+
+### Completion checkpoint (2026-10-13 14:18 +07)
+
+- The isolated database `shoe_commerce_experience_20261013` contains 36
+  successful Flyway migrations, 18 products, 73 variants, 146 inventory
+  balances, 5 demo accounts and 134 synthetic orders. Negative/over-reserved
+  balances, duplicate SKUs and failed migrations each total zero.
+- Backend `demo` profile runs on `127.0.0.1:8081` with Windows integrated SQL
+  auth; Vite runs at `http://127.0.0.1:5173/` with a process-local proxy target
+  of `http://127.0.0.1:8081`. Both listeners were verified loopback-only.
+  Port 8080 and all pre-existing databases were left untouched.
+- Browser verification: catalog rendered the 18-product sample with imagery;
+  `manager.demo` logged in and viewed populated fulfillment work. The browser
+  tab was left open for the user. `artifacts/demo-experience-20261013/README.md`
+  records accounts, process IDs/logs and rollback details.
+- Final browser reload at 14:34 +07 again showed the logged-in manager and 18
+  products through the loopback Vite/API route. The storefront screenshot in
+  the ignored artifact folder was refreshed and the tab marked deliverable.
+- Current-source backend package and frontend production build passed. No new
+  business-data SQL, new dependency or provider call was added. The Vite proxy
+  still defaults to port 8080 when `DEMO_API_TARGET` is unset.
 
 `AUTONOMOUS-UX-20261013` is complete under existing `REQ-UX-001`: the
 narrow-screen staff navigation is a named, keyboard-operable Operations menu,
@@ -396,3 +527,101 @@ The post-AUD-03 preflight and V36 candidate gate closure are already complete.
 For future work, first resolve the documented admission and external-evidence
 gates for REQ-FUL-003/REQ-INV-002, REQ-NOT-001, REQ-PAY-003 and REQ-AI-003;
 preserve the older certified product baseline and protected SQL databases.
+
+## AUTONOMOUS-COMPLETION-20261013 — active
+
+User delegates completion and reversible improvements on 2026-10-13. Existing
+REQ-UX-001 owns this bounded route-loading improvement. Observed HEAD b60b69f;
+pre-existing dirty files: CURRENT_STATE, HISTORY, TASKS and vite.config.ts.
+Certified baseline remains FINAL_FREEZE. No new business policy is inferred.
+Primary workflow: Hybrid Engineering Router; support: Shoe Commerce Router,
+Session Continuity, Brainstorming (design delegated by user), Ponytail full,
+TDD and Verification. Official Vue Router lazy-loading guidance consulted.
+Resource mode CONSERVATIVE; current quota and token costs UNKNOWN; one inline
+worker, no delegation. Estimate: one small router edit plus focused/full frontend
+verification and build comparison; reserve for rollback and evidence.
+Acceptance: every page resolves on demand, existing paths/permissions/scroll
+remain intact, all frontend tests/typecheck/build pass, initial JS decreases.
+Pre-edit copies: artifacts/autonomous-completion-20261013. No Git mutations,
+DB writes, external provider calls, new dependencies or baseline promotion.
+Next: capture build baseline, add failing router test, implement lazy routes,
+run regression/build, review diff, save evidence and exact remaining blockers.
+
+### AUTONOMOUS-COMPLETION checkpoint — 2026-10-13 17:26 +07
+
+Bounded REQ-UX-001 implementation VERIFIED: 24 lazy route pages and Vite-native
+DEMO_API_TARGET loading. Initial host build exposed pre-existing TS2591; fixed
+without a Node type dependency. Entry JS 532.02 -> 260.11 kB (gzip 152.22 ->
+84.10 kB); no oversized-chunk warning. This is bundle size, not timing evidence.
+Fresh full frontend tests 333/333 (30 files), typecheck and production build
+exit 0; diff check exit 0. Router RED observed before edit. Two proxy tests cover
+ordinary 8080 and explicit isolated 8081. Inline review found no new domain,
+API, security or dependency behavior. Browser/backend/SQL not rerun this slice.
+Evidence, source hashes, pre-edit copies and rollback instructions:
+artifacts/autonomous-completion-20261013/README.md. No baseline promotion.
+Whole-project request remains partially fulfilled: optional provider gates lack
+credentials; Return and notifications lack concrete admitted business policies.
+Next exact action: browser smoke the built lazy routes with the existing isolated
+demo; any future business expansion must first specify unresolved policies.
+
+Browser follow-up attempt: CUA initialization failed before access (kernel assets
+path missing, OS error 3). Browser smoke remains UNVERIFIED; automated route
+resolution, full frontend regression and build evidence above remain valid.
+
+## UX proposal routing — 2026-10-13
+
+User requests more creative UX upgrade proposals, not implementation. Primary:
+Impeccable 4.1.1 shape; support Shoe Commerce Router. Read PRODUCT/DESIGN and
+CatalogView; existing ledger context retained. REQ-UX-001/REQ-CAT-004/REQ-FIT-002
+are context, not authorization to redefine business semantics. All new ideas
+remain PROPOSED; no registry status/baseline promotion or application edits.
+Observed baseline is current dirty checkout; certified baseline FINAL_FREEZE.
+Resource mode CONSERVATIVE, one inline worker; quota UNKNOWN. Public Baymard
+product selection research consulted. Deliver prioritized shopper/operations
+concepts, distinguish existing-data UI from API/policy/media dependencies.
+
+## UX-UPGRADE-PLAN-20261013 — planning completed
+
+Latest user direction: accepts seven UX ideas, requests plan, then continues
+planning. REQ-UX-003 planned and DEC-0013 persist the scope; no product edits.
+Primary skill Writing Plans; support Shoe Commerce Router, existing Impeccable
+shape/design context, Session Continuity and Ponytail. Observed baseline remains
+b60b69f plus pre-existing dirty work; certified baseline FINAL_FREEZE unchanged.
+Resource mode CONSERVATIVE; quota UNKNOWN; one inline author, no delegation.
+Canonical brief/plan: docs/superpowers/plans/2026-10-13-shopping-experience-upgrade.md.
+All seven ideas mapped to UX-01..07 with files/contracts, failure behavior,
+acceptance, dependency gates and rollback. Reuse gallery and quick-size; new
+fit-policy and API semantics are not silently approved. Plan self-review complete.
+Next exact action for implementation: UX-01 caller/test inspection and before
+copies, then failing comparison-state/render tests. No implementation in this turn.
+
+## UX-UPGRADE execution — 2026-10-13
+
+User authorizes implementation and economical subagents. REQ-UX-003 now active;
+execute UX-01..07 in plan order, preserving all commercial boundaries. Primary
+Subagent-Driven Development; support Impeccable/Ponytail/TDD/Verification.
+Observed dirty checkout unchanged at admission; certified baseline FINAL_FREEZE.
+Model routing: one bounded implementation worker at a time using available
+GPT-6 Luna (requested economy; GPT-5.6 Terra/Luna not exposed by spawn tool).
+Root owns ledger/integration and risk review. Quota UNKNOWN, CONSERVATIVE;
+estimated costs uncertain, reserve final tests/build/browser/review per slice.
+No git state mutations, DB/provider calls or dependencies. Exact next action:
+UX-01 implementation with narrow worker context and before copies, then review.
+
+## UX resume — 2026-10-14
+REQ-UX-003 continues. UX-01 worker disappeared without final receipt: NEEDS_RECONCILIATION; files observed, not certified. Root reruns comparison checks and browser click reproduction before advancing UX-02..07. Primary Subagent-Driven Development; existing Impeccable/Ponytail/Verification instructions retained. Router/resource guidance re-read; quota UNKNOWN, CONSERVATIVE, at most one economical worker. Cost estimate uncertain; reserve full regression/build/browser/review. Certified FINAL_FREEZE unchanged; no Git/DB/provider/dependency mutations. Existing before copies retained under artifacts/ux-upgrade-20261013/ux01-before.
+UX01 reconciled: 341 tests/build pass (logs + root receipt artifacts/ux-upgrade-20261013). Confirmed card height100% sibling overflow fixed by flex layout; browser comparison count/pair/filter/focus working. Remaining visual gates recorded, not complete. Worker now UX02/03; same economical model, bounded scope and before copies, root integration/browser. No baseline promotion.
+
+## Resume 2026-10-14 evening
+User requests continue. UX02/03 worker no longer live and no final receipt: reconcile observed edits, rerun full tests; not certified. UX04 root added line-specific size-recovery link with RED/GREEN. UX05 root added timestamp-only order journey; 26 render tests GREEN. Primary executing-plan/Ponytail/verification, existing instructions retained; quota UNKNOWN CONSERVATIVE. One economical bounded worker next for UX06/07; root owns review/browser/final ledger. Preserve all prior dirty changes, no Git or protected DB changes. Certified FINAL_FREEZE unchanged. Reserve integration tests/typecheck/build and browser checks; cost estimate uncertain.
+
+## Resume 2026-10-15 — integrated verification
+REQ-UX-003 remains in progress. Root reconciled all observed UX01..07 worker changes; no live workers remain. Primary executing-plan/Ponytail/verification, router read; resource mode CONSERVATIVE, quota UNKNOWN. 351/351 frontend tests PASS using serial workers and explicit 30s import/test budgets; production build including typecheck PASS; entry 274.41 kB (88.48 gzip). Actual discovery-form and transfer-status/403-refresh interactions tested. Fixed natural-language budget parsing and concurrent route test imports. Prior parallel runs timed out on cold imports; no checks skipped.
+Browser acceptance BLOCKED by local MSSQL$AN service STOPPED, AN:1433 refuses connection; Start-Service fails OS permission (not auto-review). Frontend demo running port5173, backend startup failed; no protected DB fallback. Evidence and exact remaining checks: docs/UX_UPGRADE_VERIFICATION_20261015.md. Before copies preserved; no Git state mutations, no baseline promotion. Next: authorized service recovery, restart isolated demo backend, verify discovery/staff/App retry, remaining visual matrix/zoom/reduced motion/network cases. Independent implementation work exhausted; do not claim visual completion.
+
+## Resume 2026-10-15 — live acceptance
+User continues REQ-UX-003. SQL service observed RUNNING again; checking existing demo processes before starting anything. Primary verification-before-completion; support existing computer-use/session-continuity/Ponytail instructions, router re-read. Observed dirty worktree retained; FINAL_FREEZE certified baseline unchanged. Quota UNKNOWN, CONSERVATIVE, inline verification without new workers. Next: validate localhost demo discovery/staff/recovery and record only observed visual results; no Git, provider, protected DB or business changes.
+Live follow-up completed: SQL blocker resolved; backend demo PID24292 port8081 running after controlled outage/restart, frontend5173 retained. Discovery inputs/clear/VI and four-width overflow checks PASS; operations task landing PASS; transfer outage clears rows/disables creation PASS; session Retry reaches login and customer returning to operations receives403 PASS; cart/PDP/cancelled-order four-width metrics PASS. No code changes, DB business mutations or tests rerun this follow-up. Screenshot and detailed evidence in docs/UX_UPGRADE_VERIFICATION_20261015.md. Next exact acceptance: actual200% zoom/reduced-motion/slow-network and remaining full staff/comparison visual matrix. Browser tooling exposes viewport but no dedicated zoom/media/network emulation; do not label those verified from CSS/source checks. REQ-UX-003 stays in_progress, prior service blocker superseded.
+
+## Review against plan — 2026-10-15
+User requests review and plan reconciliation, not implementation. Primary code-review-and-quality; support Ponytail/session continuity; mandatory router read. REQ-UX-003 remains in_progress, observed dirty worktree and certified FINAL_FREEZE kept separate. Resource mode CONSERVATIVE, quota UNKNOWN; inline static review and existing test/build receipts, no new baseline claims. Findings: comparison re-open does not revalidate cached product; order refresh403 retains previous private data/actions (pre-existing behavior, explicitly in UX05 acceptance); plan header/checklists and old verification paragraphs stale despite later updates. Next: record review in existing verification report, no application code edits.

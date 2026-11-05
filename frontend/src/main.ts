@@ -2,30 +2,30 @@ import '@fontsource-variable/archivo'
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
-import CatalogView from './views/CatalogView.vue'
-import CartView from './views/CartView.vue'
-import OrdersView from './views/OrdersView.vue'
-import ProductView from './views/ProductView.vue'
-import PaymentResultView from './views/PaymentResultView.vue'
-import PickupQueueView from './views/PickupQueueView.vue'
-import PickupDetailView from './views/PickupDetailView.vue'
-import OrderStatusView from './views/OrderStatusView.vue'
-import PosView from './views/PosView.vue'
-import ReportsView from './views/ReportsView.vue'
-import PeopleAccessView from './views/PeopleAccessView.vue'
-import ShippingRulesView from './views/ShippingRulesView.vue'
-import PromotionsView from './views/PromotionsView.vue'
-import StorefrontManagementView from './views/StorefrontManagementView.vue'
-import ProductPresentationsView from './views/ProductPresentationsView.vue'
-import ProductsView from './views/ProductsView.vue'
-import ProductManagementDetailView from './views/ProductManagementDetailView.vue'
-import InventoryTransfersView from './views/InventoryTransfersView.vue'
-import LoginView from './views/LoginView.vue'
-import RegisterView from './views/RegisterView.vue'
-import AccessDeniedView from './views/AccessDeniedView.vue'
-import OffersView from './views/OffersView.vue'
-import OfferDetailView from './views/OfferDetailView.vue'
-import VouchersView from './views/VouchersView.vue'
+const CatalogView = () => import('./views/CatalogView.vue')
+const CartView = () => import('./views/CartView.vue')
+const OrdersView = () => import('./views/OrdersView.vue')
+const ProductView = () => import('./views/ProductView.vue')
+const PaymentResultView = () => import('./views/PaymentResultView.vue')
+const PickupQueueView = () => import('./views/PickupQueueView.vue')
+const PickupDetailView = () => import('./views/PickupDetailView.vue')
+const OrderStatusView = () => import('./views/OrderStatusView.vue')
+const PosView = () => import('./views/PosView.vue')
+const ReportsView = () => import('./views/ReportsView.vue')
+const PeopleAccessView = () => import('./views/PeopleAccessView.vue')
+const ShippingRulesView = () => import('./views/ShippingRulesView.vue')
+const PromotionsView = () => import('./views/PromotionsView.vue')
+const StorefrontManagementView = () => import('./views/StorefrontManagementView.vue')
+const ProductPresentationsView = () => import('./views/ProductPresentationsView.vue')
+const ProductsView = () => import('./views/ProductsView.vue')
+const ProductManagementDetailView = () => import('./views/ProductManagementDetailView.vue')
+const InventoryTransfersView = () => import('./views/InventoryTransfersView.vue')
+const LoginView = () => import('./views/LoginView.vue')
+const RegisterView = () => import('./views/RegisterView.vue')
+const AccessDeniedView = () => import('./views/AccessDeniedView.vue')
+const OffersView = () => import('./views/OffersView.vue')
+const OfferDetailView = () => import('./views/OfferDetailView.vue')
+const VouchersView = () => import('./views/VouchersView.vue')
 import { loadSession, routeAccessDestination, session } from './session'
 import { storefrontScrollBehavior } from './navigation'
 import './styles.css'

@@ -53,6 +53,12 @@ implementation/evidence; `Completed` rows require evidence.
 | REQ-UX-001 | Frontend UX | Completed | Responsive accessible VI/EN surfaces; post-freeze Operations menu and locale-reactive cart toast | Frontend 330/330; typecheck/build; desktop and 390px browser | Frontend Architecture; readiness/freeze evidence; `AUTONOMOUS-UX-20261013` task |
 | REQ-UX-002 | Frontend UX | Cancelled | Dark theme | Decision audit | Intentionally light-only; readiness/freeze evidence |
 
+| REQ-UX-003 | Frontend UX | In progress | UX01 cache revalidation and UX05 stale refresh correction implemented; technical PASS reported for UX01, UX05 366/366 technical PASS | Current UX01 source/mounted regressions present; UX05 isolated Edge behavior PASS. UX01 visual and UX05 final no-clipping/browser/real-stack acceptance PENDING; latest UX05 tool retry ENVIRONMENT_BLOCKED. No completed/release acceptance promotion. | DEC-0013; `frontend/src/components/ProductComparison.vue`; `frontend/src/product-comparison.test.ts`; docs/UX_UPGRADE_VERIFICATION_20261015.md |
+
+### 2026-10-20 incremental milestone evidence (no new registry IDs)
+
+Guest Cart ADR-0029/BR-CHK-109: cross-tab merge and stale login source plus regression cases present; user reports two RED→GREEN technical PASS outcomes. Backend race remains INCONCLUSIVE. SEARCH-01: typo-suggestion source/tests present and functional/performance remediation TECHNICAL_PASS reported within measured scope; benchmark receipt absent here. SEARCH-02: autocomplete source/mounted tests present and frontend TECHNICAL_PASS reported; endpoint/browser ACCEPTANCE_PENDING. Exact recent run receipts for these slices were not located locally; no release acceptance or completed requirement is inferred.
+
 ## Audit rules
 
 - Every registry ID must appear exactly once above.

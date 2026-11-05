@@ -17,6 +17,7 @@ const file = ref<File>()
 const preview = ref('')
 const result = ref<FitAnalysis>()
 const error = ref('')
+let analysisVersion = 0
 const entryButton = ref<HTMLButtonElement>()
 const panelHeading = ref<HTMLElement>()
 const stepHeading = ref<HTMLElement>()
@@ -38,7 +39,7 @@ const selectedColorAvailable = computed(() => {
 const showStockWarning = computed(() => result.value?.recommendedAvailable === false || !selectedColorAvailable.value)
 
 function revokePreview() { if (preview.value) URL.revokeObjectURL(preview.value); preview.value = '' }
-function clearImage() { revokePreview(); file.value = undefined; result.value = undefined; error.value = '' }
+function clearImage() { ++analysisVersion; revokePreview(); file.value = undefined; result.value = undefined; error.value = '' }
 function clearQuick() { usualSize.value = ''; perception.value = undefined }
 async function focus(target: typeof panelHeading | typeof stepHeading | typeof entryButton) { await nextTick(); target.value?.focus() }
 function open() { clearImage(); clearQuick(); step.value = 'choose'; void focus(panelHeading) }
@@ -67,9 +68,17 @@ function acceptImage(selected?: File) {
 }
 async function analyze() {
   if (!file.value) return
+  const version = ++analysisVersion
   step.value = 'analyzing'; error.value = ''; void focus(stepHeading)
-  try { result.value = await api.fitAnalysis(props.productId, file.value, props.selectedColor); step.value = 'result' }
-  catch (reason) { error.value = reason instanceof ApiError ? messageLabel(errorCopy(reason)) : t('The image could not be used.'); step.value = 'result' }
+  try {
+    const analysis = await api.fitAnalysis(props.productId, file.value, props.selectedColor)
+    if (version !== analysisVersion || step.value !== 'analyzing') return
+    result.value = analysis; step.value = 'result'
+  }
+  catch (reason) {
+    if (version !== analysisVersion || step.value !== 'analyzing') return
+    error.value = reason instanceof ApiError ? messageLabel(errorCopy(reason)) : t('The image could not be used.'); step.value = 'result'
+  }
   void focus(stepHeading)
 }
 function reasonLabel(reason?: string) {
@@ -96,7 +105,7 @@ function selectSize(size?: string) { if (size) emit('select-size', size) }
 function selectColor(color: string, size = result.value?.recommendedSize ?? usualSize.value) { emit('select-color', color, size) }
 function confidenceLabel(confidence?: string) { return t(confidence === 'HIGH' ? 'Strong photo quality' : 'Usable image estimate') }
 
-onBeforeUnmount(revokePreview)
+onBeforeUnmount(() => { ++analysisVersion; revokePreview() })
 </script>
 
 <template>
@@ -133,6 +142,7 @@ onBeforeUnmount(revokePreview)
     <template v-else-if="step === 'quick-result'">
       <div class="fit-result fit-quick-result" aria-live="polite">
         <h3 id="fit-step-heading" ref="stepHeading" tabindex="-1">{{ t('Start with EU {size}', { size: usualSize }) }}</h3>
+        <dl class="fit-size-summary"><div><dt>{{ t('Your usual size') }}</dt><dd>EU {{ usualSize }}</dd></div><div><dt>{{ t('Reference starting point') }}</dt><dd>EU {{ usualSize }}</dd></div></dl>
         <p>{{ t('Your usual EU {size} feels {feeling}.', { size: usualSize, feeling: perceptionLabel() }) }}</p>
         <dl v-if="fitGuidance" class="fit-evidence"><div><dt>{{ t('Fit tendency') }}</dt><dd>{{ fitTendencyLabel() }}</dd></div><div><dt>{{ t('Width profile') }}</dt><dd>{{ widthProfileLabel() }}</dd></div></dl>
         <p class="fit-disclaimer">{{ t('This is a starting point, not an automatic size adjustment.') }}</p>

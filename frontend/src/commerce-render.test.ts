@@ -97,6 +97,19 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
     expect(html).toContain(t('Pay with VNPAY'))
     expect(html).toContain(t('Your items are held only until the payment deadline.'))
   })
+  it('shows only recorded journey timestamps, including cancellation, in chronological order', async () => {
+    vi.mocked(api.order).mockResolvedValue({ ...order, paidAt: '2026-08-31T10:01:00Z',
+      acceptedAt: '2026-08-31T10:02:00Z', fulfillmentCancelledAt: '2026-08-31T10:03:00Z',
+      pickupStatus: 'CANCELLED_REVERSAL_REVIEW', financialVoidStatus: 'REVIEW_REQUIRED' })
+    const html = await render(OrderStatusView, `/orders/${order.id}`)
+    const timeline = html.match(/<ol class="order-journey"[^>]*>([\s\S]*?)<\/ol>/)?.[1]
+    expect(timeline).toBeDefined()
+    const stamps = [...timeline!.matchAll(/datetime="([^"]+)"/g)].map(match => match[1])
+    expect(stamps).toEqual([order.createdAt, '2026-08-31T10:01:00Z', '2026-08-31T10:02:00Z', '2026-08-31T10:03:00Z'])
+    expect(timeline).not.toContain(t('Delivered'))
+    expect(html).toContain(t('The order remains cancelled while the store confirms the VNPAY refund result.'))
+    expect(html).not.toContain(t('Retry VNPAY refund'))
+  })
   it('uses delivery-specific copy while a paid delivery waits for preparation', async () => {
     vi.mocked(api.order).mockResolvedValue({ ...order, fulfillmentType: 'DELIVERY' })
     const html = await render(OrderStatusView, `/orders/${order.id}`)

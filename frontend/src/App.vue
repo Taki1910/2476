@@ -7,6 +7,7 @@ import { errorCopy } from './format'
 import { clearPrivateSession, homeFor, refreshSessionRoute, session, SESSION_CHANGE_CHANNEL, SESSION_CHANGE_SOURCE, signOut } from './session'
 import { cartCount, syncCartStorage } from './cart'
 import { canManageStorefront } from './merchandising'
+import ProductComparison from './components/ProductComparison.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +30,8 @@ watch(cartCount, (current, previous) => {
   cartAcknowledgementTimer = setTimeout(() => { cartAcknowledged.value = false }, 300)
 })
 async function reloadSession() {
+  // An initial guard failure leaves no matched route to resume.
+  if (!route.matched.length) { window.location.reload(); return }
   const destination = await refreshSessionRoute(route)
   if (destination) await router.replace(destination)
 }
@@ -103,6 +106,7 @@ onBeforeUnmount(() => {
         <button class="text-button" type="button" @click="reloadSession">{{ t('Retry') }}</button>
       </section>
       <RouterView v-else :key="`${session.generation}:${session.account?.accountId ?? 'guest'}`" />
+      <ProductComparison v-if="!route.path.startsWith('/operations/') && (route.path === '/' || route.path.startsWith('/products/'))" />
     </main>
   </div>
 </template>

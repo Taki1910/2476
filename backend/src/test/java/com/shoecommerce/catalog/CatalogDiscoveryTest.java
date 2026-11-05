@@ -12,6 +12,7 @@ class CatalogDiscoveryTest {
     private static final UUID COURT = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID RUNNER = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID SOLD_OUT = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID RUNNER_PLUS = UUID.fromString("00000000-0000-0000-0000-000000000007");
 
     @Test
     void interpretsVietnameseColorAndExplicitMillionPrice() {
@@ -122,6 +123,71 @@ class CatalogDiscoveryTest {
         assertThat(outcome.resultIds()).isEmpty();
         assertThat(outcome.suggestionIds()).containsExactly(COURT, RUNNER);
         assertThat(outcome.suggestionIds()).doesNotContain(SOLD_OUT);
+    }
+
+    @Test
+    void preservesExactAndPartialPriorityAcrossSimilarNames() {
+        List<CatalogDiscovery.SearchDocument> corpus = searchCorpus();
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("DEMO-LR-40"), corpus).resultIds())
+                .containsExactly(RUNNER);
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("Lite Runner"), corpus).resultIds())
+                .startsWith(RUNNER);
+        for (String query : List.of("lite", "runner", "unner", "runne")) {
+            assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret(query), corpus).resultIds())
+                    .contains(RUNNER);
+        }
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("giày trắng chạy bộ"), corpus).resultIds())
+                .isEqualTo(CatalogDiscovery.rank(CatalogDiscovery.interpret("giay trang chay bo"), corpus).resultIds());
+    }
+
+    @Test
+    void offersBoundedTypoCandidatesAfterExactMatchesWithoutTreatingNoiseAsResults() {
+        List<CatalogDiscovery.SearchDocument> corpus = searchCorpus();
+        for (String query : List.of("runnr", "runnear", "runnor", "runnre")) {
+            CatalogDiscovery.Outcome outcome = CatalogDiscovery.rank(CatalogDiscovery.interpret(query), corpus);
+            assertThat(outcome.resultIds()).as(query).isEmpty();
+            assertThat(outcome.suggestionIds()).as(query).containsExactly(RUNNER);
+            assertThat(outcome.suggestionIds()).as(query).doesNotContain(SOLD_OUT);
+        }
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("violet formal"), corpus).resultIds())
+                .isEmpty();
+        for (String query : List.of("rnnr", "litte runnr")) {
+            CatalogDiscovery.Outcome outcome = CatalogDiscovery.rank(CatalogDiscovery.interpret(query), corpus);
+            assertThat(outcome.resultIds()).as(query).isEmpty();
+            assertThat(outcome.suggestionIds().getFirst()).as(query).isNotEqualTo(RUNNER);
+        }
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("DEMO-LR-4O"), corpus).resultIds())
+                .doesNotContain(RUNNER);
+    }
+
+    @Test
+    void keepsStructuredConstraintsOnTypoSuggestions() {
+        CatalogDiscovery.Outcome allowed = CatalogDiscovery.rank(
+                CatalogDiscovery.interpret("giày trắng runnr dưới 2 triệu"), searchCorpus());
+        assertThat(allowed.suggestionIds()).startsWith(RUNNER);
+        CatalogDiscovery.Outcome excluded = CatalogDiscovery.rank(
+                CatalogDiscovery.interpret("giày đen runnr dưới 1 triệu"), searchCorpus());
+        assertThat(excluded.resultIds()).isEmpty();
+        assertThat(excluded.suggestionIds().getFirst()).isNotEqualTo(RUNNER);
+    }
+
+    @Test
+    void keepsOneNameTypoWhenOtherTermsMatchNameOrMetadata() {
+        List<CatalogDiscovery.SearchDocument> corpus = searchCorpus();
+        for (String query : List.of("lite runnr", "metro runnr", "runnr road")) {
+            CatalogDiscovery.Outcome outcome = CatalogDiscovery.rank(CatalogDiscovery.interpret(query), corpus);
+            assertThat(outcome.resultIds()).as(query).isEmpty();
+            assertThat(outcome.suggestionIds()).as(query).containsExactly(RUNNER);
+        }
+        assertThat(CatalogDiscovery.rank(CatalogDiscovery.interpret("giày trắng metro runnr dưới 2 triệu"), corpus)
+                .suggestionIds()).containsExactly(RUNNER);
+    }
+
+    private static List<CatalogDiscovery.SearchDocument> searchCorpus() {
+        return List.of(documents().get(0), documents().get(1), documents().get(2),
+                document(RUNNER_PLUS, "Lite Runners", "Running", "Metro Motion",
+                        Set.of("Black"), Set.of("DEMO-LP-40"), Set.of("ROAD_RUNNING"),
+                        2_190_000, 1, 0));
     }
 
     private static List<CatalogDiscovery.SearchDocument> documents() {
