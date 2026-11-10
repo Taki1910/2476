@@ -167,12 +167,25 @@ signed quantity, business reference, operation key, actor/source and timestamp.
 A unique `(movementType, businessReference, lineReference)` prevents duplicate
 physical effects.
 
+Implemented direct receipt uses the distinct `RECEIVE` type and snapshots
+before/after on-hand plus reserved-at-operation. It increases on-hand at one
+authorized Location without changing reserved and is not an Adjustment or a
+Transfer receipt.
+
 ### Transfer
 
-Transfer owns source, destination, lines and in-transit state. Dispatch reduces
-source on-hand; in-transit quantity is not available at either location;
-receipt increases destination on-hand. Source/destination balances are locked
-in canonical key order.
+Transfer owns public identity, distinct source/destination Locations, lifecycle,
+actors/timestamps and 1–100 unique positive lines. Each line preserves requested,
+dispatched and received quantities. Draft changes no balance; dispatch records
+requested as dispatched and subtracts source on-hand; receipt records received
+equal to dispatched and adds destination on-hand. Reserved is unchanged.
+
+In-transit quantity is durable transfer-line state and unavailable at either
+Location; no fake transit Location is created. `TRANSFER_OUT` and `TRANSFER_IN`
+StockMovements retain transfer provenance. Commands have durable actor/key,
+action and fingerprint identity. Both exact Location scopes are required at the
+application boundary and all affected balances are locked in canonical
+`(location internal ID, variant internal ID)` order. ADR-0046 is authoritative.
 
 ## Cart, checkout and order
 

@@ -4,6 +4,15 @@ import { cartErrorCopy, errorCopy, formatDateTime, formatVnd, isExpired, pickupD
 import { setLocale, t } from './i18n'
 
 describe('storefront presentation rules', () => {
+  it('uses safe contention copy before generic 503 copy in both locales', () => {
+    const contention = new ApiError(503, 'CONCURRENCY_RETRY_REQUIRED', 'private SQL detail')
+    setLocale('en')
+    expect(errorCopy(contention)).toBe('This request conflicted with another operation. Try the same action again.')
+    expect(errorCopy(new ApiError(503, 'SERVICE_UNAVAILABLE', 'private'))).toBe('The service is temporarily unavailable. Please retry.')
+    setLocale('vi-VN')
+    expect(errorCopy(contention)).toBe('Yêu cầu đang xung đột với một thao tác khác. Hãy thử lại thao tác này.')
+  })
+
   it('localizes login throttling without disclosing server details', () => {
     const error = new ApiError(429, 'AUTH_RATE_LIMITED', 'private account information', undefined, 900)
     setLocale('vi-VN')

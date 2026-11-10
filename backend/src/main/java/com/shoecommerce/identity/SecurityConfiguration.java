@@ -60,7 +60,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/api/v1/auth/register",
                                 "/api/v1/payments/vnpay/ipn", "/api/v1/payments/vnpay/return", "/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/storefront/products", "/api/v1/storefront/products/**", "/api/v1/storefront/hero",
+                        .requestMatchers(HttpMethod.GET, "/api/v1/storefront/products", "/api/v1/storefront/products/**", "/api/v1/storefront/discovery", "/api/v1/storefront/hero",
                                 "/api/v1/storefront/promotions", "/api/v1/storefront/promotions/**",
                                 "/api/v1/storefront/homepage").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()

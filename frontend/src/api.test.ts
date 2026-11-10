@@ -2,6 +2,32 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api, SESSION_ENDED_EVENT } from './api'
 
 describe('API session handling', () => {
+  it('parses the contention retry contract without retrying the request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'CONCURRENCY_RETRY_REQUIRED',
+      detail: 'private SQL detail',
+      retryable: true,
+      reuseSameIdempotencyKey: true,
+    }), { status: 503, headers: { 'Content-Type': 'application/problem+json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(api.products()).rejects.toMatchObject({
+      status: 503,
+      code: 'CONCURRENCY_RETRY_REQUIRED',
+      retryable: true,
+      reuseSameIdempotencyKey: true,
+    })
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('accepts only literal true machine retry fields', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'CONCURRENCY_RETRY_REQUIRED', retryable: 'true', reuseSameIdempotencyKey: 1,
+    }), { status: 503 })))
+
+    await expect(api.products()).rejects.toMatchObject({ retryable: false, reuseSameIdempotencyKey: false })
+  })
+
   it.each(['900', 'abc', '0', '-1', '1.5', '9007199254740992', null])('validates login Retry-After %s', async header => {
     const headers: Record<string, string> = header === null ? {} : { 'Retry-After': header }
     vi.stubGlobal('fetch', vi.fn()

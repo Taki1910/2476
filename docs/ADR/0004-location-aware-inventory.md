@@ -56,6 +56,17 @@ location per order line.
 Reservation `commit`, `release`, and `expire` compete through the same locks and
 a conditional transition from `ACTIVE`, so exactly one terminal action wins.
 
+### Direct receipt
+
+A direct receipt is a balance-only command for one authorized, enabled
+Location. It accepts only a positive quantity, claims an actor-scoped
+idempotency key and normalized request fingerprint, locks the Variant and
+InventoryBalance, increases `onHand`, leaves `reserved` unchanged, and appends
+one immutable `RECEIVE` StockMovement plus audit evidence in the same
+transaction. Replay with the same payload returns the stored result; key reuse
+with a different payload conflicts. Inventory Adjustment is not a substitute
+for receipt evidence.
+
 For an allowed confirmed cancellation before dispatch/handover, Order and
 Fulfillment are locked before the committed Reservation and InventoryBalance.
 The transaction cancels the still-cancellable Fulfillment, increases on-hand at
@@ -65,6 +76,10 @@ retry idempotent. A dispatch winner forbids this direct restoration and requires
 return-to-sender/Return compensation.
 
 ### Transfers
+
+> Successor clarification: ADR-0046 admits and implements only
+> `DRAFT -> DISPATCHED -> RECEIVED`. The approval/cancellation/discrepancy ideas
+> below remain historical context and are not implemented behavior.
 
 At dispatch, source on-hand decreases and goods become in transit. At receipt,
 destination on-hand increases. In-transit goods are unavailable at both

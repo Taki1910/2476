@@ -11,7 +11,7 @@ describe('fit assistant entry states', () => {
     setLocale(language)
     const html = await renderToString(createSSRApp(FitAssistant, { productId: 'product', fitSupported: true, variants }))
     expect(html).toContain(language === 'en' ? 'Not sure about your size?' : 'Chưa chắc nên chọn kích cỡ nào?')
-    expect(html).toContain(language === 'en' ? 'Optional photo guide' : 'Hướng dẫn qua ảnh, không bắt buộc')
+    expect(html).toContain(language === 'en' ? 'Quick size or optional photo guidance' : 'Gợi ý nhanh theo size hoặc đo bằng ảnh')
     expect(html).toContain(t('Find my size'))
     expect(html.split(t('Find my size')).length - 1).toBe(1)
   })

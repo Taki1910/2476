@@ -97,6 +97,28 @@ public class VerifiedPaymentResultService {
         return Result.APPLIED;
     }
 
+    @Transactional
+    public Result applyReview(PaymentProvider.VerifiedResult result) {
+        UUID attemptId = attempts.findPublicIdByMerchantReference(result.merchantReference()).orElse(null);
+        if (attemptId == null) return Result.NOT_FOUND;
+        UUID orderId = attempts.findOrderPublicId(attemptId).orElse(null);
+        if (orderId == null) return Result.NOT_FOUND;
+        CustomerOrder order = orders.findLockedByPublicId(orderId).orElseThrow();
+        CustomerOrder.PaymentFacts facts = order.paymentFacts();
+        payments.findLockedByOrderId(orderId).orElseThrow();
+        PaymentAttempt attempt = attempts.findLockedByPublicId(attemptId).orElseThrow();
+        if (!"VNPAY".equals(attempt.provider())
+                || !attempt.merchantTransactionReference().equals(result.merchantReference())) return Result.NOT_FOUND;
+        if (!"VND".equals(attempt.currency()) || attempt.amount().longValueExact() != result.amountVnd()
+                || facts.totalAmount() != result.amountVnd()) return Result.AMOUNT_MISMATCH;
+        if (attempt.sameProviderResult(result) || attempt.succeeded() || attempt.failed()) return Result.ALREADY_PROCESSED;
+        Instant now = clock.instant();
+        Location location = locations.findByPublicId(facts.locationId()).orElseThrow();
+        attempt.requireReview(result, now);
+        audit(location, attempt, orderId, "PAYMENT_REVIEW_REQUIRED", result);
+        return Result.APPLIED;
+    }
+
     private void audit(Location location, PaymentAttempt attempt, UUID orderId, String action,
             PaymentProvider.VerifiedResult result) {
         audit.appendIntegration("VNPAY", action, "PAYMENT_ATTEMPT", attempt.publicId(),

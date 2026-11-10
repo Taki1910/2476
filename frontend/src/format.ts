@@ -30,6 +30,7 @@ export const pickupDisplayState = (task: Pick<PickupTask, 'orderStatus' | 'fulfi
 export const errorCopy = (error: unknown) => {
   if (error instanceof CheckoutStorageError) return t('Browser storage is unavailable. Enable it before checkout so a retry cannot create another order.')
   const apiError = error as ApiError
+  if (error instanceof ApiError && apiError.code === 'CONCURRENCY_RETRY_REQUIRED') return t('This request conflicted with another operation. Try the same action again.')
   if (!(error instanceof ApiError) || apiError.status >= 500) return t('The service is temporarily unavailable. Please retry.')
   if (apiError.status === 401) return t('Your session has ended. Sign in again to continue.')
   if (apiError.status === 403) return t('This account is not authorized for this action or location.')

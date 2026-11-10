@@ -12,6 +12,8 @@ import PaymentResultView from './views/PaymentResultView.vue'
 import PickupQueueView from './views/PickupQueueView.vue'
 import PickupDetailView from './views/PickupDetailView.vue'
 import PeopleAccessView from './views/PeopleAccessView.vue'
+import pickupDetailSource from './views/PickupDetailView.vue?raw'
+import orderStatusSource from './views/OrderStatusView.vue?raw'
 
 // Run the views' normal initial loads during SSR for component-level checks.
 // These are unit fixtures, not browser or transaction acceptance evidence.
@@ -95,6 +97,19 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
     expect(html).toContain(t('Pay with VNPAY'))
     expect(html).toContain(t('Your items are held only until the payment deadline.'))
   })
+  it('shows only recorded journey timestamps, including cancellation, in chronological order', async () => {
+    vi.mocked(api.order).mockResolvedValue({ ...order, paidAt: '2026-08-31T10:01:00Z',
+      acceptedAt: '2026-08-31T10:02:00Z', fulfillmentCancelledAt: '2026-08-31T10:03:00Z',
+      pickupStatus: 'CANCELLED_REVERSAL_REVIEW', financialVoidStatus: 'REVIEW_REQUIRED' })
+    const html = await render(OrderStatusView, `/orders/${order.id}`)
+    const timeline = html.match(/<ol class="order-journey"[^>]*>([\s\S]*?)<\/ol>/)?.[1]
+    expect(timeline).toBeDefined()
+    const stamps = [...timeline!.matchAll(/datetime="([^"]+)"/g)].map(match => match[1])
+    expect(stamps).toEqual([order.createdAt, '2026-08-31T10:01:00Z', '2026-08-31T10:02:00Z', '2026-08-31T10:03:00Z'])
+    expect(timeline).not.toContain(t('Delivered'))
+    expect(html).toContain(t('The order remains cancelled while the store confirms the VNPAY refund result.'))
+    expect(html).not.toContain(t('Retry VNPAY refund'))
+  })
   it('uses delivery-specific copy while a paid delivery waits for preparation', async () => {
     vi.mocked(api.order).mockResolvedValue({ ...order, fulfillmentType: 'DELIVERY' })
     const html = await render(OrderStatusView, `/orders/${order.id}`)
@@ -133,5 +148,23 @@ describe.each(['en', 'vi-VN'] as const)('multi-item component rendering in %s', 
     expect(html).toContain('staff.demo')
     expect(html).toContain(t('Base role'))
     expect(html).toContain('POS_SELL')
+  })
+})
+
+describe('terminal command retry identity', () => {
+  it('routes every fulfillment terminal action through one retained command key', () => {
+    expect(pickupDetailSource).toContain("submitRetryableCommand(terminalCommand, JSON.stringify([action, task.value.fulfillmentId])")
+    expect(pickupDetailSource.match(/await api\.handoverPickup/g)).toHaveLength(1)
+    expect(pickupDetailSource.match(/await api\.dispatchFulfillment/g)).toHaveLength(1)
+    expect(pickupDetailSource.match(/await api\.deliverFulfillment/g)).toHaveLength(1)
+    expect(pickupDetailSource).not.toContain('crypto.randomUUID()')
+  })
+
+  it('keeps cancellation and void retry identities separate and explicit', () => {
+    expect(orderStatusSource).toContain("JSON.stringify(['CANCEL', requestedId])")
+    expect(orderStatusSource).toContain("JSON.stringify(['RETRY_VOID', requestedId])")
+    expect(orderStatusSource.match(/api\.cancelConfirmed/g)).toHaveLength(1)
+    expect(orderStatusSource.match(/api\.retryVoid/g)).toHaveLength(1)
+    expect(orderStatusSource).not.toContain('crypto.randomUUID()')
   })
 })

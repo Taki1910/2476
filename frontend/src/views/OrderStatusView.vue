@@ -6,6 +6,7 @@ import { errorCopy, formatDateTime, formatVnd } from '../format'
 import { commerceCount, messageLabel, t } from '../i18n'
 import CommerceItems from '../components/CommerceItems.vue'
 import { paymentDestination, recoverablePayment } from '../checkout'
+import { submitRetryableCommand, type RetryableCommand } from '../retryable-command'
 
 const route = useRoute()
 const order = ref<Order>()
@@ -15,12 +16,30 @@ const error = ref('')
 const statusRegion = ref<HTMLElement>()
 const cancelDialog = ref<HTMLDialogElement>()
 const orderId = computed(() => String(route.params.id))
+const terminalCommand = ref<RetryableCommand>()
 let disposed = false
 let loadGeneration = 0
 
 const fulfillmentLabel = { PENDING: 'Awaiting acceptance', PICKING: 'Picking', PREPARED: 'Prepared', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', HANDED_OVER: 'Picked up', CANCELLED: 'Cancelled' }
 const refundLabel = { PROCESSING: 'Refund processing', SUCCEEDED: 'Payment refunded', FAILED_RETRYABLE: 'Refund retry needed', UNKNOWN: 'Refund confirmation pending', REVIEW_REQUIRED: 'Refund under review' }
 const paymentLabel = { PENDING_PAYMENT: 'Payment needed', PAID: 'Paid', CANCELLED: 'Order cancelled' }
+
+const journey = computed(() => {
+  const current = order.value
+  if (!current) return []
+  const events = [
+    { label: 'Created at', at: current.createdAt },
+    { label: 'Paid', at: current.paidAt },
+    { label: 'Accepted', at: current.acceptedAt },
+    { label: 'Ready', at: current.readyAt },
+    { label: 'Dispatched', at: current.dispatchedAt },
+    { label: 'Delivered', at: current.deliveredAt },
+    { label: 'Handed over', at: current.handedOverAt },
+    { label: 'Cancelled', at: current.fulfillmentCancelledAt ?? current.cancelledAt },
+  ]
+  return events.filter((event): event is { label: string; at: string } => !!event.at)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+})
 
 const copy = computed(() => ({
   PENDING_PAYMENT: ['Payment needed', 'Your items are held only until the payment deadline.'],
@@ -40,7 +59,7 @@ const copy = computed(() => ({
 })[order.value?.pickupStatus ?? 'PENDING_PAYMENT']?.map(value => t(value)))
 
 async function load() {
-  loading.value = true; error.value = ''
+  loading.value = true; error.value = ''; order.value = undefined
   const requestedId = orderId.value
   const generation = ++loadGeneration
   const current = () => generation === loadGeneration && requestedId === orderId.value && !disposed
@@ -61,7 +80,8 @@ function closeDialog() { cancelDialog.value?.close() }
 async function cancel() {
   if (!order.value || busy.value) return
   busy.value = true; error.value = ''; closeDialog()
-  try { await api.cancelConfirmed(order.value.id, crypto.randomUUID()); await load(); await nextTick(); statusRegion.value?.focus() }
+  const requestedId = order.value.id
+  try { await submitRetryableCommand(terminalCommand, JSON.stringify(['CANCEL', requestedId]), key => api.cancelConfirmed(requestedId, key)); await load(); await nextTick(); statusRegion.value?.focus() }
   catch (reason) {
     const actionError = errorCopy(reason)
     await load()
@@ -72,11 +92,12 @@ async function cancel() {
 async function retryVoid() {
   if (!order.value || busy.value) return
   busy.value = true; error.value = ''
-  try { await api.retryVoid(order.value.id, crypto.randomUUID()); await load(); await nextTick(); statusRegion.value?.focus() }
+  const requestedId = order.value.id
+  try { await submitRetryableCommand(terminalCommand, JSON.stringify(['RETRY_VOID', requestedId]), key => api.retryVoid(requestedId, key)); await load(); await nextTick(); statusRegion.value?.focus() }
   catch (reason) { error.value = errorCopy(reason) }
   finally { busy.value = false }
 }
-watch(orderId, () => { order.value = undefined; load() })
+watch(orderId, () => { order.value = undefined; terminalCommand.value = undefined; load() })
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
 </script>
@@ -87,7 +108,12 @@ onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
     <div v-if="loading" class="queue-loading" role="status"><span class="loader-mark"></span>{{ t('Loading authoritative order status…') }}</div>
     <section v-else-if="error && !order" class="inline-state" role="alert"><h1>{{ t('Order unavailable') }}</h1><p>{{ messageLabel(error) }}</p><button class="text-button" @click="load">{{ t('Try again') }}</button></section>
     <section v-else-if="order" ref="statusRegion" class="order-status-sheet" tabindex="-1" aria-labelledby="order-status-title">
-      <h1 id="order-status-title">{{ copy?.[0] }}</h1><p class="status-lede">{{ copy?.[1] }}</p>
+      <h1 id="order-status-title">{{ copy?.[0] }}</h1>
+      <section class="order-next-step" aria-labelledby="order-next-step-title"><h2 id="order-next-step-title">{{ t('Details and next action') }}</h2><p class="status-lede">{{ copy?.[1] }}</p></section>
+      <section aria-labelledby="order-journey-title">
+        <h2 id="order-journey-title">{{ t('Timeline') }}</h2>
+        <ol class="order-journey"><li v-for="event in journey" :key="event.label"><strong>{{ t(event.label) }}</strong><time :datetime="event.at">{{ formatDateTime(event.at) }}</time></li></ol>
+      </section>
       <dl>
         <div><dt>{{ t('Total units') }}</dt><dd>{{ commerceCount(order.itemCount, order.quantity) }}</dd></div>
         <div><dt>{{ t('Order amount') }}</dt><dd>{{ formatVnd(order.totalAmount) }}</dd></div>
@@ -99,13 +125,7 @@ onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
         <div v-if="order.deliveryNote"><dt>{{ t('Delivery note') }}</dt><dd>{{ order.deliveryNote }}</dd></div>
         <div v-if="order.fulfillmentType === 'DELIVERY'"><dt>{{ t('Delivery fee') }}</dt><dd>{{ formatVnd(order.deliveryFeeAmount) }}</dd></div>
         <div><dt>{{ t('Payment status') }}</dt><dd>{{ t(paymentLabel[order.status]) }}</dd></div>
-        <div v-if="order.paidAt"><dt>{{ t('Paid') }}</dt><dd>{{ formatDateTime(order.paidAt) }}</dd></div>
         <div v-if="order.fulfillmentStatus"><dt>{{ t('Fulfillment progress') }}</dt><dd>{{ t(fulfillmentLabel[order.fulfillmentStatus]) }}</dd></div>
-        <div v-if="order.acceptedAt"><dt>{{ t('Accepted') }}</dt><dd>{{ formatDateTime(order.acceptedAt) }}</dd></div>
-        <div v-if="order.readyAt"><dt>{{ t('Ready') }}</dt><dd>{{ formatDateTime(order.readyAt) }}</dd></div>
-        <div v-if="order.dispatchedAt"><dt>{{ t('Dispatched') }}</dt><dd>{{ formatDateTime(order.dispatchedAt) }}</dd></div>
-        <div v-if="order.deliveredAt"><dt>{{ t('Delivered') }}</dt><dd>{{ formatDateTime(order.deliveredAt) }}</dd></div>
-        <div v-if="order.handedOverAt"><dt>{{ t('Handed over') }}</dt><dd>{{ formatDateTime(order.handedOverAt) }}</dd></div>
         <div v-if="order.financialVoidStatus"><dt>{{ t('Payment refund') }}</dt><dd>{{ t(refundLabel[order.financialVoidStatus]) }}</dd></div>
       </dl>
       <CommerceItems :items="order.items" />
@@ -128,3 +148,14 @@ onBeforeUnmount(() => { disposed = true; loadGeneration += 1 })
     </dialog>
   </div>
 </template>
+
+<style scoped>
+.order-next-step { border-left: 4px solid var(--accent-surface); padding: .25rem 1rem; margin: 1.5rem 0; }
+.order-next-step h2 { margin: 0; font-size: 1rem; }
+.order-next-step .status-lede { margin-bottom: 0; }
+.order-journey { list-style: none; padding: 0 0 0 .5rem; margin: 1rem 0 2rem; }
+.order-journey li { position: relative; display: grid; gap: .35rem; border-left: 1px solid var(--line); padding: 0 0 1.25rem 1.5rem; }
+.order-journey li::before { content: ''; position: absolute; left: -.3rem; top: .25rem; width: .55rem; height: .55rem; border-radius: 50%; background: var(--ink); }
+.order-journey li:last-child { padding-bottom: 0; }
+.order-journey time { color: var(--muted-readable); font-size: .875rem; }
+</style>

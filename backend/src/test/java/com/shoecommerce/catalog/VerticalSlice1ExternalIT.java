@@ -69,7 +69,7 @@ class VerticalSlice1ExternalIT {
 
         assertThatThrownBy(() -> catalog.createProduct(admin, "Denied")).isInstanceOf(AccessDeniedException.class);
         UUID product = catalog.createProduct(operations, "Runner");
-        UUID noPrice = catalog.createVariant(operations, product, "RUN-NOPRICE", "42", "Black");
+        UUID noPrice = catalog.createVariant(operations, product, "RUN-NOPRICE", "41", "Grey");
         assertThatThrownBy(() -> catalog.publish(operations, noPrice))
                 .isInstanceOfSatisfying(BusinessConflictException.class,
                         conflict -> assertThat(conflict.code()).isEqualTo("CATALOG_PRICE_REQUIRED"));
@@ -271,7 +271,7 @@ class VerticalSlice1ExternalIT {
                 "/api/v1/operations/product-presentations/products", "", 200).body()).toString())
                 .contains(product.toString());
 
-        UUID catalogOnlyId = identities.createAccount(admin, "p2a-catalog@example.com", PASSWORD, RoleCode.CUSTOMER);
+        UUID catalogOnlyId = identities.createAccount(admin, "p2a-catalog@example.com", PASSWORD, RoleCode.CASHIER);
         grant(catalogOnlyId, "CATALOG_MANAGE");
         Browser catalogOnly = new Browser();
         login(catalogOnly, "p2a-catalog@example.com");
@@ -280,7 +280,7 @@ class VerticalSlice1ExternalIT {
         assertThat(catalogOnlyDetail.at("/variants/0/inventory").isNull()).isTrue();
         request(catalogOnly, "GET", "/api/v1/operations/inventory/products/" + product, "", 403);
 
-        UUID inventoryOnlyId = identities.createAccount(admin, "p2a-inventory@example.com", PASSWORD, RoleCode.CUSTOMER);
+        UUID inventoryOnlyId = identities.createAccount(admin, "p2a-inventory@example.com", PASSWORD, RoleCode.CASHIER);
         grant(inventoryOnlyId, "INVENTORY_VIEW");
         scopes.setAssignment(admin, inventoryOnlyId, branch, location, true);
         Browser inventoryOnly = new Browser();

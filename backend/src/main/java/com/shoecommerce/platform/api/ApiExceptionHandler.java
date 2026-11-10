@@ -18,6 +18,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.shoecommerce.fitting.ShoeFitService.FitCapacityException;
 import com.shoecommerce.payment.PaymentProviderUnavailableException;
+import com.shoecommerce.payment.PaymentReconciliationResultMismatchException;
+import com.shoecommerce.merchandising.MerchandisingAssistantUnavailableException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -96,8 +98,28 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<Object> handlePaymentProviderUnavailable(PaymentProviderUnavailableException exception, WebRequest request) {
         logger.error("Payment provider unavailable", exception);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
-                "Payment is temporarily unavailable. Please retry or choose another method.");
+                "Payment provider is temporarily unavailable. Check the current payment status before trying again.");
         problem.setProperty("code", "PAYMENT_PROVIDER_UNAVAILABLE");
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
+    }
+
+    @ExceptionHandler(PaymentReconciliationResultMismatchException.class)
+    ResponseEntity<Object> handlePaymentReconciliationMismatch(
+            PaymentReconciliationResultMismatchException exception, WebRequest request) {
+        logger.warn("Rejected mismatched VNPAY QueryDr evidence");
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "The VNPAY result could not be matched to this payment attempt.");
+        problem.setProperty("code", "PAYMENT_RECONCILIATION_RESULT_MISMATCH");
+        return createResponseEntity(problem, new HttpHeaders(), HttpStatus.CONFLICT, request);
+    }
+
+    @ExceptionHandler(MerchandisingAssistantUnavailableException.class)
+    ResponseEntity<Object> handleMerchandisingAssistantUnavailable(
+            MerchandisingAssistantUnavailableException exception, WebRequest request) {
+        logger.warn("Merchandising assistant unavailable: " + exception.category());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+                "Trợ lý nội dung hiện không khả dụng. Bạn vẫn có thể chỉnh sửa thủ công.");
+        problem.setProperty("code", exception.code());
         return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
     }
 
@@ -110,6 +132,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<Object> handleUnexpected(Exception exception, WebRequest request) {
+        if (SqlServerContentionClassifier.isRetryable(exception)) {
+            logger.warn("Retryable SQL Server transaction contention");
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "This request conflicted with another operation. Try the same action again.");
+            problem.setProperty("code", "CONCURRENCY_RETRY_REQUIRED");
+            problem.setProperty("retryable", true);
+            problem.setProperty("reuseSameIdempotencyKey", true);
+            return createResponseEntity(problem, new HttpHeaders(), HttpStatus.SERVICE_UNAVAILABLE, request);
+        }
         logger.error("Unhandled request failure", exception);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,

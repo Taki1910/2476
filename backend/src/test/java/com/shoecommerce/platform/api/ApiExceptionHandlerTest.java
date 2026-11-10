@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.sql.SQLException;
+
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -17,6 +20,68 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 class ApiExceptionHandlerTest {
+
+    @Test
+    void recognizesOnlySqlServerDeadlockAndLockTimeoutAcrossWrapperChains() {
+        SQLException deadlock = new SQLException("private deadlock graph", "40001", 1205);
+        SQLException outer = new SQLException("outer JDBC exception", "S0000", 0);
+        outer.setNextException(new SQLException("private lock target", "S0002", 1222));
+
+        assertThat(SqlServerContentionClassifier.isRetryable(
+                new CannotAcquireLockException("translated", deadlock))).isTrue();
+        assertThat(SqlServerContentionClassifier.isRetryable(
+                new IllegalStateException("wrapped", outer))).isTrue();
+    }
+
+    @Test
+    void doesNotPromoteBroadLockOrDatabaseFailures() {
+        assertThat(SqlServerContentionClassifier.isRetryable(
+                new SQLException("serialization", "40001", 0))).isFalse();
+        assertThat(SqlServerContentionClassifier.isRetryable(
+                new SQLException("duplicate key", "23000", 2601))).isFalse();
+        assertThat(SqlServerContentionClassifier.isRetryable(
+                new CannotAcquireLockException("broad lock failure"))).isFalse();
+    }
+
+    @Test
+    void mapsExactSqlServerContentionToSafeSameKeyRetryContract() {
+        MDC.put(CorrelationIdFilter.MDC_KEY, "contention-request");
+        try {
+            for (int errorCode : new int[] { 1205, 1222 }) {
+                SQLException sql = new SQLException("private table and index detail", "40001", errorCode);
+                var response = new ApiExceptionHandler().handleUnexpected(
+                        new CannotAcquireLockException("Hibernate SQL detail", sql),
+                        new ServletWebRequest(new MockHttpServletRequest()));
+
+                ProblemDetail problem = (ProblemDetail) response.getBody();
+                assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isNull();
+                assertThat(problem.getProperties())
+                        .containsEntry("code", "CONCURRENCY_RETRY_REQUIRED")
+                        .containsEntry("retryable", true)
+                        .containsEntry("reuseSameIdempotencyKey", true)
+                        .containsEntry("correlationId", "contention-request");
+                assertThat(problem.getDetail())
+                        .isEqualTo("This request conflicted with another operation. Try the same action again.");
+                assertThat(problem.toString())
+                        .doesNotContain("private table")
+                        .doesNotContain("Hibernate")
+                        .doesNotContain("1205")
+                        .doesNotContain("1222");
+            }
+        } finally {
+            MDC.remove(CorrelationIdFilter.MDC_KEY);
+        }
+
+        var unrelated = new ApiExceptionHandler().handleUnexpected(
+                new CannotAcquireLockException("broad", new SQLException("duplicate", "23000", 2601)),
+                new ServletWebRequest(new MockHttpServletRequest()));
+        ProblemDetail problem = (ProblemDetail) unrelated.getBody();
+        assertThat(unrelated.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(problem.getProperties())
+                .containsEntry("code", "HTTP_500")
+                .doesNotContainKeys("retryable", "reuseSameIdempotencyKey");
+    }
 
     @Test
     void addsTheStableCodeAndCorrelationId() {
@@ -80,8 +145,40 @@ class ApiExceptionHandlerTest {
         ProblemDetail problem = (ProblemDetail) response.getBody();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(problem.getProperties()).containsEntry("code", "PAYMENT_PROVIDER_UNAVAILABLE");
-        assertThat(problem.getDetail()).isEqualTo("Payment is temporarily unavailable. Please retry or choose another method.");
+        assertThat(problem.getDetail()).isEqualTo(
+                "Payment provider is temporarily unavailable. Check the current payment status before trying again.");
         assertThat(problem.toString()).doesNotContain("private configuration detail");
+    }
+
+    @Test
+    void mapsQueryDrMismatchWithoutProviderEvidence() {
+        var response = new ApiExceptionHandler().handlePaymentReconciliationMismatch(
+                new com.shoecommerce.payment.PaymentReconciliationResultMismatchException(
+                        "private signed response and merchant detail"),
+                new ServletWebRequest(new MockHttpServletRequest()));
+
+        ProblemDetail problem = (ProblemDetail) response.getBody();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(problem.getProperties()).containsEntry("code", "PAYMENT_RECONCILIATION_RESULT_MISMATCH");
+        assertThat(problem.getDetail()).isEqualTo("The VNPAY result could not be matched to this payment attempt.");
+        assertThat(problem.toString()).doesNotContain("private signed response").doesNotContain("merchant detail");
+    }
+
+    @Test
+    void mapsAssistantFailuresToSpecificSafeContracts() {
+        for (var category : com.shoecommerce.merchandising.MerchandisingAssistant.ProviderFailureCategory.values()) {
+            var exception = new com.shoecommerce.merchandising.MerchandisingAssistantUnavailableException(
+                    category, new IllegalStateException("secret provider payload"));
+            var response = new ApiExceptionHandler().handleMerchandisingAssistantUnavailable(
+                    exception, new ServletWebRequest(new MockHttpServletRequest()));
+            ProblemDetail problem = (ProblemDetail) response.getBody();
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(problem.getProperties()).containsEntry("code", exception.code());
+            assertThat(problem.getDetail()).isEqualTo(
+                    "Trợ lý nội dung hiện không khả dụng. Bạn vẫn có thể chỉnh sửa thủ công.");
+            assertThat(problem.toString()).doesNotContain("secret provider payload");
+        }
     }
 
     @Test

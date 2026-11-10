@@ -3,6 +3,10 @@ import { compile, createRenderer, nextTick, ssrContextKey, type App, type Compon
 import { parse } from 'vue/compiler-sfc'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import CartView from './views/CartView.vue'
+import OrderStatusView from './views/OrderStatusView.vue'
+import orderStatusSource from './views/OrderStatusView.vue?raw'
+import AppShell from './App.vue'
+import appShellSource from './App.vue?raw'
 import cartSource from './views/CartView.vue?raw'
 import CommerceItems from './components/CommerceItems.vue'
 import itemsSource from './components/CommerceItems.vue?raw'
@@ -10,16 +14,22 @@ import ProductView from './views/ProductView.vue'
 import productSource from './views/ProductView.vue?raw'
 import CatalogView from './views/CatalogView.vue'
 import catalogSource from './views/CatalogView.vue?raw'
+import RegisterView from './views/RegisterView.vue'
+import registerSource from './views/RegisterView.vue?raw'
 import ShippingRulesView from './views/ShippingRulesView.vue'
 import shippingRulesSource from './views/ShippingRulesView.vue?raw'
 import ReportsView from './views/ReportsView.vue'
 import reportsSource from './views/ReportsView.vue?raw'
+import InventoryTransfersView from './views/InventoryTransfersView.vue'
+import inventoryTransfersSource from './views/InventoryTransfersView.vue?raw'
 import FitAssistant from './components/FitAssistant.vue'
 import fitAssistantSource from './components/FitAssistant.vue?raw'
 import ProductPresentationSummary from './components/ProductPresentationSummary.vue'
 import productPresentationSummarySource from './components/ProductPresentationSummary.vue?raw'
-import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail } from './api'
-import { cart } from './cart'
+import StorefrontIntentLinks from './components/StorefrontIntentLinks.vue'
+import storefrontIntentLinksSource from './components/StorefrontIntentLinks.vue?raw'
+import { api, ApiError, type CartQuote, type FitAnalysis, type GeoReference, type Order, type ProductDetail, type ProductSummary, type ReconciliationEntry } from './api'
+import { activateCart, addToCart, cart, setCartQuantity } from './cart'
 import { readCheckout } from './checkout'
 import { formatVnd } from './format'
 import { session } from './session'
@@ -27,8 +37,8 @@ import { setLocale, t } from './i18n'
 
 // Vue's own renderer is sufficient for interaction tests; no DOM dependency or
 // simulated API server. Real browser/SQL acceptance is a separate main-agent pass.
-type Node = { tag: string; text: string; props: Record<string, unknown>; children: Node[]; parent: Node | null; focus: () => void; options: Node[]; addEventListener: () => void }
-const node = (tag: string, text = ''): Node => ({ tag, text, props: {}, children: [], parent: null, focus: vi.fn(), options: [], addEventListener: vi.fn() })
+type Node = { tag: string; text: string; props: Record<string, unknown>; children: Node[]; parent: Node | null; focus: () => void; options: Node[]; addEventListener: () => void; getRootNode: () => null }
+const node = (tag: string, text = ''): Node => ({ tag, text, props: {}, children: [], parent: null, focus: vi.fn(), options: [], addEventListener: vi.fn(), getRootNode: () => null })
 const renderer = createRenderer<Node, Node>({
   createElement: tag => node(tag), createText: text => node('#text', text), createComment: text => node('#comment', text),
   setText: (target, text) => { target.text = text },
@@ -54,18 +64,28 @@ function clientComponent(component: Component, source: string): ComponentOptions
 }
 const cartComponent = clientComponent(CartView, cartSource)
 cartComponent.components = { CommerceItems: clientComponent(CommerceItems, itemsSource) }
+const orderComponent = clientComponent(OrderStatusView, orderStatusSource)
+orderComponent.components = cartComponent.components
+const shellComponent = clientComponent(AppShell, appShellSource)
+shellComponent.components = { ProductComparison: { render: () => null } }
 const productComponent = clientComponent(ProductView, productSource)
 const productPresentationSummaryComponent = clientComponent(ProductPresentationSummary, productPresentationSummarySource)
 productComponent.components = { FitAssistant: clientComponent(FitAssistant, fitAssistantSource), ProductPresentationSummary: productPresentationSummaryComponent }
 const catalogComponent = clientComponent(CatalogView, catalogSource)
-catalogComponent.components = { StorefrontHomepage: { render: () => null }, ProductPresentationSummary: productPresentationSummaryComponent }
+const registerComponent = clientComponent(RegisterView, registerSource)
+const storefrontIntentLinksComponent = clientComponent(StorefrontIntentLinks, storefrontIntentLinksSource)
+catalogComponent.components = { StorefrontHomepage: { render: () => null }, StorefrontIntentLinks: storefrontIntentLinksComponent, ProductPresentationSummary: productPresentationSummaryComponent }
 const shippingRulesComponent = clientComponent(ShippingRulesView, shippingRulesSource)
+const inventoryTransfersComponent = clientComponent(InventoryTransfersView, inventoryTransfersSource)
 // The Node-only template compiler needs runtime syntax; erase TS non-null assertions only.
 const reportsComponent = clientComponent(ReportsView, reportsSource.replace(/(?<=[\w)])!(?=[.)\]])/g, ''))
 function text(target: Node): string { return target.tag === '#comment' ? '' : target.text + target.children.map(text).join('') }
 function find(target: Node, predicate: (target: Node) => boolean): Node | undefined {
   if (predicate(target)) return target
   for (const child of target.children) { const result = find(child, predicate); if (result) return result }
+}
+function findAll(target: Node, predicate: (target: Node) => boolean): Node[] {
+  return [...(predicate(target) ? [target] : []), ...target.children.flatMap(child => findAll(child, predicate))]
 }
 async function settle() { for (let i = 0; i < 8; i++) { await Promise.resolve(); await nextTick() } }
 function deferred<T>() {
@@ -132,6 +152,7 @@ let saved: Map<string, string>
 async function mount(component: Component = cartComponent, path = '/cart') {
   root = node('root')
   const router = createRouter({ history: createMemoryHistory(), routes: [
+    { path: '/orders/:id', component: orderComponent },
     { path: '/products/:id', component: CartView },
     { path: '/:pathMatch(.*)*', component: CartView },
   ] })
@@ -161,7 +182,217 @@ beforeEach(() => {
   vi.spyOn(api, 'savedVouchers').mockResolvedValue({items:[],page:0,size:20,hasNext:false})
   setLocale('en')
 })
-afterEach(() => { app?.unmount(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { app?.unmount(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+describe('guest registration cart handoff', () => {
+  const guestLine = { productId: 'shoe', productName: 'Shoe', variantId: A, sku: 'SHOE-A', size: '40', color: 'Black', image: null, amount: 1200000, currency: 'VND' as const }
+  const otherLine = { ...guestLine, variantId: B, sku: 'SHOE-B', size: '41' }
+  function guestDemand() {
+    cart.owner = null; cart.items = []
+    addToCart(guestLine); setCartQuantity(A, 2)
+    addToCart(otherLine); setCartQuantity(B, 3)
+  }
+  async function register() {
+    await mount(registerComponent, '/register')
+    for (const [id, value] of [['register-login', 'new.customer'], ['register-password', 'long-password-123'], ['register-confirmation', 'long-password-123']]) {
+      const input = find(root, target => target.props.id === id)!
+      ;(input as unknown as { value: string }).value = value
+      ;(input.addEventListener as ReturnType<typeof vi.fn>).mock.calls.find(([event]) => event === 'input')?.[1]({ target: input })
+    }
+    const form = find(root, target => target.tag === 'form')!
+    await (form.props.onSubmit as (event: { preventDefault: () => void }) => Promise<void>)({ preventDefault() {} })
+    await settle()
+  }
+  beforeEach(() => {
+    vi.stubGlobal('BroadcastChannel', class { postMessage() {} close() {} })
+    vi.stubGlobal('Document', class {})
+    vi.stubGlobal('ShadowRoot', class {})
+    session.account = undefined
+    guestDemand()
+  })
+  it('registers, logs in, merges two guest variants with account demand, and reloads once', async () => {
+    saved.set('shoe-commerce:cart:v2:new', JSON.stringify({ owner: 'new', items: [{ ...guestLine, quantity: 9 }] }))
+    vi.spyOn(api, 'register').mockResolvedValue({ accountId: 'new', login: 'new.customer' })
+    vi.spyOn(api, 'login').mockResolvedValue({ accountId: 'new', login: 'new.customer', roles: [], permissions: ['ORDER_PLACE'] })
+    await register()
+    expect(api.register).toHaveBeenCalledWith('new.customer', 'long-password-123')
+    expect(api.login).toHaveBeenCalledWith('new.customer', 'long-password-123')
+    expect(session.account?.accountId).toBe('new')
+    expect(cart.owner).toBe('new')
+    expect(cart.items.map(({ variantId, quantity }) => ({ variantId, quantity }))).toEqual([{ variantId: A, quantity: 10 }, { variantId: B, quantity: 3 }])
+    expect(saved.has('shoe-commerce:cart:v2:guest')).toBe(false)
+    cart.items = []; cart.owner = null
+    activateCart('new')
+    expect(cart.items.map(({ variantId, quantity }) => ({ variantId, quantity }))).toEqual([{ variantId: A, quantity: 10 }, { variantId: B, quantity: 3 }])
+  })
+  it('preserves guest demand when registration or auto-login fails', async () => {
+    vi.spyOn(api, 'register').mockRejectedValueOnce(new Error('registration rejected')).mockResolvedValueOnce({ accountId: 'new', login: 'new.customer' })
+    vi.spyOn(api, 'login').mockRejectedValue(new Error('login rejected'))
+    await register()
+    expect(cart.owner).toBeNull()
+    expect(cart.items.map(item => item.quantity)).toEqual([2, 3])
+    expect(api.login).not.toHaveBeenCalled()
+    app.unmount()
+    await register()
+    expect(cart.owner).toBeNull()
+    expect(cart.items.map(item => item.quantity)).toEqual([2, 3])
+    expect(saved.has('shoe-commerce:cart:v2:guest')).toBe(true)
+  })
+})
+
+describe('order refresh privacy and recovery', () => {
+  const privateOrder = { ...order, id: 'a', orderReference: 'PRIVATE-A', receiverName: 'Private receiver',
+    locationName: 'Test floor', locationCode: 'FLOOR', itemCount: 2, currency: 'VND', deliveryFeeAmount: 0,
+    receiverPhone: '0900000000', deliveryAddress: 'Private address', fulfillmentType: 'DELIVERY',
+    pickupStatus: 'PENDING_PAYMENT', cancellationEligible: true, createdAt: '2026-10-01T00:00:00Z' } as Order
+
+  it.each([401, 403, 404])('removes private details and actions after refresh returns %s', async status => {
+    vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder).mockRejectedValueOnce(new ApiError(status, 'DENIED', ''))
+    await mount(orderComponent, '/orders/a')
+    expect(text(root)).toContain('Private address')
+    await click('Refresh status')
+    expect(text(root)).not.toContain('Private address')
+    expect(text(root)).not.toContain('Private receiver')
+    expect(text(root)).not.toContain('PRIVATE-A')
+    expect(find(root, target => target.tag === 'dialog')).toBeUndefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Pay with VNPAY'))).toBeUndefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Cancel before dispatch'))).toBeUndefined()
+    expect(find(root, target => target.props.role === 'alert')).toBeDefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Try again'))).toBeDefined()
+  })
+
+  it('allows an explicit retry after a temporary network failure without stale actions', async () => {
+    vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(privateOrder)
+    await mount(orderComponent, '/orders/a')
+    await click('Refresh status')
+    expect(text(root)).toContain(t('The service is temporarily unavailable. Please retry.'))
+    expect(text(root)).not.toContain('Private address')
+    await click('Try again')
+    expect(text(root)).toContain('Private address')
+    expect(find(root, target => target.props.role === 'alert')).toBeUndefined()
+  })
+
+  it('clears the old order on a fast ID change and ignores its late refresh', async () => {
+    const old = deferred<Order>(), latest = deferred<Order>()
+    vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder).mockReturnValueOnce(old.promise).mockReturnValueOnce(latest.promise)
+    const router = await mount(orderComponent, '/orders/a')
+    await click('Refresh status')
+    await router.push('/orders/b'); await settle()
+    expect(text(root)).not.toContain('Private address')
+    latest.resolve({ ...privateOrder, id: 'b', orderReference: 'CURRENT-B', deliveryAddress: 'Current address' }); await settle()
+    old.resolve(privateOrder); await settle()
+    expect(text(root)).toContain('CURRENT-B')
+    expect(text(root)).not.toContain('PRIVATE-A')
+    expect(text(root)).not.toContain('Private address')
+  })
+
+  it.each(['pending', 'failed'] as const)('retries B after A is %s without restoring A', async state => {
+    const old = deferred<Order>(), retry = deferred<Order>()
+    const currentOrder = { ...privateOrder, id: 'b', orderReference: 'CURRENT-B',
+      receiverName: 'Receiver B', receiverPhone: '0800000000', deliveryAddress: 'Address B' }
+    const reads = vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder)
+      .mockReturnValueOnce(old.promise).mockRejectedValueOnce(new TypeError('B unavailable'))
+      .mockReturnValueOnce(retry.promise)
+    const router = await mount(orderComponent, '/orders/a')
+    await click('Refresh status')
+    if (state === 'failed') { old.reject(new TypeError('A unavailable')); await settle() }
+    await router.push('/orders/b'); await settle()
+    expect(find(root, n => n.props.role === 'alert')).toBeDefined()
+    await click('Try again')
+    expect(reads.mock.calls.map(args => args[0])).toEqual(['a', 'a', 'b', 'b'])
+    expect(text(find(root, n => n.props.role === 'status')!)).toBe(t('Loading authoritative order status…'))
+    expect(text(root)).not.toContain('PRIVATE-A')
+    retry.resolve(currentOrder); await settle()
+    if (state === 'pending') { old.resolve(privateOrder); await settle() }
+    expect(text(root)).toContain('CURRENT-B')
+    expect(text(root)).toContain('Address B')
+    for (const secret of ['PRIVATE-A', 'Private receiver', '0900000000', 'Private address']) {
+      expect(text(root)).not.toContain(secret)
+    }
+    expect(find(root, n => n.props.role === 'alert' || n.props.role === 'status')).toBeUndefined()
+  })
+
+  it.each(['PICKUP', 'DELIVERY'] as const)('renders authoritative location name and code for %s', async fulfillmentType => {
+    vi.spyOn(api, 'order').mockResolvedValue({ ...privateOrder, fulfillmentType,
+      locationName: 'Fixture location', locationCode: 'LOC-42' })
+    await mount(orderComponent, '/orders/a')
+    const label = t(fulfillmentType === 'PICKUP' ? 'Pickup location' : 'Dispatch location')
+    const term = find(root, n => n.tag === 'dt' && text(n) === label)
+    expect(term).toBeDefined()
+    const value = term!.parent!.children.find(n => n.tag === 'dd')
+    expect(value).toBeDefined()
+    expect(text(value!)).toBe('Fixture location · LOC-42')
+    expect(find(root, n => n.tag === 'dt' && text(n) === t(fulfillmentType === 'PICKUP' ? 'Dispatch location' : 'Pickup location'))).toBeUndefined()
+  })
+
+  it('clears private details and transaction actions while refresh remains deferred', async () => {
+    const pending = deferred<Order>()
+    vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder).mockReturnValueOnce(pending.promise)
+    await mount(orderComponent, '/orders/a')
+    expect(text(root)).toContain('PRIVATE-A')
+    expect(find(root, n => n.tag === 'button' && text(n) === t('Pay with VNPAY'))).toBeDefined()
+    expect(find(root, n => n.tag === 'button' && text(n) === t('Cancel before dispatch'))).toBeDefined()
+    await click('Refresh status')
+    const status = find(root, n => n.props.role === 'status')
+    expect(status).toBeDefined()
+    expect(text(status!)).toBe(t('Loading authoritative order status…'))
+    for (const secret of ['PRIVATE-A', 'Private receiver', '0900000000', 'Private address']) expect(text(root)).not.toContain(secret)
+    expect(find(root, n => n.tag === 'dialog')).toBeUndefined()
+    expect(find(root, n => n.tag === 'button')).toBeUndefined()
+    expect(find(root, n => n.props.role === 'alert')).toBeUndefined()
+    pending.reject(new TypeError('offline')); await settle()
+    expect(find(root, n => n.props.role === 'status')).toBeUndefined()
+    expect(find(root, n => n.props.role === 'alert')).toBeDefined()
+    expect(text(root)).not.toContain('PRIVATE-A')
+  })
+
+  it.each([false, true])('clears the actual app shell on account change (pending refresh: %s)', async pending => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn(), setInterval: vi.fn(), clearInterval: vi.fn() })
+    vi.stubGlobal('BroadcastChannel', class { close() {} })
+    session.loaded = true; session.unavailable = false
+    const old = deferred<Order>()
+    const reads = vi.spyOn(api, 'order').mockResolvedValueOnce(privateOrder)
+    if (pending) reads.mockReturnValueOnce(old.promise)
+    reads.mockRejectedValueOnce(new ApiError(403, 'FORBIDDEN', ''))
+    await mount(shellComponent, '/orders/a')
+    expect(text(root)).toContain('Private address')
+    if (pending) await click('Refresh status')
+    session.account = { accountId: 'other', login: 'other', roles: [], permissions: ['ORDER_PLACE'] }
+    session.generation++
+    await settle()
+    old.resolve(privateOrder); await settle()
+    expect(text(root)).not.toContain('Private address')
+    expect(text(root)).not.toContain('PRIVATE-A')
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Pay with VNPAY'))).toBeUndefined()
+  })
+})
+
+describe('transfer task filtering', () => {
+  it('filters returned transfers and removes stale actions after a failed refresh', async () => {
+    vi.spyOn(api, 'inventoryTransferOptions').mockResolvedValue({ locations: [], stock: [] })
+    const reads = vi.spyOn(api, 'inventoryTransfers').mockResolvedValue([
+      { transferId: 'draft-one', sourceLocationId: 'a', sourceLocationCode: 'A', sourceLocationName: 'A', destinationLocationId: 'b', destinationLocationCode: 'B', destinationLocationName: 'B', status: 'DRAFT', createdAt: '2026-10-01T00:00:00Z', dispatchedAt: null, receivedAt: null, items: [], replayed: false },
+      { transferId: 'received-two', sourceLocationId: 'a', sourceLocationCode: 'A', sourceLocationName: 'A', destinationLocationId: 'b', destinationLocationCode: 'B', destinationLocationName: 'B', status: 'RECEIVED', createdAt: '2026-10-01T00:00:00Z', dispatchedAt: '2026-10-02T00:00:00Z', receivedAt: '2026-10-03T00:00:00Z', items: [], replayed: false },
+    ])
+    await mount(inventoryTransfersComponent, '/operations/inventory/transfers')
+    const filter = find(root, target => target.tag === 'select' && !!target.props.onChange && text(target).includes('(2)'))!
+    expect(text(root)).toContain('draft-one')
+    ;(filter.props.onChange as Function)({ target: { value: 'RECEIVED' } })
+    await settle()
+    expect(text(root)).not.toContain('draft-one')
+    expect(text(root)).toContain('received-two')
+    ;(filter.props.onChange as Function)({ target: { value: 'DISPATCHED' } })
+    await settle()
+    expect(text(root)).toContain(t('No transfers match this status.'))
+    reads.mockRejectedValueOnce(new ApiError(403, 'FORBIDDEN', 'Denied'))
+    await click('Refresh')
+    expect(text(filter)).toContain('(0)')
+    expect(text(root)).not.toContain('received-two')
+    expect(find(root, target => target.props.role === 'alert')).toBeDefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Dispatch'))).toBeUndefined()
+  })
+})
 
 describe('reporting interaction', () => {
   const context = { from:'2026-08-27T17:00:00Z',to:'2026-08-29T17:00:00Z',asOf:'2026-08-29T05:00:00Z',businessTimezone:'Asia/Ho_Chi_Minh' as const,
@@ -170,12 +401,12 @@ describe('reporting interaction', () => {
     merchandiseGross:'200000',itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000',shippingGross:'30000',shippingDiscount:'0',shippingNetBeforeReversal:'30000',merchandiseVoids:'150000',shippingVoids:'30000',unallocatedLegacyVoids:'0'}
   const products = {context,rows:[{variantId:'variant',sku:'DISCOUNTED-SKU',size:'40',onlineGross:'200000',posGross:'0',grossSales:'200000',successfulVoids:'150000',netSales:'0',itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000'}],
     onlineGross:'200000',posGross:'0',grossSales:'200000',successfulVoids:'150000',netSales:'0',currency:'VND' as const,itemDiscount:'0',orderDiscount:'50000',voucherDiscount:'0',merchandiseNetBeforeReversal:'150000',unallocatedLegacyVoids:'0'}
-  function reportsFixture() {
+  function reportsFixture(entries: ReconciliationEntry[] = []) {
     vi.spyOn(api,'reportScope').mockResolvedValue({asOf:context.asOf,businessTimezone:context.businessTimezone,defaultFromDate:'2026-08-28',defaultToDate:'2026-08-30',locations:[context.scope]})
     vi.spyOn(api,'netSales').mockResolvedValue(net)
     vi.spyOn(api,'productSales').mockResolvedValue(products)
     vi.spyOn(api,'inventoryReport').mockResolvedValue({context,rows:[],movements:[],reservations:[]})
-    vi.spyOn(api,'reconciliation').mockResolvedValue({context,entries:[],exceptionAmount:'0',exceptionCount:0,currency:'VND'})
+    vi.spyOn(api,'reconciliation').mockResolvedValue({context,entries,exceptionAmount:entries.length ? '125000' : '0',exceptionCount:entries.length,currency:'VND'})
   }
   it('renders server merchandise discounts, shipping and legacy explanation in both locales', async () => {
     reportsFixture()
@@ -203,6 +434,24 @@ describe('reporting interaction', () => {
     submit(); await settle()
     expect(text(root)).not.toContain('DISCOUNTED-SKU')
     expect(text(root)).toContain(t('This account is not authorized for this action or location.'))
+  })
+  it('shows one explicit QueryDr action only to an authorized operator and reports the safe outcome', async () => {
+    session.account = { accountId: 'operator', login: 'operator', roles: ['OPERATIONS'], permissions: ['REPORT_VIEW', 'PAYMENT_RECONCILE'] }
+    reportsFixture([{ category:'PAYMENT_REVIEW',referenceId:'attempt-1',orderId:'order-1',status:'REVIEW_REQUIRED',amount:'125000',netEffect:'0',occurredAt:context.asOf,exception:true }])
+    const reconcile = vi.spyOn(api,'reconcilePaymentAttempt').mockResolvedValue({attemptId:'attempt-1',orderId:'order-1',providerReference:'PAY123',previousState:'REVIEW_REQUIRED',currentState:'REVIEW_REQUIRED',outcome:'STILL_REVIEW_REQUIRED',resolved:false,replayed:false})
+    await mount(reportsComponent,'/reports')
+
+    await click('Reconcile with VNPAY')
+
+    expect(reconcile).toHaveBeenCalledOnce()
+    expect(text(root)).toContain(t('Still requires review'))
+  })
+  it('does not expose the financial action without PAYMENT_RECONCILE', async () => {
+    session.account = { accountId: 'reader', login: 'reader', roles: ['OPERATIONS'], permissions: ['REPORT_VIEW'] }
+    reportsFixture([{ category:'PAYMENT_REVIEW',referenceId:'attempt-1',orderId:'order-1',status:'REVIEW_REQUIRED',amount:'125000',netEffect:'0',occurredAt:context.asOf,exception:true }])
+    await mount(reportsComponent,'/reports')
+
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Reconcile with VNPAY'))).toBeUndefined()
   })
 })
 
@@ -321,7 +570,140 @@ describe('cart view interaction', () => {
     await settle()
     expect(router.currentRoute.value.query.q).toBe('runner')
     expect(api.discovery).toHaveBeenLastCalledWith('runner')
-    expect(text(root)).toContain('Search results')
+    expect(text(root)).toContain('Results for “runner”')
+  })
+  it('debounces draft autocomplete, limits visible options, and keeps submitted results separate', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    const products = Array.from({ length: 8 }, (_, index) => ({ id: `${A}-${index}`, name: `Runner ${index}`, availableVariantCount: 1 })) as ProductSummary[]
+    vi.spyOn(api, 'discovery').mockResolvedValue({ query: 'runner', results: products, suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    for (const value of ['r', 'run', 'runner']) (input.props.onInput as Function)({ target: { value } })
+    await settle()
+    expect(api.discovery).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(api.discovery).toHaveBeenCalledTimes(1)
+    expect(api.discovery).toHaveBeenCalledWith('runner')
+    expect(findAll(root, target => target.props.role === 'option')).toHaveLength(6)
+    expect(text(root)).not.toContain('Results for “runner”')
+    vi.useRealTimers()
+  })
+  it('ignores stale autocomplete success and error after clear, and keeps keyboard focus on input', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    const old = deferred<Awaited<ReturnType<typeof api.discovery>>>()
+    vi.spyOn(api, 'discovery').mockReturnValueOnce(old.promise).mockResolvedValue({ query: 'court', results: [{ id: A, name: 'Court shoe', availableVariantCount: 1, presentation: null, evidence: null, fitSummary: null }] as ProductSummary[], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    const router = await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as Function)({ target: { value: 'runner' } })
+    await vi.advanceTimersByTimeAsync(250)
+    ;(input.props.onInput as Function)({ target: { value: 'court' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    old.reject(new Error('old failure')); await settle()
+    expect(text(root)).toContain('Court shoe')
+    expect(input.props['aria-expanded']).toBe(true)
+    ;(input.props.onKeydown as Function)({ key: 'ArrowDown', preventDefault() {} }); await settle()
+    expect(input.props['aria-activedescendant']).toBeTruthy()
+    expect(input.focus).not.toHaveBeenCalled()
+    ;(input.props.onKeydown as Function)({ key: 'Enter', preventDefault() {} }); await vi.advanceTimersByTimeAsync(0); await settle()
+    expect(router.currentRoute.value.path).toBe(`/products/${A}`)
+    vi.useRealTimers()
+  })
+  it('clears stale autocomplete on Escape, input clear, route change, and unmount', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    const old = deferred<Awaited<ReturnType<typeof api.discovery>>>()
+    vi.spyOn(api, 'discovery').mockReturnValueOnce(old.promise).mockResolvedValue({ query: 'court', results: [], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    const router = await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as Function)({ target: { value: 'runner' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(text(root)).toContain(t('Searching products…'))
+    ;(input.props.onKeydown as Function)({ key: 'Escape', preventDefault() {} }); await settle()
+    expect(input.props['aria-expanded']).toBe(false)
+    old.resolve({ query: 'runner', results: [{ id: A, name: 'Old runner', availableVariantCount: 1 }] as ProductSummary[], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } }); await settle()
+    expect(text(root)).not.toContain('Old runner')
+    ;(input.props.onInput as Function)({ target: { value: 'co' } })
+    ;(input.props.onInput as Function)({ target: { value: '' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(api.discovery).toHaveBeenCalledTimes(1)
+    ;(input.props.onInput as Function)({ target: { value: 'court' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    await router.replace('/?q=court'); await settle()
+    expect(input.props['aria-expanded']).toBe(false)
+    ;(input.props.onInput as Function)({ target: { value: 'trail' } })
+    app.unmount()
+    await vi.runOnlyPendingTimersAsync()
+    expect(api.discovery).toHaveBeenCalledTimes(3)
+  })
+  it('shows empty and error recovery without changing submitted results, including Vietnamese copy', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    vi.spyOn(api, 'discovery').mockResolvedValueOnce({ query: 'zz', results: [], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ query: 'zz', results: [], suggestions: [{ id: A, name: 'Nearby shoe', availableVariantCount: 1 }] as ProductSummary[], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as Function)({ target: { value: 'zz' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(text(root)).toContain(t('No suggestions yet. Press Enter to search.'))
+    ;(input.props.onInput as Function)({ target: { value: 'zzz' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(text(root)).toContain(t('Suggestions unavailable. Keep typing or search.'))
+    setLocale('vi-VN'); await settle()
+    expect(text(root)).toContain('Chưa tải được gợi ý')
+    const retry = find(root, target => target.tag === 'button' && text(target) === t('Try again'))!
+    ;(retry.props.onClick as Function)()
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    expect(text(root)).toContain('Nearby shoe')
+    expect(text(root)).toContain('Sản phẩm tương tự')
+    expect(text(root)).not.toContain('Results for “zzz”')
+  })
+  it('keeps free Enter submission and Tab editing while ArrowUp selects the last option', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    vi.spyOn(api, 'discovery').mockResolvedValue({ query: 'runner', results: [{ id: A, name: 'First shoe', presentation: null, evidence: null, fitSummary: null }, { id: B, name: 'Last shoe', presentation: null, evidence: null, fitSummary: null }] as ProductSummary[], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } })
+    const router = await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as Function)({ target: { value: 'runner' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    const prevent = vi.fn()
+    ;(input.props.onKeydown as Function)({ key: 'Enter', preventDefault: prevent })
+    ;(input.props.onKeydown as Function)({ key: 'Tab', preventDefault: prevent })
+    expect(prevent).not.toHaveBeenCalled()
+    const form = find(root, target => target.tag === 'form' && target.props.role === 'search')!
+    await (form.props.onSubmit as Function)({ preventDefault() {} }); await vi.advanceTimersByTimeAsync(0); await settle()
+    expect(router.currentRoute.value.query.q).toBe('runner')
+    ;(input.props.onInput as Function)({ target: { value: 'runner' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    ;(input.props.onKeydown as Function)({ key: 'ArrowUp', preventDefault: prevent }); await settle()
+    expect(input.props['aria-activedescendant']).toBe('product-search-option-1')
+    ;(input.props.onKeydown as Function)({ key: 'Escape', preventDefault: prevent }); await settle()
+    expect(input.props['aria-expanded']).toBe(false)
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+  it('keeps the new loading state when an older autocomplete request finishes', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    const old = deferred<Awaited<ReturnType<typeof api.discovery>>>()
+    const current = deferred<Awaited<ReturnType<typeof api.discovery>>>()
+    vi.spyOn(api, 'discovery').mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
+    await mount(catalogComponent, '/')
+    vi.useFakeTimers()
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as Function)({ target: { value: 'runner' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    ;(input.props.onInput as Function)({ target: { value: 'court' } })
+    await vi.advanceTimersByTimeAsync(250); await settle()
+    old.reject(new Error('stale')); await settle()
+    expect(text(root)).toContain(t('Searching products…'))
+    expect(text(root)).not.toContain(t('Suggestions unavailable. Keep typing or search.'))
+    current.resolve({ query: 'court', results: [], suggestions: [], interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false } }); await settle()
+    expect(text(root)).toContain(t('No suggestions yet. Press Enter to search.'))
   })
   it('keeps exact discovery results separate from available recovery suggestions', async () => {
     vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
@@ -338,10 +720,119 @@ describe('cart view interaction', () => {
     })
     await mount(catalogComponent, '/?q=purple%20trail')
 
-    expect(text(root)).toContain('No exact matches for “purple trail”.')
+    expect(text(root)).toContain('Results for “purple trail”')
+    expect(text(root)).toContain('No exact matches')
     expect(text(root)).toContain('You might like')
     expect(text(root)).toContain('Available trail shoe')
     expect(api.discovery).toHaveBeenCalledWith('purple trail')
+  })
+  it('sends selected supported intent filters through the existing q route and discovery API', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'products').mockResolvedValue([])
+    vi.spyOn(api, 'discovery').mockResolvedValue({ query: 'running black under 1500000', results: [], suggestions: [], interpreted: { colors: ['BLACK'], categories: ['RUNNING'], maximumPrice: 1500000, skuLookup: false } })
+    const router = await mount(catalogComponent, '/')
+    const form = find(root, target => target.tag === 'form' && target.props.class === 'storefront-intent-filters')!
+    const selects = findAll(form, target => target.tag === 'select')
+    ;(selects[0]!.props.onChange as Function)({ target: { value: 'running' } })
+    ;(selects[1]!.props.onChange as Function)({ target: { value: 'black' } })
+    ;(find(form, target => target.tag === 'input')!.props.onInput as Function)({ target: { value: '1500000' } })
+    await (form.props.onSubmit as Function)({ preventDefault() {} })
+    await settle()
+    const query = 'running black under 1500000'
+    expect(router.currentRoute.value.query.q).toBe(query)
+    expect(api.discovery).toHaveBeenLastCalledWith(query)
+    await router.replace('/?q=running%20under%202%20million')
+    await settle()
+    expect(find(form, target => target.tag === 'input')!.props.value).toBe('')
+    await (find(form, target => target.tag === 'button' && text(target) === t('Clear filters'))!.props.onClick as Function)()
+    await settle()
+    expect(router.currentRoute.value.query.q).toBeUndefined()
+  })
+  it('keeps a failed routed search labelled with the current query', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery')
+      .mockResolvedValueOnce({ query: 'first', results: [], suggestions: [], interpreted: { colors: ['WHITE'], categories: [], maximumPrice: null, skuLookup: false } })
+      .mockRejectedValueOnce(new ApiError(503, 'CATALOG_UNAVAILABLE', 'try again'))
+    const router = await mount(catalogComponent, '/?q=first')
+
+    await router.replace('/?q=second')
+    await settle()
+
+    expect(text(root)).toContain('Results for “second”')
+    expect(text(root)).not.toContain('Results for “first”')
+  })
+  it('explains recognized shopper intent and keeps search context on product links', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery').mockResolvedValue({
+      query: 'white running under 2 million',
+      results: [{
+        id: A, name: 'Metro Runner', category: 'Running', collection: null, featured: false,
+        newArrival: false, campaignEligible: false, merchandisingRank: 1, heroImage: null, primaryImage: null,
+        variantCount: 2, availableVariantCount: 2, fromAmount: 1500000, presentation: null,
+        evidence: null, fitSummary: null,
+      }],
+      suggestions: [],
+      interpreted: { colors: ['WHITE'], categories: ['RUNNING'], maximumPrice: 2000000, skuLookup: false },
+    })
+
+    await mount(catalogComponent, '/?q=white%20running%20under%202%20million')
+
+    expect(text(root)).toContain('Results for “white running under 2 million”')
+    expect(text(root)).toContain(`Matched: White · Running · Up to ${formatVnd(2000000)}`)
+    const productLink = find(root, target => String(target.props.class).includes('product-card'))!
+    expect(decodeURIComponent(String(productLink.props.href)).replaceAll('+', ' '))
+      .toBe(`/products/${A}?q=white running under 2 million`)
+  })
+  it('offers all products and supported intent paths when discovery has no recovery suggestions', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    vi.spyOn(api, 'discovery').mockResolvedValue({
+      query: 'purple moon boot', results: [], suggestions: [],
+      interpreted: { colors: [], categories: [], maximumPrice: null, skuLookup: false },
+    })
+
+    await mount(catalogComponent, '/?q=purple%20moon%20boot')
+
+    const recovery = find(root, target => String(target.props.class).includes('discovery-recovery'))!
+    expect(text(recovery)).toContain('Try a broader product name, color, use, or price.')
+    expect(text(recovery)).toContain(t('View all products'))
+    expect(text(recovery)).toContain(t('Road running'))
+    expect(text(recovery)).toContain(t('Everyday wear'))
+    expect(text(recovery)).toContain(t('Trail'))
+  })
+  it('keeps the default catalog preview to six products and expands only through the view route', async () => {
+    vi.spyOn(api, 'storefrontHomepage').mockResolvedValue({ publishedRevisionId: null, publishedAt: null, sections: [] })
+    const catalog = Array.from({ length: 8 }, (_, index): ProductSummary => ({
+      id: `product-${index}`, name: `Product ${index}`, category: 'Running', collection: 'Metro Motion',
+      featured: false, newArrival: false, campaignEligible: true, merchandisingRank: index,
+      heroImage: null, primaryImage: null, variantCount: 4, availableVariantCount: 3, fromAmount: 1000000 + index,
+      presentation: null,
+      evidence: { intendedUse: 'ROAD_RUNNING', primarySurface: 'ROAD_TRACK', upperConstruction: 'MESH_TEXTILE', cutProfile: 'LOW_TOP', primarySoleProfile: 'FLEX_GROOVED' },
+      fitSummary: null,
+    }))
+    vi.spyOn(api, 'products').mockResolvedValue(catalog)
+
+    const router = await mount(catalogComponent, '/')
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(6)
+    expect(text(root)).toContain(t('View all products'))
+    expect(text(root)).toContain(t('Road running'))
+
+    const input = find(root, target => target.props.id === 'product-search')!
+    ;(input.props.onInput as (event: unknown) => void)({ target: { value: 'not submitted' } })
+    await router.push('/?view=all')
+    await settle()
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(8)
+    expect(text(root)).not.toContain(t('View all products'))
+    expect(find(root, target => target.props.id === 'product-search')!.props.value).toBe('')
+    expect(find(root, target => target.props.id === 'catalog-heading')!.focus).not.toHaveBeenCalled()
+    expect(api.products).toHaveBeenCalledOnce()
+
+    ;(find(root, target => target.props.id === 'product-search')!.props.onInput as (event: unknown) => void)({ target: { value: 'another draft' } })
+    router.back()
+    await vi.waitFor(() => expect(router.currentRoute.value.query.view).toBeUndefined())
+    await settle()
+    expect(find(root, target => target.props.id === 'product-search')!.props.value).toBe('')
+    expect(findAll(root, target => target.props.class === 'product-card')).toHaveLength(6)
+    expect(api.products).toHaveBeenCalledOnce()
   })
   it('guards rapid add activation and announces the current quantity', async () => {
     cart.items = []
@@ -357,9 +848,50 @@ describe('cart view interaction', () => {
     await settle()
     expect(cart.items[0].quantity).toBe(1)
     expect(text(root)).toContain('Added Court Classic · In cart: 1')
+    setLocale('vi-VN'); await settle()
+    expect(text(root)).toContain('Đã thêm Court Classic · Trong giỏ: 1')
     expect(add.props.disabled).toBe(true)
     expect(api.cartCheckout).not.toHaveBeenCalled()
     expect(JSON.parse(saved.get('shoe-commerce:cart:v2:owner')!).items[0].quantity).toBe(1)
+  })
+  it('buys now once and opens the cart only after the add succeeds', async () => {
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
+    const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option'))!
+    ;(size.props.onClick as () => void)()
+    await settle()
+
+    const push = vi.spyOn(router, 'push')
+    const buy = find(root, target => target.tag === 'button' && text(target) === t('Buy now'))!
+    ;(buy.props.onClick as () => void)()
+    ;(buy.props.onClick as () => void)()
+    await settle()
+
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].quantity).toBe(1)
+    expect(push).toHaveBeenCalledWith('/cart')
+  })
+  it('keeps buy now unavailable without an available variant and stays put when adding fails', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product?variant=ink-40')
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Buy now'))?.props.disabled).toBe(true)
+
+    await click('Chalk')
+    const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option') && text(target).includes('40'))!
+    ;(size.props.onClick as () => void)()
+    await settle()
+    const push = vi.spyOn(router, 'push')
+    cart.items = [{
+      productId: fitProduct.id, productName: fitProduct.name, variantId: 'chalk-40', sku: 'FIT-CHALK-40',
+      size: '40', color: 'Chalk', image: null, amount: 1200000, currency: 'VND', quantity: 10,
+    }]
+
+    await click('Buy now')
+
+    expect(push).not.toHaveBeenCalled()
+    expect(cart.items[0].quantity).toBe(10)
   })
   it.each(['en', 'vi-VN'] as const)('requires a distinct review/confirm step and shows the changed second line in %s', async language => {
     setLocale(language)
@@ -389,6 +921,10 @@ describe('cart view interaction', () => {
     await mount(); await click('Check price & availability')
     expect(text(root)).toContain('Metro Runner · Size 42 · RUN-42')
     expect(text(root)).toContain('Reduce the quantity or remove it')
+    const recovery = find(root, target => target.tag === 'a' && target.props.class === 'cart-line-recovery')!
+    expect(recovery).toBeDefined()
+    expect(String(recovery.props.href)).toContain(`variant=${B}`)
+    expect(text(recovery)).toContain(t('Choose your size'))
     expect(api.cartCheckout).not.toHaveBeenCalled()
     expect(cart.items).toHaveLength(2)
   })
@@ -579,6 +1115,42 @@ describe('product presentation rendering', () => {
 })
 
 describe('fitting product-detail interaction', () => {
+  it('returns to the originating discovery context', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product?q=white%20running')
+
+    const back = find(root, target => String(target.props.class).includes('back-link'))!
+    expect(text(back)).toBe('Back to results')
+    expect(decodeURIComponent(String(back.props.href)).replaceAll('+', ' ')).toBe('/?q=white running#catalog-heading')
+  })
+
+  it('uses the full catalog as the fallback from a directly opened product', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+
+    const back = find(root, target => String(target.props.class).includes('back-link'))!
+    expect(text(back)).toBe('All products')
+    expect(String(back.props.href)).toBe('/?view=all#catalog-heading')
+  })
+
+  it('places concise product and fit evidence in the decision area without repeating selection instructions', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue({
+      ...fitProduct,
+      evidence: { intendedUse: 'ROAD_RUNNING', primarySurface: 'ROAD_TRACK', upperConstruction: 'MESH_TEXTILE', cutProfile: 'LOW_TOP', primarySoleProfile: 'FLEX_GROOVED' },
+    })
+    await mount(productComponent, '/products/fit-product')
+
+    const decision = find(root, target => String(target.props.class).includes('product-decision-panel'))!
+    expect(text(decision)).toContain('Mesh upper for road and track running.')
+    expect(text(decision)).toContain('True to size · Regular')
+    const media = find(root, target => String(target.props.class).includes('product-detail-figure'))!
+    expect(text(media)).toContain('Illustrative product view. Your color and size selection below is what applies to the cart.')
+    await click('Chalk')
+    expect(text(decision)).toContain('Not sure about size?')
+    const addPanel = find(decision, target => String(target.props.class).includes('product-add-panel'))!
+    expect(find(addPanel, target => String(target.props.class).includes('selection-required'))).toBeUndefined()
+  })
+
   it.each([
     ['media only', { media: twoMedia, fitGuidance: null }, true, false],
     ['fit only', { media: [], fitGuidance }, false, true],
@@ -612,7 +1184,9 @@ describe('fitting product-detail interaction', () => {
 
   it.each(['en', 'vi-VN'] as const)('uses generic localized gallery navigation in %s', async language => {
     setLocale(language)
-    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, media: twoMedia })
+    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, media: [
+      twoMedia[0], { ...twoMedia[1], alt: 'Side profile on foot' },
+    ] })
     await mount(productComponent, '/products/fit-product')
 
     const controls = find(root, target => String(target.props.class).includes('product-media-picker'))!
@@ -626,7 +1200,23 @@ describe('fitting product-detail interaction', () => {
     await settle()
     const mainImage = find(root, target => target.tag === 'img' && String(target.props.width) === '1456')!
     expect(mainImage.props.src).toBe('/products/court-hero.png')
-    expect(mainImage.props.alt).toBe('Court Classic')
+    expect(mainImage.props.alt).toBe('Side profile on foot')
+    expect(thumbnails[0].children[0].props.loading).toBe('lazy')
+  })
+
+  it('shows an honest placeholder if the selected product image fails', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue({ ...fitProduct, media: twoMedia })
+    await mount(productComponent, '/products/fit-product')
+    const mainImage = find(root, target => target.tag === 'img' && String(target.props.width) === '1456')!
+
+    expect(mainImage.props.onError).toBeTypeOf('function')
+    ;(mainImage.props.onError as () => void)()
+    await settle()
+    expect(mainImage.props.src).toBe('/products/placeholder.svg')
+    expect(mainImage.props.alt).toBe(t('No product image available'))
+    ;(mainImage.props.onError as () => void)()
+    await settle()
+    expect(mainImage.props.src).toBe('/products/placeholder.svg')
   })
 
   it('enables the purchase action only after an explicit size choice', async () => {
@@ -645,6 +1235,27 @@ describe('fitting product-detail interaction', () => {
     expect(text(size)).toContain(t('Selected'))
   })
 
+  it('keeps a mobile purchase action visible and sends an unselected shopper to size choices', async () => {
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    const stickyAction = find(root, target => String(target.props.class).includes('mobile-purchase-action'))!
+
+    expect(text(stickyAction)).toContain(t('Choose a size'))
+    ;(stickyAction.props.onClick as () => void)()
+    await settle()
+    expect(find(root, target => target.props.id === 'variant-heading')!.focus).toHaveBeenCalled()
+    await click('Chalk')
+    const size = find(root, target => target.tag === 'button' && String(target.props.class).includes('variant-option') && text(target).includes('41'))!
+    ;(size.props.onClick as () => void)()
+    await settle()
+    expect(text(stickyAction)).toContain(t('Add to cart'))
+    ;(stickyAction.props.onClick as () => void)()
+    await settle()
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].variantId).toBe('chalk-41')
+  })
+
   it('keeps a valid deep-linked variant selected', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
     await mount(productComponent, '/products/fit-product?variant=chalk-40')
@@ -654,6 +1265,35 @@ describe('fitting product-detail interaction', () => {
     expect(text(selectedSize!)).toContain('40')
     expect(find(root, target => String(target.props.class).includes('color-option') && target.props['aria-pressed'] === true && text(target) === t('Chalk'))).toBeDefined()
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)
+  })
+
+  it('reapplies a changed variant deep link without refetching the same product', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const router = await mount(productComponent, '/products/fit-product?variant=chalk-40')
+
+    await router.replace('/products/fit-product?variant=ink-40')
+    await settle()
+
+    const selectedSize = find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)!
+    expect(text(selectedSize)).toContain(t('Requested · Unavailable'))
+    expect(find(root, target => String(target.props.class).includes('color-option') && target.props['aria-pressed'] === true && text(target) === t('Ink'))).toBeDefined()
+    expect(api.product).toHaveBeenCalledOnce()
+  })
+
+  it('opens and focuses the fit guide from the size decision', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
+
+    const control = find(root, target => text(target) === t('View the size and fit guide'))!
+    expect(control.tag).toBe('button')
+    ;(control.props.onClick as () => void)()
+    await settle()
+
+    const guide = find(root, target => target.props.id === 'size-and-fit')! as Node & { open?: boolean }
+    const summary = find(guide, target => target.tag === 'summary')!
+    expect(guide.open).toBe(true)
+    expect(summary.focus).toHaveBeenCalled()
   })
 
   it('keeps an unavailable deep-linked size explicit without offering purchase', async () => {
@@ -722,12 +1362,31 @@ describe('fitting product-detail interaction', () => {
     expect(mainImage.props.src).toBe('/products/new-primary.png')
   })
 
-  async function openPhotoPicker() {
+  async function openFitChooser() {
     const entry = find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))
     expect(entry).toBeDefined()
     ;(entry!.props.onClick as () => void)()
     await settle()
-    await click('Start with a photo')
+  }
+  async function chooseFitMethod(label: string) {
+    const button = find(root, target => target.tag === 'button' && text(target).startsWith(t(label)))
+    expect(button, label).toBeDefined()
+    ;(button!.props.onClick as () => void)()
+    await settle()
+  }
+  async function openPhotoPicker() {
+    await openFitChooser()
+    await chooseFitMethod('Measure with a photo')
+  }
+  async function openQuickGuidance(size: string, perception: 'TIGHT' | 'ABOUT_RIGHT' | 'LOOSE') {
+    await openFitChooser()
+    await chooseFitMethod('I know my usual size')
+    const sizeSelect = find(root, target => target.props.id === 'fit-usual-size')!
+    ;(sizeSelect.props.onChange as (event: unknown) => void)({ target: { value: size } })
+    const feeling = find(root, target => target.tag === 'input' && target.props.value === perception)!
+    ;(feeling.props.onChange as () => void)()
+    await settle()
+    await click('Show my starting point')
   }
   async function chooseImage(type = 'image/png') {
     const upload = find(root, target => target.tag === 'input' && target.props.id === 'fit-photo-input')
@@ -735,6 +1394,80 @@ describe('fitting product-detail interaction', () => {
     ;(upload!.props.onChange as (event: Event) => void)({ target: { files: [new Blob(['image'], { type }) as File] } } as unknown as Event)
     await settle()
   }
+
+  it.each([
+    ['TIGHT', 'tight'],
+    ['ABOUT_RIGHT', 'about right'],
+    ['LOOSE', 'loose'],
+  ] as const)('uses real Product evidence for %s quick guidance without adjusting the size', async (perception, feeling) => {
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    await openQuickGuidance('40', perception)
+
+    expect(text(root)).toContain('Start with EU 40')
+    expect(text(root)).toContain(`Your usual EU 40 feels ${feeling}.`)
+    expect(text(root)).toContain(t('True to size'))
+    expect(text(root)).toContain(t('Regular'))
+    expect(text(root)).toContain(t('This is a starting point, not an automatic size adjustment.'))
+    expect(text(root)).not.toContain('EU 41')
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
+    expect(cart.items).toHaveLength(0)
+
+    await click('Apply EU {size}'.replace('{size}', '40'))
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true)).toBeUndefined()
+    const chooseChalk = find(root, target => target.tag === 'button' && text(target) === t('Choose {color}', { color: t('Chalk') }))!
+    ;(chooseChalk.props.onClick as () => void)()
+    await settle()
+    expect(text(root)).toContain('Size 40 · Chalk')
+    expect(cart.items).toHaveLength(0)
+  })
+
+  it.each(['en', 'vi-VN'] as const)('distinguishes the usual size, reference starting point, and applied size in %s', async language => {
+    setLocale(language)
+    cart.items = []
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    await click('Chalk')
+    await openQuickGuidance('40', 'ABOUT_RIGHT')
+
+    expect(text(root)).toContain(t('Your usual size'))
+    expect(text(root)).toContain(t('Reference starting point'))
+    expect(text(root)).not.toContain(t('Selected size'))
+    const apply = find(root, target => target.tag === 'button' && text(target) === t('Apply EU {size}', { size: '40' }))!
+    ;(apply.props.onClick as () => void)()
+    await settle()
+    expect(text(root)).toContain(t('Selected size'))
+    expect(text(root)).toContain('EU 40')
+    expect(cart.items).toHaveLength(0)
+  })
+
+  it('keeps an unavailable usual size explicit and offers only real available colors', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product?variant=ink-40')
+    await openQuickGuidance('40', 'ABOUT_RIGHT')
+
+    expect(text(root)).toContain(t('This size is unavailable in the selected color.'))
+    expect(text(root)).toContain(t('Available in another color:'))
+    expect(text(root)).toContain(t('Chalk'))
+    expect(text(root)).not.toContain(t('White'))
+    expect(find(root, target => String(target.props.class).includes('variant-option') && target.props['aria-pressed'] === true && text(target).includes('40'))).toBeDefined()
+    expect(find(root, target => target.tag === 'button' && text(target) === t('Size unavailable'))?.props.disabled).toBe(true)
+  })
+
+  it('moves focus into the progressive flow and returns it to the entry control on close', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    await mount(productComponent, '/products/fit-product')
+    const entry = find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))!
+    ;(entry.props.onClick as () => void)()
+    await settle()
+    expect(find(root, target => target.props.id === 'fit-panel-heading')!.focus).toHaveBeenCalled()
+
+    await chooseFitMethod('I know my usual size')
+    expect(find(root, target => target.props.id === 'fit-step-heading')!.focus).toHaveBeenCalled()
+    await click('Close')
+    expect(find(root, target => target.tag === 'button' && String(target.props.class).includes('fit-entry'))!.focus).toHaveBeenCalled()
+  })
 
   it('supports drop validation and photo preview without submitting automatically', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
@@ -767,6 +1500,7 @@ describe('fitting product-detail interaction', () => {
 
     expect(vi.mocked(api.fitAnalysis).mock.calls[0].slice(0, 3)).toEqual(['fit-product', expect.anything(), 'Ink'])
     expect(text(root)).toContain('EU 40')
+    expect(text(root)).toContain(t('Strong photo quality'))
     expect(text(root)).toContain(t('Alternative size: EU {size}', { size: '41' }))
     expect(text(root)).toContain(t('Recommended size is unavailable in the selected color.'))
     expect(cart.items).toHaveLength(0)
@@ -794,6 +1528,36 @@ describe('fitting product-detail interaction', () => {
     expect(cart.items).toHaveLength(1)
   })
 
+  it('does not show a photo result after the customer closes the pending analysis', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    const request = deferred<FitAnalysis>()
+    vi.spyOn(api, 'fitAnalysis').mockReturnValue(request.promise)
+    await mount(productComponent, '/products/fit-product')
+    await openPhotoPicker()
+    await chooseImage()
+    await click('Use this photo')
+    await click('Close')
+
+    request.resolve(fitSuccess)
+    await settle()
+    expect(text(root)).toContain(t('Find my size'))
+    expect(text(root)).not.toContain(t('Your suggested size'))
+    expect(find(root, target => target.props.id === 'fit-step-heading')).toBeUndefined()
+  })
+
+  it('labels MEDIUM only as a usable image estimate rather than fit probability', async () => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ ...fitSuccess, analysisConfidence: 'MEDIUM' })
+    await mount(productComponent, '/products/fit-product')
+    await openPhotoPicker()
+    await chooseImage()
+    await click('Use this photo')
+
+    expect(text(root)).toContain(t('Usable image estimate'))
+    expect(text(root)).toContain(t('This describes image quality, not the probability that the shoe will fit.'))
+    expect(text(root)).not.toContain('%')
+  })
+
   it('does not select a Fit Assistant result until the customer accepts it', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
     vi.spyOn(api, 'fitAnalysis').mockResolvedValue(fitSuccess)
@@ -816,21 +1580,32 @@ describe('fitting product-detail interaction', () => {
     expect(find(root, target => target.tag === 'button' && text(target) === t('Add to cart'))?.props.disabled).not.toBe(true)
   })
 
-  it('rejects an invalid image locally and keeps a real retake result non-selectable', async () => {
+  it('rejects an invalid image locally', async () => {
     vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
-    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ status: 'RETAKE', retakeReason: 'REFERENCE_NOT_FOUND', availableColors: [] })
+    vi.spyOn(api, 'fitAnalysis')
     await mount(productComponent, '/products/fit-product')
     await openPhotoPicker()
     await chooseImage('image/gif')
     expect(text(root)).toContain(t('Only PNG or JPEG images up to 5 MB are accepted.'))
     expect(api.fitAnalysis).not.toHaveBeenCalled()
+  })
 
+  it.each([
+    'REFERENCE_NOT_FOUND', 'REFERENCE_CLIPPED', 'EXCESSIVE_PERSPECTIVE', 'IMAGE_TOO_BLURRY',
+    'FOOT_NOT_FOUND', 'FOOT_PARTIAL', 'IMPLAUSIBLE_MEASUREMENT', 'ANALYSIS_INSUFFICIENT', 'FIT_PROFILE_OUT_OF_RANGE',
+  ])('keeps RETAKE %s non-selectable with retry and quick-guidance recovery', async retakeReason => {
+    vi.spyOn(api, 'product').mockResolvedValue(fitProduct)
+    vi.spyOn(api, 'fitAnalysis').mockResolvedValue({ status: 'RETAKE', retakeReason, availableColors: [] })
+    await mount(productComponent, '/products/fit-product')
+    await openPhotoPicker()
     await chooseImage()
     await click('Use this photo')
     expect(text(root)).toContain(t('Try a clearer photo'))
-    expect(text(root)).toContain(t('Reference sheet not found'))
     expect(text(root)).toContain(t('Retake photo'))
+    expect(text(root)).toContain(t('Use my usual size instead'))
     expect(text(root)).not.toContain('Select EU')
+    await click('Use my usual size instead')
+    expect(text(root)).toContain(t('What EU size do you usually wear?'))
   })
 
   it('does not offer a generic fitting flow for a product without a complete profile', async () => {

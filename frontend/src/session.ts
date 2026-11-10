@@ -1,15 +1,17 @@
 import { reactive } from 'vue'
+import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
 import { api, ApiError, type Account } from './api'
-import { activateCart } from './cart'
+import { activateCart, cart } from './cart'
 
 export const SESSION_CHANGE_CHANNEL = 'shoe-commerce:session-change'
 export const SESSION_CHANGE_SOURCE = crypto.randomUUID()
 export const session = reactive<{ loaded: boolean; unavailable: boolean; generation: number; account?: Account }>({ loaded: false, unavailable: false, generation: 0 })
+let pendingLogins = 0
 
 export function clearPrivateSession() {
+  session.generation++
   activateCart(null)
   session.account = undefined
-  session.generation++
 }
 
 function notifySessionChange() {
@@ -19,12 +21,14 @@ function notifySessionChange() {
 }
 
 export async function loadSession() {
-  const generation = session.generation
+  const generation = ++session.generation
   session.unavailable = false
+  if (pendingLogins) { session.loaded = false; return }
   try {
     const account = await api.me()
     if (generation === session.generation) {
-      activateCart(account.accountId)
+      await activateCart(account.accountId)
+      if (generation !== session.generation) return
       session.account = account
     }
   }
@@ -38,19 +42,37 @@ export async function loadSession() {
 }
 
 export async function signIn(login: string, password: string) {
-  const account = await api.login(login, password)
-  session.generation++
-  activateCart(account.accountId)
-  session.account = account
-  session.unavailable = false
-  session.loaded = true
-  notifySessionChange()
-  return session.account
+  const generation = ++session.generation
+  const consumeGuest = cart.owner === null
+  pendingLogins++
+  activateCart(null)
+  session.account = undefined
+  session.loaded = false
+  try {
+    const account = await api.login(login, password).finally(() => { pendingLogins-- })
+    if (generation !== session.generation) throw new Error('Sign-in superseded')
+    await activateCart(account.accountId, consumeGuest)
+    if (generation !== session.generation) throw new Error('Sign-in superseded')
+    session.account = account
+    session.unavailable = false
+    session.loaded = true
+    notifySessionChange()
+    return account
+  } catch (error) {
+    if (generation === session.generation) {
+      session.account = undefined
+      session.loaded = false
+      session.unavailable = true
+    }
+    throw error
+  }
 }
 
 export async function signOut() {
-  await api.logout()
   clearPrivateSession()
+  const generation = session.generation
+  await api.logout()
+  if (generation !== session.generation) clearPrivateSession()
   notifySessionChange()
   return '/'
 }
@@ -67,6 +89,7 @@ export function homeFor(account: Account) {
   if (account.permissions.includes('CATALOG_BROWSE')) return '/'
   if (account.permissions.includes('FULFILL_ORDER')) return '/operations/fulfillments'
   if (account.permissions.includes('POS_SELL')) return '/operations/pos'
+  if (account.permissions.includes('INVENTORY_TRANSFER')) return '/operations/inventory/transfers'
   if (account.permissions.some(permission => ['STAFF_MANAGE_SCOPED', 'IDENTITY_MANAGE'].includes(permission))) return '/operations/people'
   if (account.permissions.includes('STOREFRONT_MANAGE')) return '/operations/storefront'
   return '/operations/reports'
@@ -74,4 +97,25 @@ export function homeFor(account: Account) {
 
 export function loginDestination(value: unknown, account: Account) {
   return safeReturnTo(value, homeFor(account))
+}
+
+type SessionRoute = Pick<RouteLocationNormalized, 'name' | 'fullPath' | 'query' | 'meta'>
+
+export function routeAccessDestination(
+  to: SessionRoute,
+  account: Account | undefined = session.account,
+): RouteLocationRaw | undefined {
+  if ((to.name === 'login' || to.name === 'register') && account) return loginDestination(to.query.returnTo, account)
+  if (to.meta.requiresAuth && !account) return { path: '/login', query: { returnTo: to.fullPath } }
+  const anyPermission = to.meta.permissions as string[] | undefined
+  if (account && ((to.meta.permission && !account.permissions.includes(to.meta.permission as string))
+    || anyPermission && !anyPermission.some(permission => account.permissions.includes(permission)))) return '/forbidden'
+}
+
+export async function refreshSessionRoute(to: SessionRoute) {
+  clearPrivateSession()
+  const check = loadSession()
+  const generation = session.generation
+  await check
+  return session.unavailable || generation !== session.generation ? undefined : routeAccessDestination(to)
 }

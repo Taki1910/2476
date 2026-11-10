@@ -72,7 +72,7 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-LOCK-102 | A transaction may start at any required rank but then acquires only increasing ranks: CashierShift -> Order -> Fulfillment/Return -> Payment/Refund -> Price/Promotion/Voucher usage -> Reservation -> InventoryBalance. POS sale/close fence the Shift first; rows created by the sale are not pre-existing lock targets. |
 | BR-LOCK-103 | Within a rank, rows use stable ascending keys; duplicate inventory demand is summed by `(location, variant)` before locks. |
 | BR-LOCK-104 | No provider/email/carrier/AI call occurs while database locks are held. |
-| BR-LOCK-105 | Deadlock/lock-timeout rolls back the whole local transaction; bounded retry reuses the original idempotency key/fingerprint. Unknown commit outcome is queried, never retried with a new key. |
+| BR-LOCK-105 | SQL Server `1205`/`1222` rolls back the whole local transaction and returns the ADR-0044 retryable 503 contract. The server does not retry. The caller may explicitly retry only the exact payload with the same idempotency key/fingerprint; changed payload requires a new command identity. Unknown commit outcome is queried, never retried with a new key. |
 | BR-LOCK-106 | Physical Return restock and financial Refund are separate commands; a flow holding InventoryBalance never requests Payment. |
 
 ### Inventory
@@ -86,6 +86,11 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-INV-105 | Reservation expiry cannot win against a commit that already holds the same reservation/balance locks. |
 | BR-INV-106 | First-release allocation uses one Location per OrderItem; split allocation is deferred. |
 | BR-INV-107 | Transfer dispatch removes source on-hand; receipt adds destination on-hand; in-transit stock is unavailable. |
+| BR-INV-108 | Direct receive requires a strictly positive quantity, current `INVENTORY_ADJUST` permission and active Location scope. One actor-scoped idempotency key plus normalized payload creates at most one `RECEIVE` movement: `onHand += quantity`, `reserved` is unchanged, and movement/audit evidence commits with the balance. Same-key replay returns the recorded result; different payload conflicts. |
+| BR-INV-109 | Implemented Transfer is only `DRAFT -> DISPATCHED -> RECEIVED`; Draft has no stock effect, dispatch is full multi-line `TRANSFER_OUT`, and receipt is full multi-line `TRANSFER_IN`. Partial receipt and post-dispatch reversal are not admitted. |
+| BR-INV-110 | Transfer requires distinct enabled Locations, `INVENTORY_TRANSFER`, and active actor scope to both exact Locations for create, mutation and replay. |
+| BR-INV-111 | Create, dispatch and receive use one actor/key/action/fingerprint identity each. Exact replay returns the recorded transfer; changed action or payload conflicts. All lines validate before mutation and balance locks follow canonical Location-then-Variant order. |
+| BR-INV-112 | Physical-return movement is not Transfer and remains unimplemented until REQ-FUL-003 supplies Return/inspection evidence. |
 
 ### Checkout and order
 
@@ -134,6 +139,10 @@ features into MVP scope or resolve their `OPEN DECISION` policies.
 | BR-PAY-110 | A verified VNPAY failure changes only Attempt to `FAILED`; while the Order and Reservation remain eligible, a new idempotency key may create a new attempt and at most one attempt is `PENDING`. |
 | BR-PAY-111 | A verified success after cancellation/expiry is recorded as `REVIEW_REQUIRED`; it cannot reopen Order or recreate/re-reserve inventory, and automated void/refund remains deferred. |
 | BR-PAY-112 | Browser Return is presentation-only. Only a verified VNPAY IPN with matching merchant, merchant reference, exact amount/currency and provider transaction facts may establish payment state. |
+| BR-PAY-113 | An authorized manual VNPAY QueryDr reconciliation targets one existing `PENDING` or `REVIEW_REQUIRED` attempt using its stored merchant reference, original attempt time and immutable VND amount; it never creates another PaymentAttempt. |
+| BR-PAY-114 | QueryDr evidence is trusted only after HMAC-SHA512 verification; exact merchant, command, reference, amount, transaction-type and already-known provider-transaction-number matching; and mandatory numeric response code, transaction status and provider transaction number validation. Invalid, malformed or mismatched evidence changes no Payment, Order, Reservation, promotion or inventory state. |
+| BR-PAY-115 | Manual reconciliation is actor/key/attempt-idempotent. Same actor/key/attempt replays; changed target conflicts. Provider I/O occurs outside database transactions, is never automatically retried, and a same-key local-contention retry applies saved evidence without another provider query. |
+| BR-PAY-116 | Manual QueryDr cannot bypass existing state transitions. A `REVIEW_REQUIRED` attempt remains review work when the Order/Reservation is terminal; reconciliation cannot reopen the Order or recreate/re-reserve stock. |
 | BR-REF-101 | `successfulVoided + successfulRefunded + activeVoidReserved + activeRefundReserved <= successfulCaptured`; unknown void/refund outcomes remain active. |
 | BR-REF-102 | Refund amount reservation and state creation, retry re-reservation, success conversion and definitive-failure release occur atomically under the Payment lock. |
 | BR-REF-103 | Same refund idempotency key returns the same result; different concurrent refunds compete for remaining refundable amount. |

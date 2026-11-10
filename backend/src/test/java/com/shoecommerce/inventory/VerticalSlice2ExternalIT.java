@@ -65,6 +65,7 @@ class VerticalSlice2ExternalIT {
     @Autowired ScopeAdministrationService scopes;
     @Autowired CatalogService catalog;
     @Autowired InventoryAdjustmentService adjustments;
+    @Autowired InventoryReceiptService receipts;
     @Autowired InventoryReservationService reservations;
     @LocalServerPort int port;
 
@@ -156,6 +157,86 @@ class VerticalSlice2ExternalIT {
     }
 
     @Test
+    void provesAuditedIdempotentInventoryReceiptWithoutChangingReserved() {
+        Fixture fixture = fixture(5);
+        reservations.reserve(fixture.owner(), fixture.variantId(), fixture.locationId(), 2);
+        int receiptMovements = movementCount("RECEIVE", fixture.variantId());
+        int adjustmentMovements = movementCount("INVENTORY_ADJUSTMENT", fixture.variantId());
+
+        var received = receipts.receive(fixture.operations(), fixture.variantId(), fixture.locationId(), 4,
+                "PO-123", "receive-once");
+        assertThat(received.beforeOnHand()).isEqualTo(5);
+        assertThat(received.afterOnHand()).isEqualTo(9);
+        assertThat(received.reserved()).isEqualTo(2);
+        assertThat(received.available()).isEqualTo(7);
+        assertThat(received.reservedDelta()).isZero();
+        assertThat(received.created()).isTrue();
+        assertThat(balance(fixture)).isEqualTo(new Balance(9, 2, 7));
+
+        var replay = receipts.receive(fixture.operations(), fixture.variantId(), fixture.locationId(), 4,
+                "PO-123", "receive-once");
+        assertThat(replay).usingRecursiveComparison().ignoringFields("created").isEqualTo(received);
+        assertThat(replay.created()).isFalse();
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), fixture.variantId(), fixture.locationId(), 5,
+                "PO-123", "receive-once"))
+                .isInstanceOf(com.shoecommerce.platform.api.BusinessConflictException.class);
+
+        assertThat(movementCount("RECEIVE", fixture.variantId())).isEqualTo(receiptMovements + 1);
+        assertThat(movementCount("INVENTORY_ADJUSTMENT", fixture.variantId())).isEqualTo(adjustmentMovements);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_event WHERE action='INVENTORY_RECEIVED' AND resource_public_id=?",
+                Integer.class, received.movementId())).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsInvalidOrUnauthorizedInventoryReceipts() {
+        Fixture fixture = fixture(5);
+
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), fixture.variantId(), fixture.locationId(), 0,
+                null, "zero-receipt")).isInstanceOf(com.shoecommerce.platform.api.InvalidRequestException.class);
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), fixture.variantId(), fixture.locationId(), -1,
+                null, "negative-receipt")).isInstanceOf(com.shoecommerce.platform.api.InvalidRequestException.class);
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), fixture.variantId(), null, 1,
+                null, "invalid-location")).isInstanceOf(com.shoecommerce.platform.api.InvalidRequestException.class);
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), UUID.randomUUID(), fixture.locationId(), 1,
+                null, "unknown-variant")).isInstanceOf(com.shoecommerce.platform.api.ResourceNotFoundException.class);
+        assertThatThrownBy(() -> receipts.receive(fixture.owner(), fixture.variantId(), fixture.locationId(), 1,
+                null, "missing-permission")).isInstanceOf(AccessDeniedException.class);
+
+        UUID foreignBranch = scopes.createBranch(fixture.administrator(), "FOREIGN-" + fixture.prefix(), "Foreign");
+        UUID foreignLocation = scopes.createLocation(fixture.administrator(), foreignBranch,
+                "FOREIGN-LOC-" + fixture.prefix(), "Foreign receipt");
+        assertThatThrownBy(() -> receipts.receive(fixture.operations(), fixture.variantId(), foreignLocation, 1,
+                null, "foreign-location")).isInstanceOf(AccessDeniedException.class);
+        assertThat(balance(fixture)).isEqualTo(new Balance(5, 0, 5));
+    }
+
+    @Test
+    void serializesConcurrentReceiptsWithoutLosingStock() throws Exception {
+        Fixture fixture = fixture(1);
+        String secondLogin = fixture.prefix().toLowerCase() + "-ops-2@example.com";
+        UUID secondId = identities.createAccount(fixture.administrator(), secondLogin, PASSWORD, RoleCode.OPERATIONS);
+        scopes.setAssignment(fixture.administrator(), secondId, fixture.branchId(), fixture.locationId(), true);
+        SessionPrincipal secondOperations = principal(secondLogin);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch go = new CountDownLatch(1);
+        try {
+            Future<?> first = executor.submit(receiveAttempt(fixture.operations(), fixture, 2, "concurrent-receive-1", ready, go));
+            Future<?> second = executor.submit(receiveAttempt(secondOperations, fixture, 3, "concurrent-receive-2", ready, go));
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+            assertThat(balance(fixture)).isEqualTo(new Balance(6, 0, 6));
+            assertThat(movementCount("RECEIVE", fixture.variantId())).isEqualTo(2);
+        } finally {
+            go.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
     void provesConcurrentLastUnitCannotBeOverReserved() throws Exception {
         Fixture fixture = fixture(1);
         ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -214,6 +295,16 @@ class VerticalSlice2ExternalIT {
         };
     }
 
+    private Callable<Void> receiveAttempt(SessionPrincipal actor, Fixture fixture, long quantity, String key,
+            CountDownLatch ready, CountDownLatch go) {
+        return () -> {
+            ready.countDown();
+            if (!go.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent receipt did not start");
+            receipts.receive(actor, fixture.variantId(), fixture.locationId(), quantity, null, key);
+            return null;
+        };
+    }
+
     private void holdBalanceLock(Fixture fixture, CountDownLatch lockHeld, CountDownLatch release) {
         try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement("SELECT balances.id FROM inventory_balance balances WITH (UPDLOCK, HOLDLOCK) JOIN catalog_product_variant variants ON variants.id = balances.variant_id JOIN org_location locations ON locations.id = balances.location_id WHERE variants.public_id = ? AND locations.public_id = ?")) {
             connection.setAutoCommit(false);
@@ -255,7 +346,8 @@ class VerticalSlice2ExternalIT {
         catalog.setPrice(operations, variantId, 120_000);
         adjustments.adjust(operations, variantId, locationId, stock, "Test fixture", UUID.randomUUID().toString());
         catalog.publish(operations, variantId);
-        return new Fixture(prefix, productId, variantId, locationId, ownerLogin, otherLogin, operations, principal(ownerLogin), principal(otherLogin));
+        return new Fixture(prefix, productId, variantId, branchId, locationId, ownerLogin, otherLogin, admin,
+                operations, principal(ownerLogin), principal(otherLogin));
     }
 
     private SessionPrincipal bootstrapAdministrator(String login) {
@@ -269,6 +361,7 @@ class VerticalSlice2ExternalIT {
     private SessionPrincipal principal(String login) { SessionPrincipal principal = (SessionPrincipal) users.loadUserByUsername(login); principal.eraseCredentials(); return principal; }
     private Balance balance(Fixture fixture) { return jdbc.queryForObject("SELECT on_hand, reserved, on_hand - reserved AS available FROM inventory_balance WHERE variant_id = (SELECT id FROM catalog_product_variant WHERE public_id = ?) AND location_id = (SELECT id FROM org_location WHERE public_id = ?)", (result, row) -> new Balance(result.getLong("on_hand"), result.getLong("reserved"), result.getLong("available")), fixture.variantId(), fixture.locationId()); }
     private int adjustmentCount(UUID variantId) { return jdbc.queryForObject("SELECT COUNT(*) FROM inventory_stock_movement WHERE operation_type = 'INVENTORY_ADJUSTMENT' AND variant_public_id = ?", Integer.class, variantId); }
+    private int movementCount(String type, UUID variantId) { return jdbc.queryForObject("SELECT COUNT(*) FROM inventory_stock_movement WHERE operation_type = ? AND variant_public_id = ?", Integer.class, type, variantId); }
     private HttpResponse<String> login(Browser browser, String username) throws Exception { return request(browser, "POST", "/api/v1/auth/login", "username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + PASSWORD, 200, "application/x-www-form-urlencoded"); }
     private HttpResponse<String> get(Browser browser, String path) throws Exception { return browser.client.send(HttpRequest.newBuilder(uri(path)).GET().build(), HttpResponse.BodyHandlers.ofString()); }
     private HttpResponse<String> request(Browser browser, String method, String path, String body, int expected) throws Exception { return request(browser, method, path, body, expected, "application/json"); }
@@ -279,5 +372,7 @@ class VerticalSlice2ExternalIT {
     private static final class Browser { private final HttpClient client = HttpClient.newBuilder().cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL)).build(); }
     private record Csrf(String header, String token) { }
     private record Balance(long onHand, long reserved, long available) { }
-    private record Fixture(String prefix, UUID productId, UUID variantId, UUID locationId, String ownerLogin, String otherLogin, SessionPrincipal operations, SessionPrincipal owner, SessionPrincipal other) { }
+    private record Fixture(String prefix, UUID productId, UUID variantId, UUID branchId, UUID locationId,
+            String ownerLogin, String otherLogin, SessionPrincipal administrator, SessionPrincipal operations,
+            SessionPrincipal owner, SessionPrincipal other) { }
 }

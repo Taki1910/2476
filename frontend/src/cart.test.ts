@@ -10,6 +10,7 @@ let values: Map<string, string>
 beforeEach(() => {
   values = new Map()
   vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) })
+  vi.stubGlobal('navigator', { locks: { request: async (_name: string, callback: () => Promise<void>) => callback() } })
   session.account = undefined
   cart.items = []
   cart.owner = null
@@ -34,14 +35,14 @@ describe('multi-item display cart', () => {
     activateCart('A')
     expect(cartCount.value).toBe(1)
   })
-  it('merges guest quantities deterministically and consumes guest once', () => {
+  it('merges guest quantities deterministically and consumes guest once', async () => {
     values.set('shoe-commerce:cart:v2:A', JSON.stringify({ owner: 'A', items: [{ ...item, quantity: 9 }] }))
     addToCart(item); addToCart(item)
-    activateCart('A')
+    await activateCart('A')
     expect(cart.items[0].quantity).toBe(10)
     expect(values.has('shoe-commerce:cart:v2:guest')).toBe(false)
     cart.owner = null; cart.items = []
-    activateCart('A')
+    await activateCart('A')
     expect(cart.items[0].quantity).toBe(10)
   })
   it('does not let a late checkout response remove another owner’s units', () => {
@@ -58,6 +59,71 @@ describe('multi-item display cart', () => {
     expect(cart.items).toEqual([{ ...item, quantity: 2 }])
     syncCartStorage({ key: 'shoe-commerce:cart:v2:A', newValue: null })
     expect(cart.items).toEqual([])
+  })
+  it('does not merge twice when another tab still holds the consumed guest cart in memory', async () => {
+    addToCart(item); setCartQuantity(A, 2)
+    const staleGuest = cart.items.map(line => ({ ...line })) // Tab B before Tab A signs in.
+    await activateCart('A') // Tab A consumes shared guest storage.
+    expect(cart.items[0].quantity).toBe(2)
+    cart.owner = null; cart.items = staleGuest // Tab B has not handled storage/session events yet.
+    await activateCart('A')
+    expect(cart.items[0].quantity).toBe(2)
+  })
+  it('keeps guest data for retry when the account write fails', async () => {
+    addToCart(item)
+    const savedGuest = values.get('shoe-commerce:cart:v2:guest')
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { if (key.endsWith(':A')) throw new Error('quota'); values.set(key, value) },
+      removeItem: (key: string) => values.delete(key),
+    })
+    await activateCart('A')
+    expect(cart.storageError).toBe(true)
+    expect(values.get('shoe-commerce:cart:v2:guest')).toBe(savedGuest)
+    cart.owner = null
+    vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) })
+    await activateCart('A')
+    expect(cart.items[0].quantity).toBe(1)
+    expect(values.has('shoe-commerce:cart:v2:guest')).toBe(false)
+  })
+  it('does not consume guest storage when Web Locks is unavailable', async () => {
+    addToCart(item)
+    vi.stubGlobal('navigator', {})
+    await activateCart('A')
+    expect(cart.storageError).toBe(true)
+    expect(values.has('shoe-commerce:cart:v2:guest')).toBe(true)
+    expect(cart.items).toEqual([])
+  })
+  it('retries a failed guest removal without adding the same quantity again', async () => {
+    addToCart(item)
+    let failRemoval = true
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => { if (key.endsWith(':guest') && failRemoval) throw new Error('blocked'); values.delete(key) },
+    })
+    await activateCart('A')
+    expect(cart.storageError).toBe(true)
+    expect(cart.items[0].quantity).toBe(1)
+    expect(values.has('shoe-commerce:cart:v2:guest')).toBe(true)
+    failRemoval = false
+    cart.owner = null
+    await activateCart('A')
+    expect(cart.items[0].quantity).toBe(1)
+    expect(values.has('shoe-commerce:cart:v2:guest')).toBe(false)
+  })
+  it('isolates A to B to A and ignores delayed storage events for an inactive owner', () => {
+    activateCart('A'); addToCart(item); setCartQuantity(A, 3)
+    const savedA = values.get('shoe-commerce:cart:v2:A')!
+    activateCart(null)
+    activateCart('B'); addToCart({ ...item, variantId: B })
+    syncCartStorage({ key: 'shoe-commerce:cart:v2:A', newValue: savedA })
+    expect(cart.owner).toBe('B')
+    expect(cart.items.map(line => line.variantId)).toEqual([B])
+    activateCart(null)
+    activateCart('A')
+    syncCartStorage({ key: 'shoe-commerce:cart:v2:B', newValue: values.get('shoe-commerce:cart:v2:B')! })
+    expect(cart.items.map(({ variantId, quantity }) => ({ variantId, quantity }))).toEqual([{ variantId: A, quantity: 3 }])
   })
   it('adds different variants and merges duplicates; badge counts total units', () => {
     expect(addToCart(item)).toBe('added')

@@ -27,11 +27,13 @@ deferred capability into MVP implementation scope.
 | Identity and scoped authorization | [ADR-0006](ADR/0006-identity-rbac-branch-scope.md) |
 | Pricing/promotion/voucher | [ADR-0007](ADR/0007-central-pricing-promotion.md) |
 | AI proposal boundary | [ADR-0008](ADR/0008-ai-proposal-boundary.md) |
+| Manager merchandising AI provider | [ADR-0042](ADR/0042-openai-manager-merchandising-assistance.md) |
 | SQL Server/versioned migrations | [ADR-0009](ADR/0009-versioned-sql-server-persistence.md) |
 | Checkout consistency/recovery | [ADR-0010](ADR/0010-checkout-consistency-and-recovery.md) |
 | Branch/location ownership | [ADR-0011](ADR/0011-multi-branch-ownership-and-scope.md) |
 | Audit/reliable delivery | [ADR-0012](ADR/0012-transactional-audit-and-sql-delivery.md) |
 | Provider payment-result application | [ADR-0016](ADR/0016-idempotent-provider-payment-result.md) |
+| Manual VNPAY QueryDr reconciliation | [ADR-0045](ADR/0045-manual-vnpay-querydr-reconciliation.md) |
 | Location-scoped pickup fulfillment creation | [ADR-0017](ADR/0017-location-scoped-pickup-fulfillment.md) |
 | Location-scoped pickup picking start | [ADR-0018](ADR/0018-start-location-scoped-pickup-picking.md) |
 | Customer catalog and versioned quotes | [ADR-0019](ADR/0019-customer-catalog-and-versioned-price-quotes.md) |
@@ -183,7 +185,7 @@ transaction and follows the hierarchy again.
 | Confirmed pre-dispatch cancellation | 0 command -> 1 Order -> 2 Fulfillment -> 3 Payment/reversal intent -> 5 committed Reservation -> 6 balances/restoration movement |
 | Pickup handover | 0 handover key -> 1 Order -> 2 Fulfillment -> 5 committed Reservation -> 6 Balance; append `PICKUP_HANDOVER` |
 | Reservation commit/release | 1 owning Order when commercial state changes -> 3 Payment if confirmation requires it -> 4 Voucher if coupled -> 5 Reservation -> 6 balance |
-| Inventory receive/adjust/transfer | 6 affected balances in canonical key order; no Order/Payment/Voucher locks |
+| Inventory receive/adjust/transfer | 0 actor-scoped command identity when applicable -> 6 affected balances in canonical `(locationId, productVariantId)` order; no Order/Payment/Voucher locks |
 | Voucher claim/expiry without Order mutation | 4 Voucher/Issuance/usage only |
 | Refund create/retry/callback without Return evidence | 0 command/provider event -> 3 Payment -> Refund/RefundAttempt children; no Inventory lock |
 | Refund requiring Return evidence | 0 command -> 2 Fulfillment/Return -> 3 Payment -> Refund/RefundAttempt children; no Inventory lock |
@@ -203,10 +205,12 @@ transaction and follows the hierarchy again.
 | Return/refund races another refund | A Return-linked Refund locks rank-2 evidence then rank-3 Payment. Physical restock continues to rank 6 and never requests Payment afterward. | Concurrent amount requests recheck remaining reversible value; no Payment-after-Balance path. |
 
 On a database deadlock/lock-timeout before any external call, the entire local
-transaction rolls back. The application may perform a bounded retry with the
-same idempotency key/fingerprint and backoff. If commit outcome is unknown, it
-queries the durable operation; it never chooses a new key. Provider retries use
-the existing attempt/provider idempotency identity.
+transaction rolls back. Per ADR-0044, the server returns the stable retryable
+503 contract and does not replay the transaction. The caller may explicitly
+retry the exact payload with the same idempotency key/fingerprint; changed
+payload requires a new command identity. If commit outcome is unknown, the
+caller queries the durable operation and never chooses a new key for the same
+operation. This policy never retries a provider or other external API call.
 
 ## Deterministic checkout protocols
 
@@ -270,6 +274,18 @@ Voucher, retry, PaymentTransaction expansion, or reconciliation workflow.
 The order becomes financially binding at successful capture plus atomic Order
 confirmation. A client timeout does not change this; replay/query returns the
 durable outcome.
+
+Successor clarification: ADR-0045 adds an operations-only manual QueryDr path
+for an existing ambiguous VNPAY attempt. It does not replace the initiation or
+verified-result boundary above and never creates another PaymentAttempt. A
+short transaction claims the actor/key/attempt command, the signed provider
+query runs with no database transaction open, a second short transaction stores
+verified evidence, and the existing result service applies that evidence in a
+third transaction. Same-key apply retry reuses stored evidence; neither the
+server nor ADR-0044 automatically repeats the provider call. Existing
+`REVIEW_REQUIRED` state is never used to reopen a cancelled/expired Order or
+released inventory. Scheduled reconciliation and live provider certification
+remain outside the implemented boundary.
 
 ### Current online fulfillment
 
@@ -373,8 +389,8 @@ use these allocations and never recalculate current promotions.
 
 ## Inventory concurrency strategy
 
-- Pessimistic row locks are `PROPOSED` for InventoryBalance/Reservation quantity
-  commands because they are short, contention-sensitive and simple to explain.
+- Pessimistic row locks are implemented for current InventoryBalance/Reservation
+  quantity commands because they are short and contention-sensitive.
 - Normalize/sum duplicate requested lines first; lock all balance rows at rank 6
   in canonical key order after any required Order/Payment/Voucher/Reservation
   ranks.
@@ -383,8 +399,10 @@ use these allocations and never recalculate current promotions.
 - Optimistic versioning is suitable for ordinary catalog/admin edits where a
   stale update should return conflict.
 - Unique operation/movement keys make command retries idempotent.
-- Transfer dispatch locks the source; receipt locks the destination. A sale and
-  transfer racing at source are serialized by the same balance lock.
+- Transfer dispatch and receipt lock every source/destination balance for all
+  lines in canonical Location-then-Variant order. A sale/reservation and transfer
+  racing at source are serialized by the same balance lock; opposite-direction
+  transfers acquire the same affected set in the same order.
 
 ### Required inventory race outcomes
 
@@ -423,6 +441,11 @@ use these allocations and never recalculate current promotions.
 - Pending refund reservations count against remaining refundable value.
 - Out-of-order/conflicting terminal provider events become reconciliation work,
   never destructive updates.
+- Manual VNPAY QueryDr reconciliation is actor/key/attempt-idempotent, requires
+  `PAYMENT_RECONCILE` plus exact Location scope, and routes definitive saved
+  evidence through the same Order -> Payment -> Attempt -> Reservation fences.
+  Provider I/O occurs outside those locks; contention retry never queries VNPAY
+  twice for saved evidence.
 
 ### Required financial retry/race outcomes
 

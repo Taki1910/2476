@@ -1,5 +1,7 @@
 package com.shoecommerce.payment;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +17,28 @@ import jakarta.persistence.LockModeType;
 public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, Long> {
     Optional<PaymentAttempt> findByPublicId(UUID publicId);
     Optional<PaymentAttempt> findByMerchantTransactionReference(String merchantTransactionReference);
+
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    @Query(value = """
+            SELECT TOP (1)
+                attempts.public_id AS attemptId,
+                orders.public_id AS orderId,
+                items.location_public_id AS locationId,
+                attempts.provider AS provider,
+                attempts.status AS status,
+                attempts.amount AS amount,
+                attempts.currency AS currency,
+                attempts.merchant_transaction_reference AS merchantReference,
+                attempts.provider_transaction_no AS providerTransactionNo,
+                attempts.created_at AS createdAt
+            FROM payment_attempt attempts
+            JOIN payment payments ON payments.id = attempts.payment_id
+            JOIN commerce_order orders ON orders.id = payments.order_id
+            JOIN commerce_order_item items ON items.order_id = orders.id
+            WHERE attempts.public_id = :attemptId
+            ORDER BY items.id
+            """, nativeQuery = true)
+    Optional<ReconciliationFacts> findReconciliationFacts(@Param("attemptId") UUID attemptId);
 
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     @Query(value = "SELECT attempts.public_id FROM payment_attempt attempts WHERE attempts.merchant_transaction_reference = :merchantReference", nativeQuery = true)
@@ -60,5 +84,18 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, 
 
     @Query(value = "SELECT COUNT(*) FROM payment_attempt attempts JOIN payment payments ON payments.id = attempts.payment_id JOIN commerce_order orders ON orders.id = payments.order_id WHERE orders.public_id = :orderId AND attempts.status = 'SUCCEEDED'", nativeQuery = true)
     int countSucceededForOrder(@Param("orderId") UUID orderId);
+
+    interface ReconciliationFacts {
+        UUID getAttemptId();
+        UUID getOrderId();
+        UUID getLocationId();
+        String getProvider();
+        String getStatus();
+        BigDecimal getAmount();
+        String getCurrency();
+        String getMerchantReference();
+        String getProviderTransactionNo();
+        Instant getCreatedAt();
+    }
 
 }
