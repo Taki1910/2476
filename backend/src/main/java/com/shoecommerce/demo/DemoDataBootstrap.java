@@ -201,6 +201,21 @@ public class DemoDataBootstrap implements CommandLineRunner {
         promotion("metro-fixed","Metro unit saving","ITEM","ITEM_FIXED",null,100_000L,0L,null,null,2,manager,now,List.of("metro-runner"));
         promotion("order-saving","Automatic order saving","ORDER_AUTOMATIC","ORDER_FIXED",null,150_000L,3_000_000L,null,null,20,manager,now,List.of());
         promotion("free-shipping","Free shipping over 3M","SHIPPING","FREE_SHIPPING",null,null,3_000_000L,null,null,10,manager,now,List.of());
+        voucherPromotion("banner-pair-15", "DEMO BANNER 15", "CODE", "BANNER15", "Mã banner BANNER15 giảm 15% cho đơn từ 3.000.000₫.", "Sao chép mã BANNER15 từ banner, đăng nhập và nhập tại giỏ. Giảm 15% khi đơn đủ 3.000.000₫; mỗi khách dùng một lần. Giỏ hàng xác nhận mức giảm cuối cùng.", "ORDER_AUTOMATIC", "ORDER_PERCENT", "15.0000", null, 3_000_000L, manager, now);
+        voucherPromotion("welcome-100k", "DEMO WELCOME 100K", "CLAIMABLE", null, "Giảm 100.000₫ cho đơn từ 1.500.000₫.", "Lưu ưu đãi vào tài khoản, thêm sản phẩm vào giỏ và áp dụng ưu đãi đã lưu. Đơn tối thiểu 1.500.000₫; mỗi khách dùng một lần.", "ORDER_AUTOMATIC", "ORDER_FIXED", null, 100_000L, 1_500_000L, manager, now);
+        voucherPromotion("code-10", "DEMO CODE 10", "CODE", "DEMO10", "Nhập mã DEMO10 để giảm 10% cho đơn áp dụng.", "Nhập DEMO10 trong giỏ hàng. Mỗi khách được dùng một lần; hệ thống kiểm tra điều kiện và số tiền giảm khi báo giá.", "ORDER_AUTOMATIC", "ORDER_PERCENT", "10.0000", null, null, manager, now);
+    }
+
+    private void voucherPromotion(String key, String name, String mode, String code, String summary, String terms,
+            String layer, String type, String percent, Long fixed, Long minimum, UUID manager, LocalDateTime now) {
+        UUID id = uuid("promotion-" + key), family = uuid("promotion-family-" + key);
+        insert("IF NOT EXISTS(SELECT 1 FROM promotion_family WHERE public_id=?) INSERT INTO promotion_family(public_id,acquisition_mode,normalized_code,is_publicly_discoverable,created_at) VALUES(?,?,?,?,?)",
+                family, family, mode, code, true, now);
+        insert("""
+          IF NOT EXISTS(SELECT 1 FROM promotion WHERE public_id=?)
+          INSERT INTO promotion(family_public_id,public_id,revision_number,name,status,layer,effect_type,percentage_value,fixed_amount,minimum_spend_amount,per_customer_usage_limit,priority,valid_from,created_by_account_public_id,created_at,published_at,customer_summary,customer_terms)
+          VALUES(?,?,1,?,'PUBLISHED',?,?,?,?,?,1,0,?,?,?,?,?,?)
+          """, id, family, id, name, layer, type, percent, fixed, minimum, now.minusYears(1), manager, now, now, summary, terms);
     }
 
     private void promotion(String key,String name,String layer,String type,String percent,Long fixed,Long minimum,Long buy,Long limit,int priority,UUID manager,LocalDateTime now,List<String> productKeys){

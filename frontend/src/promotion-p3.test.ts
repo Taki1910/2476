@@ -18,17 +18,19 @@ describe('P3 promotion and customer offer contracts', () => {
     expect(promotions).not.toContain('t(campaign.state)')
   })
 
-  it('loads more public offers and never presents code acquisition', () => {
+  it('keeps codes out of generic discovery and exposes codes only on linked details', () => {
     expect(offers).toContain('api.publicOffers(next,20)')
     expect(offers).toContain('Load more offers')
     expect(offers).not.toContain('Code offer')
     expect(detail).not.toContain('normalizedCode')
+    expect(detail).toContain('offer.code')
+    expect(detail).toContain('navigator.clipboard.writeText(offer.value.code)')
   })
 
   it('preloads owned state and only exposes claim actions to CUSTOMER', () => {
     expect(detail).toContain("roles.includes('CUSTOMER')")
     expect(detail).toContain('api.voucherClaimState(requested)')
-    expect(detail).toContain('v-if="isCustomer&&!saved"')
+    expect(detail).toContain("offer.acquisitionMode==='CLAIMABLE'&&isCustomer&&!saved")
     expect(detail).toContain('Saved to My Vouchers, but it is currently {status}.')
     expect(detail).not.toContain('Saved offer status:')
   })

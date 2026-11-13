@@ -65,7 +65,7 @@ class MerchandisingAssistantServiceTest {
         when(recommendations.evidence(actor, List.of(PRODUCT_ID))).thenReturn(List.of(candidate));
         when(vouchers.detail(PROMOTION_ID)).thenReturn(new VoucherService.PublicOffer(PROMOTION_ID, "CLAIMABLE",
                 "Ưu đãi thật", "", "", "ITEM_PERCENT", java.math.BigDecimal.TEN, null, null,
-                Instant.parse("2026-10-01T00:00:00Z"), null, true));
+                Instant.parse("2026-10-01T00:00:00Z"), null, true, null));
         when(assistant.rewriteCopy(any())).thenReturn(new CopySuggestion("Bản mới", List.of(), ""));
 
         CopySuggestion result = service.rewriteCopy(actor, request(List.of(PRODUCT_ID), PROMOTION_ID));

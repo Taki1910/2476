@@ -76,6 +76,7 @@ changes to an accepted decision follow the supersession rules above.
 - [0044 — Client-owned transaction-contention retry](0044-client-owned-contention-retry.md)
 - [0045 — Manual VNPAY QueryDr reconciliation](0045-manual-vnpay-querydr-reconciliation.md)
 - [0046 — Scoped inventory transfer lifecycle](0046-inventory-transfer-lifecycle.md)
+- [0047 — Banner-linked public voucher codes](0047-banner-linked-public-voucher-code.md)
 
 Accepted through the current remediation plan approval; implementation evidence is recorded separately in CURRENT_BASELINE.
 

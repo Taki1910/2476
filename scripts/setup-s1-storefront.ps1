@@ -172,14 +172,18 @@ if ($namedPromotions.Count -eq 1) {
     Write-Host "Created and published canonical City Edit 15 family $($promotion.familyId)."
 }
 
+$bannerOffers = @($allPromotions | Where-Object { $_.name -eq 'DEMO BANNER 15' -and $_.status -eq 'PUBLISHED' -and $_.acquisitionMode -eq 'CODE' -and $_.normalizedCode -eq 'BANNER15' -and $_.publiclyDiscoverable })
+if ($bannerOffers.Count -ne 1) { throw "Expected the published demo CLAIMABLE offer 'DEMO BANNER 15'; found $($bannerOffers.Count). Start the current backend with the demo profile." }
+$bannerOffer = $bannerOffers[0]
+
 $sections = @(
     [ordered]@{
         type = 'HERO_BANNER'; enabled = $true
         titleVi = 'Bước vào nhịp phố đêm.'; titleEn = 'Step into the after-hours.'
-        supportingTextVi = 'Sắc đen, đường chỉ hồng và phom thấp cho những giờ thành phố lên đèn.'
-        supportingTextEn = "Black tones, pink stitching and a low profile for the city’s later hours."
-        ctaLabelVi = 'Xem After Dark'; ctaLabelEn = 'View After Dark'; ctaKind = 'PRODUCT_DETAIL'
-        ctaTargetPublicId = $byName['After Dark'].id; ctaSearchTerm = $null; promotionFamilyId = $null
+        supportingTextVi = 'Sao chép mã BANNER15 để giảm 15% cho đơn từ 3.000.000₫.'
+        supportingTextEn = 'Copy code BANNER15 for 15% off orders from ₫3,000,000.'
+        ctaLabelVi = 'Lấy mã ưu đãi'; ctaLabelEn = 'Get offer code'; ctaKind = 'PROMOTION_DETAIL'
+        ctaTargetPublicId = $bannerOffer.familyId; ctaSearchTerm = $null; promotionFamilyId = $null
         mediaKey = 'AFTER_DARK'; productIds = @()
     },
     [ordered]@{

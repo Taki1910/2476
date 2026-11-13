@@ -32,8 +32,8 @@ class PromotionC3DiscoveryClaimExternalIT {
         var first=vouchers.discover(0,1);var second=vouchers.discover(1,1);
         assertThat(first.items()).hasSize(1);assertThat(first.hasNext()).isTrue();assertThat(second.items()).hasSize(1);
         assertThat(List.of(first.items().getFirst().familyId(),second.items().getFirst().familyId())).containsExactly(secondClaimable.family,claimable.family).doesNotContain(code.family);
-        assertThatThrownBy(()->vouchers.detail(code.family)).isInstanceOf(ResourceNotFoundException.class);
-        assertThat(VoucherService.PublicOffer.class.getRecordComponents()).extracting(java.lang.reflect.RecordComponent::getName).doesNotContain("normalizedCode","revisionId","revisionNumber","id");
+        assertThat(vouchers.detail(code.family).code()).isEqualTo("PUBLIC-CODE");
+        assertThat(VoucherService.PublicOffer.class.getRecordComponents()).extracting(java.lang.reflect.RecordComponent::getName).contains("code").doesNotContain("normalizedCode","revisionId","revisionNumber","id");
         UUID privateFamily=offer("CLAIMABLE",false,null,-20,3600).family;
         UUID privateCode=offer("CODE",false,"PRIVATE10",-20,3600).family;
         assertThatThrownBy(()->vouchers.detail(privateFamily)).isInstanceOf(ResourceNotFoundException.class).hasMessage("Voucher not found or unavailable.");
@@ -42,6 +42,8 @@ class PromotionC3DiscoveryClaimExternalIT {
         assertThatThrownBy(()->vouchers.discover(0,101)).isInstanceOfSatisfying(com.shoecommerce.platform.api.InvalidRequestException.class,e->assertThat(e.code()).isEqualTo("INVALID_PAGINATION"));
         HttpResponse<String> response=HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/v1/storefront/promotions?size=10")).GET().build(),HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(200);assertThat(response.body()).doesNotContain("PUBLIC-CODE","PRIVATE10",privateCode.toString(),"normalizedCode","claimedRevision");
+        HttpResponse<String> publicDetail=HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/v1/storefront/promotions/"+code.family)).GET().build(),HttpResponse.BodyHandlers.ofString());
+        assertThat(publicDetail.statusCode()).isEqualTo(200);assertThat(publicDetail.body()).contains("PUBLIC-CODE").doesNotContain("normalizedCode","revisionId","revisionNumber");
         HttpResponse<String> privateDetail=HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/v1/storefront/promotions/"+privateCode)).GET().build(),HttpResponse.BodyHandlers.ofString());
         assertThat(privateDetail.statusCode()).isEqualTo(404);assertThat(privateDetail.body()).doesNotContain("PRIVATE10");
         HttpResponse<String> guestSaved=HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/v1/me/voucher-claims")).GET().build(),HttpResponse.BodyHandlers.ofString());

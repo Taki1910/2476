@@ -57,6 +57,17 @@ cd backend; mvn spring-boot:run
 
 The idempotent bootstrap creates one branch, a sales floor and stockroom, three registers, 18 products / 73 published variants, mixed inventory, five demo identities, and deterministic historical online/POS/payment/pickup/reconciliation evidence documented in [docs/DEMO.md](docs/DEMO.md). The storefront hero read model is available at `/api/v1/storefront/hero`.
 
+### Share a Docker demo
+
+Requires Docker Desktop with Linux containers and about 4 GB free memory. From the repository root, copy `.env.example` to `.env`, change the SQL Server password, then run:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+Open `http://localhost:8088`. The compose stack starts SQL Server, creates the demo database, migrates it, seeds the disposable demo profile, then serves the Vue app and proxies API calls on the same origin. `docker compose down` stops it; `docker compose down -v` also deletes the demo database. Set the environment values in `.env` manually to use different ports or credentials. Read [docs/DEMO.md](docs/DEMO.md) for demo accounts, sample offers, and the banner setup.
+
 Optional VNPAY configuration: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAY_URL`, `VNPAY_API_URL`, `VNPAY_RETURN_URL`, `VNPAY_FRONTEND_RESULT_URL`, `VNPAY_REFUND_CREATE_BY`, and `VNPAY_SERVER_IP`. `CHECKOUT_RESERVATION_TTL`, `SESSION_COOKIE_SECURE`, and `BCRYPT_STRENGTH` are also configurable. Do not commit their values.
 
 ## Verify

@@ -11,7 +11,7 @@ this index does not authorize a new endpoint or a client-side pricing calculatio
 | Method / path | Contract source | Actor and behavior | Consumer / verification |
 |---|---|---|---|
 | GET `/api/v1/storefront/promotions` | StorefrontPromotionController; VoucherService.Page/PublicOffer | Public, page >= 0, size 1–100; published/discoverable only | OffersView; PromotionC3DiscoveryClaimExternalIT |
-| GET `/api/v1/storefront/promotions/{familyId}` | VoucherService.PublicOffer | Public; safe unavailable 404; no private CODE disclosure | Offer detail; same suite |
+| GET `/api/v1/storefront/promotions/{familyId}` | VoucherService.PublicOffer | Public; safe unavailable 404; includes `code` only for a published, publicly discoverable CODE family linked by a storefront placement | Offer detail/banner; same suite |
 | GET `/api/v1/me/voucher-claims` | VoucherClaimController; Page/SavedClaim | CUSTOMER; account-owned, paginated | My Vouchers; discovery/claim suite |
 | PUT `/api/v1/me/voucher-claims/{familyId}` | VoucherService.ClaimView | CUSTOMER; atomic natural-key replay; no usage on save | Save action; discovery/claim concurrency tests |
 | GET/POST `/api/v1/operations/promotions` | PromotionController; RuleView/Draft | PROMOTION_MANAGE; server validation; create draft | Promotion administration; PromotionC3AdministrationExternalIT |

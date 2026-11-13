@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+.env
+**/node_modules
+**/target
+**/dist
+frontend-review-package
+frontend-review-package-compact
+QLCHGiay
+artifacts

@@ -118,6 +118,18 @@ only reports produced by the current run; do not sum old XML files.
 
 Demo data includes selected-Product 10 percent and 100,000 VND per-unit offers, a 150,000 VND order offer at 3,000,000 VND, and free shipping at 3,000,000 VND. manager.demo can administer revisions; operations.demo is denied.
 
+## C3 sample offers
+
+The `demo` profile seeds these idempotent examples on startup:
+
+| Offer | Acquisition | Benefit | How to use |
+|---|---|---|---|
+| `DEMO BANNER 15` | Public code `BANNER15` | 15% off an order of at least ₫3,000,000; one use per customer | Follow the HOME banner, copy `BANNER15`, then enter it in cart |
+| `DEMO WELCOME 100K` | Claimable | ₫100,000 off an order of at least ₫1,500,000; one use per customer | Browse Offers, save it, then select it in cart |
+| `DEMO CODE 10` | Code `DEMO10` | 10% off; one use per customer | Enter `DEMO10` in cart |
+
+Offer validation and final savings are server-side. Seeded offers are demonstration data, not production campaigns. The banner detail reveals its public code; generic offer discovery still omits CODE offers. To prepare the sample banner on the HOME draft, run `scripts/setup-s1-storefront.ps1 -ConfirmDisposableDemo` as documented below and publish the draft in Storefront administration. The script only writes after the explicit disposable-demo switch and does not publish automatically.
+
 ## S1 storefront fixture
 
 On a fresh disposable database, start the backend with the `demo` profile, then prepare the canonical HOME draft through the existing APIs:
@@ -129,4 +141,4 @@ $env:S1_DEMO_PASSWORD = 'DemoPass!2026'
 
 The script verifies `manager.demo`, the 18-product demo catalog and the four S1 media mappings. It creates and publishes `City Edit 15` only when absent, rejects a same-name semantic conflict, and creates or reconciles one canonical HOME draft. A matching second run performs no write.
 
-The draft contains, in order: the After Dark hero, Court Originals (`Court Classic`, `Court High`, `Basket Retro`), the City Edit 15 spotlight, and Beyond the pavement (`Trail Form`, `Urban Hiker`, `Trail Edge`). Review both locale previews in Storefront administration and publish the draft there; final publication is intentionally a manager UI action. On the customer HOME, verify that order, the After Dark and promotion-detail links, a Court or Trail collection search followed by Clear search, and the 390px layout.
+The draft contains, in order: the DEMO BANNER 15 offer banner, Court Originals (`Court Classic`, `Court High`, `Basket Retro`), the City Edit 15 spotlight, and Beyond the pavement (`Trail Form`, `Urban Hiker`, `Trail Edge`). Review both locale previews in Storefront administration and publish the draft there; final publication is intentionally a manager UI action. On the customer HOME, verify the banner opens the offer detail with a copyable `BANNER15`, then enter it in cart; also verify a Court or Trail collection search followed by Clear search and the 390px layout.
